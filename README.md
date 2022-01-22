@@ -1,4 +1,13 @@
 # NumSwift
+![](https://img.shields.io/github/v/tag/wvabrinskas/NumSwift?style=flat-square)
+![](https://img.shields.io/github/license/wvabrinskas/NumSwift?style=flat-square)
+![](https://img.shields.io/badge/swift-5.2-orange?style=flat-square)
+![](https://img.shields.io/badge/iOS-13+-darkcyan?style=flat-square)
+![](https://img.shields.io/badge/macOS-10.15+-darkcyan?style=flat-square)
+![](https://img.shields.io/badge/watchOS-6+-darkcyan?style=flat-square)
+![](https://img.shields.io/badge/tvOS-13+-darkcyan?style=flat-square)
+
+[![Tests](https://github.com/wvabrinskas/NumSwift/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/wvabrinskas/NumSwift/actions/workflows/tests.yml)
 
 Adds array arithmetic to Swift. 
 

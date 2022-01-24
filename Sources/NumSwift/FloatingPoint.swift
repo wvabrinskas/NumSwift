@@ -115,4 +115,8 @@ public extension Array where Element: Equatable & Numeric & FloatingPoint {
   static func /(lhs: [Element], rhs: Element) -> [Element] {
     return lhs.map({ $0 / rhs })
   }
+  
+  static func -(lhs: [Element], rhs: Element) -> [Element] {
+    return lhs.map({ $0 - rhs })
+  }
 }

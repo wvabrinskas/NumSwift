@@ -31,77 +31,8 @@ public extension Array {
 }
 
 public extension Array where Element: Equatable & Numeric {
-  
   var sum: Element {
     return self.reduce(0, +)
-  }
-  
-  static func +=(lhs: inout [Element], rhs: [Element]) {
-    precondition(lhs.count == rhs.count)
-
-    var addedArray: [Element] = []
-    
-    for i in 0..<rhs.count {
-      let left = rhs[i]
-      let right = lhs[i]
-      addedArray.append(left + right)
-    }
-      
-    lhs = addedArray
-  }
-  
-  static func +(lhs: [Element], rhs: Element) -> [Element] {
-    return lhs.map({ $0 + rhs })
-  }
-  
-  static func +(lhs: [Element], rhs: [Element]) -> [Element] {
-    precondition(lhs.count == rhs.count)
-
-    var addedArray: [Element] = []
-    
-    for i in 0..<rhs.count {
-      let left = lhs[i]
-      let right = rhs[i]
-      addedArray.append(left + right)
-    }
-    
-    return addedArray
-  }
-  
-  static func -(lhs: [Element], rhs: [Element]) -> [Element] {
-    precondition(lhs.count == rhs.count)
-
-    var addedArray: [Element] = []
-    
-    for i in 0..<rhs.count {
-      let left = lhs[i]
-      let right = rhs[i]
-      addedArray.append(left - right)
-    }
-    
-    return addedArray
-  }
-  
-  static func -(lhs: [Element], rhs: Element) -> [Element] {
-    return lhs.map({ $0 - rhs })
-  }
-  
-  static func *(lhs: [Element], rhs: Element) -> [Element] {
-    return lhs.map({ $0 * rhs })
-  }
-  
-  static func *(lhs: [Element], rhs: [Element]) -> [Element] {
-    precondition(lhs.count == rhs.count)
-
-    var addedArray: [Element] = []
-    
-    for i in 0..<rhs.count {
-      let left = lhs[i]
-      let right = rhs[i]
-      addedArray.append(left * right)
-    }
-    
-    return addedArray
   }
 }
 

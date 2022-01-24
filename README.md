@@ -94,3 +94,14 @@ You can scale an array in a given range to a desired range.
     
     let scaled = testArray.scale(from: 0...20, to: -1...1)
 ```
+
+### Shape 
+You can get the shape of a matrix. This will return the count at each layer.
+The subarrays must all be the same length
+```
+    let testArray = [[1,0], [1, 0]]
+    let expected = [2, 2]
+    
+    print(expected)
+```
+

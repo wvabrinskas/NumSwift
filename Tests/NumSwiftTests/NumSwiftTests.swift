@@ -2,6 +2,24 @@ import XCTest
 @testable import NumSwift
 
 final class NumSwiftTests: XCTestCase {
+  
+  func testArraySubtract() {
+    let test = 10.0
+    let testArray = [1.0, 2.0, 3.0, 4.0, 5.0]
+    
+    let expected = [-9.0, -8.0, -7.0, -6.0, -5.0]
+    let result = testArray - test
+    XCTAssertEqual(result, expected)
+  }
+  
+  func testArrayToArraySubtract() {
+    let testArray = [1.0, 2.0, 3.0, 4.0, 5.0]
+    let testArray2 = [10.0, 20.0, 30.0, 40.0, 50.0]
+
+    let expected = [-9.0, -18.0, -27.0, -36.0, -45.0]
+    let result = testArray - testArray2
+    XCTAssertEqual(result, expected)
+  }
 
   func testArrayAddition() {
     let test = 10.0

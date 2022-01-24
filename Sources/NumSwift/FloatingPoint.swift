@@ -32,6 +32,11 @@ public extension Array where Element == Float {
     precondition(lhs.count == rhs.count)
     return vDSP.multiply(lhs, rhs)
   }
+  
+  static func /(lhs: [Element], rhs: [Element]) -> [Element] {
+    precondition(lhs.count == rhs.count)
+    return vDSP.divide(lhs, rhs)
+  }
 }
 
 //use accelerate
@@ -57,6 +62,11 @@ public extension Array where Element == Double {
   static func *(lhs: [Element], rhs: [Element]) -> [Element] {
     precondition(lhs.count == rhs.count)
     return vDSP.multiply(lhs, rhs)
+  }
+  
+  static func /(lhs: [Element], rhs: [Element]) -> [Element] {
+    precondition(lhs.count == rhs.count)
+    return vDSP.divide(lhs, rhs)
   }
 }
 
@@ -101,21 +111,7 @@ public extension Array where Element: Equatable & Numeric & FloatingPoint {
     }
     return new
   }
-  
-  static func /(lhs: [Element], rhs: [Element]) -> [Element] {
-    precondition(lhs.count == rhs.count)
-    
-    var addedArray: [Element] = []
-    
-    for i in 0..<rhs.count {
-      let left = lhs[i]
-      let right = rhs[i]
-      addedArray.append(left / right)
-    }
-    
-    return addedArray
-  }
-  
+
   static func /(lhs: [Element], rhs: Element) -> [Element] {
     return lhs.map({ $0 / rhs })
   }

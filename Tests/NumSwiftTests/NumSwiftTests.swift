@@ -91,6 +91,50 @@ final class NumSwiftTests: XCTestCase {
     
     XCTAssertEqual(test.shape, expected)
   }
+  
+  func testDotProduct() {
+    let a = [2.0, 2.0, 2.0]
+    let b = [2.0, 2.0, 2.0]
+    
+    let expected = 12.0
+    
+    XCTAssertEqual(expected, a.dot(b))
+  }
+  
+  func testMultiDotProduct() {
+    let n1: [Float] = [1, 1, 1]
+    let n2: [Float] = [2, 2, 2]
+    let n3: [Float] = [3, 3, 3]
 
+    let layer = [n1, n2 , n3]
+    var layerMapped = layer.flatMap({ $0 })
+    
+    layerMapped.transpose(columns: 3, rows: 3)
+
+    let inputs: [Float] = [2, 2, 2]
+    
+    let output = inputs.multiDotProduct(B: layerMapped,
+                                        columns: Int32(3),
+                                        rows: Int32(3))
+
+    let expected: [Float] = [6.0, 12.0, 18.0]
+    
+    XCTAssertEqual(expected, output)
+  }
+
+  func testTranspose() {
+    let n1: [Float] = [1, 1, 1]
+    let n2: [Float] = [2, 2, 2]
+    let n3: [Float] = [3, 3, 3]
+
+    let layer = [n1, n2 , n3]
+    var layerMapped = layer.flatMap({ $0 })
+    
+    layerMapped.transpose(columns: 3, rows: 3)
+    
+    let expected: [Float] = [1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 1.0, 2.0, 3.0]
+    
+    XCTAssertEqual(expected, layerMapped)
+  }
 }
 

@@ -102,6 +102,6 @@ The subarrays must all be the same length
     let testArray = [[1,0], [1, 0]]
     let expected = [2, 2]
     
-    print(expected)
+    print(testArray.shape)
 ```
 

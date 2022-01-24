@@ -1,22 +1,5 @@
 import Foundation
-
-public extension Numeric where Self: FloatingPoint {
-  static func *(lhs: Self, rhs: [Self]) -> [Self] {
-    return rhs.map({ $0 * lhs })
-  }
-  
-  static func +(lhs: Self, rhs: [Self]) -> [Self] {
-    return rhs.map({ $0 + lhs })
-  }
-  
-  static func -(lhs: Self, rhs: [Self]) -> [Self] {
-    return rhs.map({ $0 - lhs })
-  }
-  
-  static func /(lhs: Self, rhs: [Self]) -> [Self] {
-    return rhs.map({ $0 / lhs })
-  }
-}
+import Accelerate
 
 public extension Array {
   var shape: [Int] {
@@ -120,21 +103,6 @@ public extension Array where Element: Equatable & Numeric {
     
     return addedArray
   }
-  
-  static func *=(lhs: inout [Element], rhs: [Element]) {
-    precondition(lhs.count == rhs.count)
-
-    var addedArray: [Element] = []
-    
-    for i in 0..<rhs.count {
-      let left = rhs[i]
-      let right = lhs[i]
-      addedArray.append(left * right)
-    }
-      
-    lhs = addedArray
-  }
-
 }
 
 public extension Array where Element: Equatable {

@@ -18,8 +18,37 @@ public extension Numeric where Self: FloatingPoint {
   }
 }
 
-public extension Array where Element: Equatable & Numeric {
+public extension Array {
+  var shape: [Int] {
+    var results: [Int] = []
+    
+    var currentElement: Any = self
+    
+    while let current = currentElement as? Array<Any> {
+      
+      if let currentArray = current as? Array<Array<Any>> {
+        if let first = currentArray.first,
+           currentArray.allSatisfy({ $0.count == first.count }) == false {
+          fatalError("ERROR: Using shape on an array where all elements arent the same length is not allowed.")
+          break
+        }
+      }
+      
+      results.append(current.count)
+      
+      if let next = current.first {
+        currentElement = next
+      } else {
+        break
+      }
+    }
+    
+    return results
+  }
+}
 
+public extension Array where Element: Equatable & Numeric {
+  
   var sum: Element {
     return self.reduce(0, +)
   }

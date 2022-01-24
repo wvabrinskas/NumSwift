@@ -66,5 +66,13 @@ final class NumSwiftTests: XCTestCase {
     let scaled = testArray.scale(from: 0...20, to: -1...1)
     XCTAssertEqual(scaled, expected)
   }
+  
+  func testShape() {
+    let test = [[0,1], [0,1]] //2, 2
+    let expected = [2, 2]
+    
+    XCTAssertEqual(test.shape, expected)
+  }
+
 }
 

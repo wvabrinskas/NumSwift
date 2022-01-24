@@ -14,6 +14,10 @@ public extension Array where Element == Float {
     return vDSP.add(rhs, lhs)
   }
   
+  static func +(lhs: Element, rhs: [Element]) -> [Element] {
+    return vDSP.add(lhs, rhs)
+  }
+  
   static func +(lhs: [Element], rhs: [Element]) -> [Element] {
     precondition(lhs.count == rhs.count)
     return vDSP.add(rhs, lhs)
@@ -26,6 +30,10 @@ public extension Array where Element == Float {
   
   static func *(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.multiply(rhs, lhs)
+  }
+  
+  static func *(lhs: Element, rhs: [Element]) -> [Element] {
+    return vDSP.multiply(lhs, rhs)
   }
   
   static func *(lhs: [Element], rhs: [Element]) -> [Element] {
@@ -45,6 +53,10 @@ public extension Array where Element == Double {
     return vDSP.add(rhs, lhs)
   }
   
+  static func +(lhs: Element, rhs: [Element]) -> [Element] {
+    return vDSP.add(lhs, rhs)
+  }
+  
   static func +(lhs: [Element], rhs: [Element]) -> [Element] {
     precondition(lhs.count == rhs.count)
     return vDSP.add(rhs, lhs)
@@ -57,6 +69,10 @@ public extension Array where Element == Double {
   
   static func *(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.multiply(rhs, lhs)
+  }
+  
+  static func *(lhs: Element, rhs: [Element]) -> [Element] {
+    return vDSP.multiply(lhs, rhs)
   }
   
   static func *(lhs: [Element], rhs: [Element]) -> [Element] {
@@ -116,7 +132,15 @@ public extension Array where Element: Equatable & Numeric & FloatingPoint {
     return lhs.map({ $0 / rhs })
   }
   
+  static func /(lhs: Element, rhs: [Element]) -> [Element] {
+    return rhs.map({ lhs / $0 })
+  }
+  
   static func -(lhs: [Element], rhs: Element) -> [Element] {
     return lhs.map({ $0 - rhs })
+  }
+  
+  static func -(lhs: Element, rhs: [Element]) -> [Element] {
+    return rhs.map({ lhs - $0 })
   }
 }

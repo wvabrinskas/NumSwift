@@ -109,7 +109,7 @@ final class NumSwiftTests: XCTestCase {
     let layer = [n1, n2 , n3]
     var layerMapped = layer.flatMap({ $0 })
     
-    layerMapped.transpose(columns: 3, rows: 3)
+    layerMapped = layerMapped.transpose(columns: 3, rows: 3)
 
     let inputs: [Float] = [2, 2, 2]
     
@@ -130,7 +130,7 @@ final class NumSwiftTests: XCTestCase {
     let layer = [n1, n2 , n3]
     var layerMapped = layer.flatMap({ $0 })
     
-    layerMapped.transpose(columns: 3, rows: 3)
+    layerMapped = layerMapped.transpose(columns: 3, rows: 3)
     
     let expected: [Float] = [1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 1.0, 2.0, 3.0]
     

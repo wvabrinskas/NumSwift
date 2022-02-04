@@ -64,7 +64,7 @@ public extension Array where Element == Float {
     return C
   }
   
-  mutating func transpose(columns: Int, rows: Int) {
+  func transpose(columns: Int, rows: Int) -> [Element] {
     var result: [Element] = [Element].init(repeating: 0, count: columns * rows)
     
     vDSP_mtrans(self,
@@ -74,7 +74,7 @@ public extension Array where Element == Float {
                 vDSP_Length(columns),
                 vDSP_Length(rows))
     
-    self = result
+    return result
   }
   
   static func +(lhs: [Element], rhs: Element) -> [Element] {
@@ -170,7 +170,7 @@ public extension Array where Element == Double {
     return C
   }
   
-  mutating func transpose(columns: Int, rows: Int) {
+  func transpose(columns: Int, rows: Int) -> [Element] {
     var result: [Element] = [Element].init(repeating: 0, count: columns * rows)
     
     vDSP_mtransD(self,
@@ -180,7 +180,7 @@ public extension Array where Element == Double {
                  vDSP_Length(columns),
                  vDSP_Length(rows))
     
-    self = result
+    return result
   }
   
   static func +(lhs: [Element], rhs: Element) -> [Element] {

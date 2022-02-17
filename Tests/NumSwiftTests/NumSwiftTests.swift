@@ -170,24 +170,6 @@ final class NumSwiftTests: XCTestCase {
     let output = input.reshape(columns: 3)
     XCTAssert(output == expected)
   }
-  
-  func testDownSampling() {
-    let filter: [[Float]] = [[0, 0, 0],
-                             [0, 1, 0],
-                             [0, 0, 0]]
 
-    let data: [[Float]] = [[0, 0, 1, 0, 0],
-                           [0, 0, 1, 0, 0],
-                           [0, 0, 1, 0, 0],
-                           [0, 0, 1, 0, 0],
-                           [0, 0, 1, 0, 0]]
-    
-    let conv = data.conv2D(filter)
-    
-    let filterMapped = filter.flatMap { $0 }
-    
-    let dataMapped = data.flatMap { $0 }
-    print(conv.downsample(filter: filterMapped))
-  }
 }
 

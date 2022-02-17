@@ -2,6 +2,14 @@ import Foundation
 import Accelerate
 
 public extension Array {
+  subscript(safe safeIndex: Int) -> Element? {
+    if safeIndex < self.count {
+      return self[safeIndex]
+    }
+    
+    return nil
+  }
+  
   var shape: [Int] {
     var results: [Int] = []
     

@@ -136,5 +136,58 @@ final class NumSwiftTests: XCTestCase {
     
     XCTAssertEqual(expected, layerMapped)
   }
+  
+  func test2DConv() {
+    let filter: [[Float]] = [[0, 1, 0],
+                             [0, 1, 0],
+                             [0, 1, 0]]
+            
+    let data: [[Float]] = [[0, 0, 1, 0, 0],
+                           [0, 0, 1, 0, 0],
+                           [0, 0, 1, 0, 0],
+                           [0, 0, 1, 0, 0],
+                           [0, 0, 1, 0, 0]]
+    
+    let conv = data.conv2D(filter)
+    
+    let rows = conv.reshape(columns: 5)
+    
+    let expected: [[Float]] =  [[0.0, 0.0, 0.0, 0.0, 0.0],
+                                [0.0, 0.0, 3.0, 0.0, 0.0],
+                                [0.0, 0.0, 3.0, 0.0, 0.0],
+                                [0.0, 0.0, 3.0, 0.0, 0.0],
+                                [0.0, 0.0, 0.0, 0.0, 0.0]]
+    
+    XCTAssert(expected == rows)
+  }
+  
+  func testReshape() {
+    let input: [Float] = [1, 1, 1, 2, 2, 2]
+    
+    let expected: [[Float]] = [[1, 1, 1],
+                               [2, 2, 2]]
+    
+    let output = input.reshape(columns: 3)
+    XCTAssert(output == expected)
+  }
+  
+  func testDownSampling() {
+    let filter: [[Float]] = [[0, 0, 0],
+                             [0, 1, 0],
+                             [0, 0, 0]]
+
+    let data: [[Float]] = [[0, 0, 1, 0, 0],
+                           [0, 0, 1, 0, 0],
+                           [0, 0, 1, 0, 0],
+                           [0, 0, 1, 0, 0],
+                           [0, 0, 1, 0, 0]]
+    
+    let conv = data.conv2D(filter)
+    
+    let filterMapped = filter.flatMap { $0 }
+    
+    let dataMapped = data.flatMap { $0 }
+    print(conv.downsample(filter: filterMapped))
+  }
 }
 

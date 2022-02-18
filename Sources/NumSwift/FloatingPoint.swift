@@ -7,6 +7,7 @@
 
 import Foundation
 import Accelerate
+import CloudKit
 
 public extension Array where Element == [Double] {
   /// Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
@@ -93,7 +94,7 @@ public extension Array where Element == [Float] {
     
     return []
   }
-  
+
   func flip180() -> Self {
     let shape = self.shape
     if let rows = shape[safe: 0],

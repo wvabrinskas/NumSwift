@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by William Vabrinskas on 1/22/22.
 //
@@ -37,11 +37,34 @@ public extension Array where Element == [Double] {
     
     return []
   }
+  
+  func flip180() -> Self {
+    let shape = self.shape
+    if let rows = shape[safe: 0],
+       let columns = shape[safe: 1] {
+      
+      let flat = self.flatMap { $0 }
+      let transposed = flat.transpose(columns: columns, rows: rows)
+      let reshaped = transposed.reshape(columns: columns)
+    
+      var result: [Element] = []
+      
+      for i in 0..<reshaped.count {
+        var item = reshaped[i]
+        item.reverse()
+        result.append(item)
+      }
+      
+      return result
+    }
+    
+    return self
+  }
 }
 
 
 public extension Array where Element == [Float] {
-  
+
   /// Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
   /// - Parameter filter: filter to apply
   /// - Returns: 2D convolution result as a 1D array
@@ -69,6 +92,29 @@ public extension Array where Element == [Float] {
     }
     
     return []
+  }
+  
+  func flip180() -> Self {
+    let shape = self.shape
+    if let rows = shape[safe: 0],
+       let columns = shape[safe: 1] {
+      
+      let flat = self.flatMap { $0 }
+      let transposed = flat.transpose(columns: columns, rows: rows)
+      let reshaped = transposed.reshape(columns: columns)
+    
+      var result: [Element] = []
+      
+      for i in 0..<reshaped.count {
+        var item = reshaped[i]
+        item.reverse()
+        result.append(item)
+      }
+      
+      return result
+    }
+    
+    return self
   }
 }
 
@@ -105,6 +151,10 @@ public extension Array where Element == Float {
   
   var mean: Element {
     vDSP.mean(self)
+  }
+  
+  mutating func reverse() {
+    vDSP.reverse(&self)
   }
 
   func reshape(columns: Int) -> [[Element]] {
@@ -246,6 +296,10 @@ public extension Array where Element == Double {
   
   var min: Element {
     vDSP.minimum(self)
+  }
+  
+  mutating func reverse() {
+    vDSP.reverse(&self)
   }
   
   func reshape(columns: Int) -> [[Element]] {

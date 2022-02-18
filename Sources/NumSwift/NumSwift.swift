@@ -10,7 +10,7 @@ import Accelerate
 
 public struct NumSwift {
   
-  static func conv2dValid(signal: [[Float]], filter: [[Float]]) -> [[Float]] {
+  public static func conv2dValid(signal: [[Float]], filter: [[Float]]) -> [[Float]] {
     let filterShape = filter.shape
 
     guard let rf = filterShape[safe: 0],
@@ -49,7 +49,7 @@ public struct NumSwift {
     return []
   }
   
-  static func conv2dValidD(signal: [[Double]], filter: [[Double]]) -> [[Double]] {
+  public static func conv2dValidD(signal: [[Double]], filter: [[Double]]) -> [[Double]] {
     let filterShape = filter.shape
 
     guard let rf = filterShape[safe: 0],

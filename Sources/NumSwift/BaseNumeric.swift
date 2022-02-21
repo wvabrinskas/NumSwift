@@ -34,7 +34,7 @@ public extension Array {
       }
     }
     
-    return results
+    return results.reversed()
   }
 }
 

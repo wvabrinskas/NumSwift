@@ -1,6 +1,20 @@
 import Foundation
 import Accelerate
 
+extension Collection where Self.Iterator.Element: RandomAccessCollection {
+  // PRECONDITION: `self` must be rectangular, i.e. every row has equal size.
+  
+  /// Transposes an array. Does not use the vDSP library for fast transpose
+  /// - Returns: transposed array 
+  func transposed() -> [[Self.Iterator.Element.Iterator.Element]] {
+    guard let firstRow = self.first else { return [] }
+    return firstRow.indices.map { index in
+      self.map{ $0[index] }
+    }
+  }
+}
+
+
 public extension Array {
   subscript(safe safeIndex: Int) -> Element? {
     if safeIndex < self.count {
@@ -37,6 +51,7 @@ public extension Array {
     
     return results.reversed()
   }
+  
   
   func reshape(columns: Int) -> [[Element]] {
     var twoDResult: [[Element]] = []

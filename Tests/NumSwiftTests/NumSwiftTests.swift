@@ -89,6 +89,22 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(r, expected)
   }
   
+  func testTransposeSlow() {
+    let n1: [Float] = [1, 1, 1]
+    let n2: [Float] = [2, 2, 2]
+    let n3: [Float] = [3, 3, 3]
+
+    let layer = [n1, n2 , n3]
+    
+    let result = layer.transposed()
+    
+    let expected: [[Float]] = [[1.0, 2.0, 3.0],
+                               [1.0, 2.0, 3.0],
+                               [1.0, 2.0, 3.0]]
+    
+    XCTAssertEqual(result, expected)
+  }
+  
   func testScale() {
     let testArray = [0.0, 5.0, 10.0, 20.0]
     let expected = [-1.0, -0.5, 0.0, 1.0]

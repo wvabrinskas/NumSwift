@@ -38,6 +38,21 @@ public extension Array {
     return results.reversed()
   }
   
+  func reshape(columns: Int) -> [[Element]] {
+    var twoDResult: [[Element]] = []
+    var oneDResult: [Element] = []
+      
+    for i in 0..<count {
+      oneDResult.append(self[i])
+      if (i + 1) % columns == 0 {
+        twoDResult.append(oneDResult)
+        oneDResult = []
+      }
+    }
+    
+    return twoDResult
+  }
+  
 }
 
 public extension Array where Element: Equatable & Numeric {

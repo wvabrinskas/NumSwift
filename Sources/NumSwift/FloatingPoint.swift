@@ -121,21 +121,6 @@ public extension Array where Element == Float {
     vDSP.reverse(&result)
     return result
   }
-
-  func reshape(columns: Int) -> [[Element]] {
-    var twoDResult: [[Element]] = []
-    var oneDResult: [Element] = []
-      
-    for i in 0..<count {
-      oneDResult.append(self[i])
-      if (i + 1) % columns == 0 {
-        twoDResult.append(oneDResult)
-        oneDResult = []
-      }
-    }
-    
-    return twoDResult
-  }
   
   func dot(_ b: [Element]) -> Element {
     let n = vDSP_Length(self.count)
@@ -268,22 +253,7 @@ public extension Array where Element == Double {
     vDSP.reverse(&result)
     return result
   }
-  
-  func reshape(columns: Int) -> [[Element]] {
-    var twoDResult: [[Element]] = []
-    var oneDResult: [Element] = []
-      
-    for i in 0..<count {
-      oneDResult.append(self[i])
-      if (i + 1) % columns == 0 {
-        twoDResult.append(oneDResult)
-        oneDResult = []
-      }
-    }
-    
-    return twoDResult
-  }
-  
+
   func dot(_ b: [Element]) -> Element {
     let n = vDSP_Length(self.count)
     var C: Element = .nan

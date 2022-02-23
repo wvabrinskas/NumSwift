@@ -77,6 +77,18 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(result, expected)
   }
   
+  func testFlip() {
+    let v: [[Float]] = [[1,2],
+                        [3,4]]
+
+    let r = v.flip180()
+
+    let expected: [[Float]] = [[4, 3],
+                               [2, 1]]
+    
+    XCTAssertEqual(r, expected)
+  }
+  
   func testScale() {
     let testArray = [0.0, 5.0, 10.0, 20.0]
     let expected = [-1.0, -0.5, 0.0, 1.0]

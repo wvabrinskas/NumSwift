@@ -40,26 +40,7 @@ public extension Array where Element == [Double] {
   }
   
   func flip180() -> Self {
-    let shape = self.shape
-    if let rows = shape[safe: 0],
-       let columns = shape[safe: 1] {
-      
-      let flat = self.flatMap { $0 }
-      let transposed = flat.transpose(columns: columns, rows: rows)
-      let reshaped = transposed.reshape(columns: columns)
-    
-      var result: [Element] = []
-      
-      for i in 0..<reshaped.count {
-        var item = reshaped[i]
-        item.reverse()
-        result.append(item)
-      }
-      
-      return result
-    }
-    
-    return self
+    self.reversed().map { $0.reverse() }
   }
 }
 
@@ -96,26 +77,7 @@ public extension Array where Element == [Float] {
   }
 
   func flip180() -> Self {
-    let shape = self.shape
-    if let rows = shape[safe: 0],
-       let columns = shape[safe: 1] {
-      
-      let flat = self.flatMap { $0 }
-      let transposed = flat.transpose(columns: columns, rows: rows)
-      let reshaped = transposed.reshape(columns: columns)
-    
-      var result: [Element] = []
-      
-      for i in 0..<reshaped.count {
-        var item = reshaped[i]
-        item.reverse()
-        result.append(item)
-      }
-      
-      return result
-    }
-    
-    return self
+    self.reversed().map { $0.reverse() }
   }
 }
 
@@ -154,8 +116,10 @@ public extension Array where Element == Float {
     vDSP.mean(self)
   }
   
-  mutating func reverse() {
-    vDSP.reverse(&self)
+  func reverse() -> Self {
+    var result = self
+    vDSP.reverse(&result)
+    return result
   }
 
   func reshape(columns: Int) -> [[Element]] {
@@ -299,8 +263,10 @@ public extension Array where Element == Double {
     vDSP.minimum(self)
   }
   
-  mutating func reverse() {
-    vDSP.reverse(&self)
+  func reverse() -> Self {
+    var result = self
+    vDSP.reverse(&result)
+    return result
   }
   
   func reshape(columns: Int) -> [[Element]] {

@@ -37,6 +37,7 @@ public extension Array {
     
     return results.reversed()
   }
+  
 }
 
 public extension Array where Element: Equatable & Numeric {

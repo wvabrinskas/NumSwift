@@ -86,10 +86,20 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func testShape() {
-    let test = [[[0,1], [0,1]], [[0,1], [0,1]]] //2, 2
+    let test = [[[0,1], [0,1]],
+                [[0,1], [0,1]]] //2, 2
     let expected = [2, 2, 2]
     
     XCTAssertEqual(test.shape, expected)
+    
+    let data: [[[Float]]] = [[[1, 1, 1, 0, 0, 0, 1],
+                             [1, 1, 1, 0, 0, 0, 1],
+                             [1, 1, 1, 0, 0, 0, 1],
+                             [0, 0, 0, 0, 0, 0, 1],
+                             [0, 0, 0, 0, 0, 0, 1],
+                             [0, 0, 0, 0, 0, 0, 1]]]
+    
+    XCTAssertEqual(data.shape, [7, 6, 1])
   }
   
   func testDotProduct() {

@@ -10,6 +10,7 @@ public extension Array {
     return nil
   }
   
+  /// Returns the shape of an N-dimensional array, ex 3D array -> (Col, Row, Dep)
   var shape: [Int] {
     var results: [Int] = []
     

@@ -12,10 +12,6 @@ extension Collection where Self.Iterator.Element: RandomAccessCollection {
       self.map{ $0[index] }
     }
   }
-  
-  func transposed(rotate: Bool) {
-    
-  }
 }
 
 

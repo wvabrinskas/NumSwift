@@ -7,6 +7,9 @@
 
 import Foundation
 import Accelerate
+#if os(iOS)
+import UIKit
+#endif
 
 public struct NumSwift {
   
@@ -89,3 +92,65 @@ public struct NumSwift {
   }
   
 }
+
+
+#if os(iOS)
+public extension UIImage {
+  
+  /// Returns the various color layers as a 3D array
+  /// - Parameter alpha: if the result should include the alpha layer
+  /// - Returns: the colors mapped to their own 2D array in a 3D array as (R, G, B) and optionall (R, G, B, A)
+  func layers(alpha: Bool = false) -> [[[Float]]] {
+    guard let cgImage = self.cgImage,
+          let provider = cgImage.dataProvider else {
+      return []
+    }
+    
+    let providerData = provider.data
+    
+    if let data = CFDataGetBytePtr(providerData) {
+      
+      var rVals: [[Float]] = []
+      var gVals: [[Float]] = []
+      var bVals: [[Float]] = []
+      var aVals: [[Float]] = []
+
+      for y in 0..<Int(size.height) {
+        var rowR: [Float] = []
+        var rowG: [Float] = []
+        var rowB: [Float] = []
+        var rowA: [Float] = []
+
+        for x in 0..<Int(size.width) {
+          let numberOfComponents = 4
+          let pixelData = ((Int(size.width) * y) + x) * numberOfComponents
+
+          let r = Float(data[pixelData]) / 255.0
+          let g = Float(data[pixelData + 1]) / 255.0
+          let b = Float(data[pixelData + 2]) / 255.0
+          let a = Float(data[pixelData + 3]) / 255.0
+          
+          rowR.append(r)
+          rowG.append(g)
+          rowB.append(b)
+          rowA.append(a)
+        }
+        
+        rVals.append(rowR)
+        gVals.append(rowG)
+        bVals.append(rowB)
+        aVals.append(rowA)
+      }
+
+      var results: [[[Float]]] = [rVals, gVals, bVals]
+      if alpha {
+        results.append(aVals)
+      }
+
+      return results
+    }
+    
+    return []
+  }
+}
+#endif

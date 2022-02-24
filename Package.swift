@@ -24,9 +24,11 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
             name: "NumSwift",
-            dependencies: []),
+            dependencies: [],
+            resources: [ .process("Resources") ]),
         .testTarget(
             name: "NumSwiftTests",
-            dependencies: ["NumSwift"]),
+            dependencies: ["NumSwift"],
+            resources: [ .process("Resources") ]),
     ]
 )

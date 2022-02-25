@@ -211,6 +211,11 @@ public extension Array where Element == Float {
     precondition(lhs.count == rhs.count)
     return vDSP.divide(lhs, rhs)
   }
+  
+  static func /(lhs: [Element], rhs: Element) -> [Element] {
+    return vDSP.divide(lhs, rhs)
+  }
+  
 }
 
 //use accelerate

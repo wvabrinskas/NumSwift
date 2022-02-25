@@ -25,24 +25,20 @@ public extension Array {
   }
   
   /// Returns the shape of an N-dimensional array, ex 3D array -> (Col, Row, Dep)
+  /// Useful only on aligned arrays where all items are the smae length
   var shape: [Int] {
     var results: [Int] = []
     
-    var currentElement: Any = self
+    var currentElement: Array<Any> = self
+    var nextElementIsArray: Bool = true
     
-    while let current = currentElement as? Array<Any> {
+    while nextElementIsArray {
       
-      if let currentArray = current as? Array<Array<Any>> {
-        if let first = currentArray.first,
-           currentArray.allSatisfy({ $0.count == first.count }) == false {
-          fatalError("ERROR: Using shape on an array where all elements arent the same length is not allowed.")
-          break
-        }
-      }
+      results.append(currentElement.count)
       
-      results.append(current.count)
+      nextElementIsArray = currentElement.first is Array
       
-      if let next = current.first {
+      if let next = currentElement.first as? Array<Any> {
         currentElement = next
       } else {
         break

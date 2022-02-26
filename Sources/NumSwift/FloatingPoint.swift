@@ -13,7 +13,7 @@ public extension Array where Element == [Double] {
   /// Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
   /// - Parameter filter: filter to apply
   /// - Returns: 2D convolution result as a 1D array
-  func conv2D(_ filter: [[Double]], size: (rows: Int, columns: Int)) -> Element {
+  func conv2D(_ filter: [[Double]]) -> Element {
     let filterShape = filter.shape
     guard let filterRows = filterShape[safe: 0],
           let filterColumns = filterShape[safe: 1] else {

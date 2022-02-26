@@ -47,9 +47,11 @@ public extension Array {
   func reshape(columns: Int) -> [[Element]] {
     var twoDResult: [[Element]] = []
           
-    for c in stride(from: 0, through: self.count - 1, by: columns) {
-      let row = Array(self[c..<c + columns])
-      twoDResult.append(row)
+    for c in stride(from: 0, through: self.count, by: columns) {
+      if c + columns <= self.count {
+        let row = Array(self[c..<c + columns])
+        twoDResult.append(row)
+      }
     }
     
     return twoDResult

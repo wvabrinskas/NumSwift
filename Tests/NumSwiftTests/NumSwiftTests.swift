@@ -173,7 +173,9 @@ final class NumSwiftTests: XCTestCase {
                            [0, 0, 1, 0, 0],
                            [0, 0, 1, 0, 0]]
     
-    let conv = data.conv2D(filter)
+    let conv = data.conv2D(filter,
+                           filterSize: (3, 3),
+                           inputSize: (5, 5))
     
     let rows = conv.reshape(columns: 5)
     
@@ -193,6 +195,8 @@ final class NumSwiftTests: XCTestCase {
                                [2, 2, 2]]
     
     let output = input.reshape(columns: 3)
+    
+    print(output)
     XCTAssert(output == expected)
   }
   

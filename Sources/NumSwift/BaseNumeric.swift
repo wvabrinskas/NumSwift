@@ -43,6 +43,17 @@ public extension Array {
     return results.reversed()
   }
   
+  func concurrentForEach(_ block: (_ element: Element, _ index: Int) -> ()) {
+    let group = DispatchGroup()
+
+    DispatchQueue.concurrentPerform(iterations: self.count) { i in
+      group.enter()
+      block(self[i], i)
+      group.leave()
+    }
+    
+    group.wait()
+  }
   
   func reshape(columns: Int) -> [[Element]] {
     var twoDResult: [[Element]] = []

@@ -1,7 +1,29 @@
 import Foundation
 import Accelerate
 
+public extension Collection {
+  /// Returns the shape of an N-dimensional array, ex 3D array -> (Col, Row, Dep)
+  var shape: [Int] {
+    var results: [Int] = []
+    
+    var currentElement: Any = self
+    
+    while let current = currentElement as? Array<Any> {
+      results.append(current.count)
+      
+      if let next = current.first {
+        currentElement = next
+      } else {
+        break
+      }
+    }
+    
+    return results.reversed()
+  }
+}
+
 public extension Collection where Self.Iterator.Element: RandomAccessCollection {
+
   // PRECONDITION: `self` must be rectangular, i.e. every row has equal size.
   
   /// Transposes an array. Does not use the vDSP library for fast transpose
@@ -23,25 +45,7 @@ public extension Array {
     
     return nil
   }
-  
-  /// Returns the shape of an N-dimensional array, ex 3D array -> (Col, Row, Dep)
-  var shape: [Int] {
-    var results: [Int] = []
-    
-    var currentElement: Any = self
-    
-    while let current = currentElement as? Array<Any> {
-      results.append(current.count)
-      
-      if let next = current.first {
-        currentElement = next
-      } else {
-        break
-      }
-    }
-    
-    return results.reversed()
-  }
+
   
   func concurrentForEach(_ block: (_ element: Element, _ index: Int) -> ()) {
     let group = DispatchGroup()

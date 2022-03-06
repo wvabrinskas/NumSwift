@@ -30,6 +30,23 @@ final class NumSwiftTests: XCTestCase {
     print(NumSwift.conv2dValid(signal: a.zeroPad(), filter: b))
   }
   
+  func testFill() {
+    let r = [1,1,1,1,1,1,1]
+    
+    let result = NumSwift.zerosLike(r)
+    
+    XCTAssertEqual(result, [0,0,0,0,0,0,0])
+    
+    let test = [[[0,1], [0,1]],
+                [[0,1], [0,1]]]
+    
+    let expected = [[[0,0], [0,0]],
+                    [[0,0], [0,0]]]
+    
+    let result2 = NumSwift.zerosLike(test)
+    XCTAssertEqual(result2, expected)
+  }
+  
   func testArrayAddition() {
     let test = 10.0
     let testArray = [1.0, 2.0, 3.0, 4.0, 5.0]

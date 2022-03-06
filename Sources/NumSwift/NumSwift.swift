@@ -13,6 +13,20 @@ import UIKit
 
 public struct NumSwift {
   
+  public static func zerosLike<T: Collection>(_ array: T) -> Array<AnyHashable> {
+    let shape = array.shape
+    
+    var result: [AnyHashable]  = []
+    var previous: AnyHashable = 0
+    
+    shape.forEach { s in
+      result = Array(repeatElement(previous, count: s))
+      previous = result
+    }
+    
+    return result
+  }
+  
   public static func conv2dValid(signal: [[Float]], filter: [[Float]]) -> [[Float]] {
     let filterShape = filter.shape
     

@@ -40,6 +40,29 @@ public extension Array where Element == [Double] {
 
 public extension Array where Element == [Float] {
 
+  func zeroPad() -> Self {
+    guard let first = self.first else {
+      return self
+    }
+    
+    let result: [Element] = self
+
+    let mapped = result.map { r -> [Float] in
+      var newR: [Float] = [0]
+      newR.append(contentsOf: r)
+      newR.append(0)
+      return newR
+    }
+    
+    let zeros = [Float](repeating: 0, count: first.count)
+    var r = [zeros]
+    r.append(contentsOf: mapped)
+    r.append(zeros)
+        
+    return r
+  }
+
+  
   /// Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
   /// - Parameter filter: filter to apply
   /// - Returns: 2D convolution result as a 1D array
@@ -100,6 +123,10 @@ public extension Array where Element == Float {
   
   var mean: Element {
     vDSP.mean(self)
+  }
+  
+  mutating func fillZeros() {
+    vDSP.fill(&self, with: .zero)
   }
   
   func reverse() -> Self {
@@ -245,6 +272,10 @@ public extension Array where Element == Double {
     return result
   }
 
+  mutating func fillZeros() {
+    vDSP.fill(&self, with: .zero)
+  }
+  
   func dot(_ b: [Element]) -> Element {
     let n = vDSP_Length(self.count)
     var C: Element = .nan

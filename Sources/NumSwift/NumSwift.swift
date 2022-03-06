@@ -17,7 +17,7 @@ public struct NumSwift {
     let shape = [size.columns, size.rows, size.depth]
     
     var result: [Any]  = []
-    var previous: Any = 0
+    var previous: Any = Float.zero
     
     shape.forEach { s in
       result = Array(repeatElement(previous, count: s))
@@ -31,7 +31,7 @@ public struct NumSwift {
     let shape = [size.columns, size.rows]
     
     var result: [Any]  = []
-    var previous: Any = 0
+    var previous: Any = Float.zero
     
     shape.forEach { s in
       result = Array(repeatElement(previous, count: s))
@@ -45,7 +45,7 @@ public struct NumSwift {
     let shape = array.shape
     
     var result: [AnyHashable]  = []
-    var previous: AnyHashable = 0
+    var previous: AnyHashable = Float.zero
     
     shape.forEach { s in
       result = Array(repeatElement(previous, count: s))

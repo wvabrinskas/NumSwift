@@ -54,7 +54,7 @@ public extension Array where Element == [Float] {
       return newR
     }
     
-    let zeros = [Float](repeating: 0, count: first.count)
+    let zeros = [Float](repeating: 0, count: first.count + 2)
     var r = [zeros]
     r.append(contentsOf: mapped)
     r.append(zeros)

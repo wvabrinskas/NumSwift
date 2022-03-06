@@ -15,41 +15,40 @@ public struct NumSwift {
   
   public static func conv2dValid(signal: [[Float]], filter: [[Float]]) -> [[Float]] {
     let filterShape = filter.shape
-
+    
     guard let rf = filterShape[safe: 0],
           let cf = filterShape[safe: 1] else {
             return []
           }
     
     let shape = signal.shape
-
-    if let rd = shape[safe: 0],
-        let cd = shape[safe: 1] {
-      
-      var results: [[Float]] = []
-      
-      for r in 0..<rd - rf {
-        var result: [Float] = []
-        
-        for c in 0..<cd - cf {
-          
-          var sum: Float = 0
-          for fr in 0..<rf {
-            let dataRow = Array(signal[r + fr][c..<c + cf])
-            let filterRow = filter[fr]
-            let mult = (filterRow * dataRow).sum
-            sum += mult
+    
+    guard let rd = shape[safe: 0],
+          let cd = shape[safe: 1] else {
+            return []
           }
-          result.append(sum)
-        }
+    
+    var results: [[Float]] = []
+    
+    for r in 0...rd - rf {
+      var result: [Float] = []
+      
+      for c in 0...cd - cf {
         
-        results.append(result)
+        var sum: Float = 0
+        for fr in 0..<rf {
+          let dataRow = Array(signal[r + fr][c..<c + cf])
+          let filterRow = filter[fr]
+          let mult = (filterRow * dataRow).sum
+          sum += mult
+        }
+        result.append(sum)
       }
       
-      return results
+      results.append(result)
     }
     
-    return []
+    return results
   }
   
   public static func conv2dValidD(signal: [[Double]], filter: [[Double]]) -> [[Double]] {

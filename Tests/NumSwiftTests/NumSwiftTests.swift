@@ -24,6 +24,12 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(result, expected)
   }
   
+  func testConv2dValid() {
+    let a: [[Float]] = [[Float]](repeating: [Float](repeating: 1, count: 16), count: 16)
+    let b: [[Float]] =  [[Float]](repeating: [Float](repeating: 1, count: 16), count: 16)
+    print(NumSwift.conv2dValid(signal: a.zeroPad(), filter: b))
+  }
+  
   func testArrayAddition() {
     let test = 10.0
     let testArray = [1.0, 2.0, 3.0, 4.0, 5.0]

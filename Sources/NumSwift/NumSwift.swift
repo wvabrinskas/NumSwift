@@ -247,21 +247,21 @@ public extension NumSwift {
                                       columns: columnsA,
                                       matrices: 1,
                                       rowBytes: columnsA * MemoryLayout<Float>.stride,
-                                      matrixBytes: columnsA * MemoryLayout<Float>.stride * rowsA * MemoryLayout<Float>.stride,
+                                      matrixBytes: columnsA * rowsA * MemoryLayout<Float>.stride,
                                       dataType: .float32)
       
       let descB = MPSMatrixDescriptor(rows: rowsB,
                                       columns: columnsB,
                                       matrices: 1,
                                       rowBytes: columnsB * MemoryLayout<Float>.stride,
-                                      matrixBytes: columnsB * MemoryLayout<Float>.stride * rowsB * MemoryLayout<Float>.stride,
+                                      matrixBytes: columnsB * rowsB * MemoryLayout<Float>.stride,
                                       dataType: .float32)
       
       let descC =  MPSMatrixDescriptor(rows: rowsC,
                                        columns: columnsC,
                                        matrices: 1,
                                        rowBytes: columnsC * MemoryLayout<Float>.stride,
-                                       matrixBytes: columnsC * MemoryLayout<Float>.stride * rowsC * MemoryLayout<Float>.stride,
+                                       matrixBytes: columnsC * rowsC * MemoryLayout<Float>.stride,
                                        dataType: .float32)
 
       let matrixA = MPSMatrix(buffer: bufferA, descriptor: descA)

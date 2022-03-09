@@ -214,7 +214,7 @@ public extension NumSwift {
       commandQueue = device?.makeCommandQueue()
     }
     
-    func matrixMult(a: GPUData, b: GPUData) -> [Float] {
+    public func matrixMult(a: GPUData, b: GPUData) -> [Float] {
       guard let device = device else {
         return []
       }

@@ -61,7 +61,6 @@ public extension Array where Element == [Float] {
         
     return r
   }
-
   
   /// Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
   /// - Parameter filter: filter to apply
@@ -127,6 +126,21 @@ public extension Array where Element == Float {
   
   mutating func fillZeros() {
     vDSP.fill(&self, with: .zero)
+  }
+  
+  func normalize() -> Self {
+    var mean: Float = 0
+    var std: Float = 0
+    var result: [Float] = [Float](repeating: 0, count: self.count)
+    vDSP_normalize(self,
+                   vDSP_Stride(1),
+                   &result,
+                   vDSP_Stride(1),
+                   &mean,
+                   &std,
+                   vDSP_Length(self.count))
+    
+    return result
   }
   
   func reverse() -> Self {
@@ -264,6 +278,21 @@ public extension Array where Element == Double {
   
   var min: Element {
     vDSP.minimum(self)
+  }
+  
+  func normalize() -> Self {
+    var mean: Double = 0
+    var std: Double = 0
+    var result: [Double] = [Double](repeating: 0, count: self.count)
+    vDSP_normalizeD(self,
+                   vDSP_Stride(1),
+                   &result,
+                   vDSP_Stride(1),
+                   &mean,
+                   &std,
+                   vDSP_Length(self.count))
+    
+    return result
   }
   
   func reverse() -> Self {

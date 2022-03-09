@@ -7,11 +7,13 @@
 
 import Foundation
 import Accelerate
+import Metal
+import MetalPerformanceShaders
 #if os(iOS)
 import UIKit
 #endif
 
-public struct NumSwift {
+public class NumSwift {
   
   public static func zerosLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float]]] {
     let shape = [size.columns, size.rows, size.depth]
@@ -60,15 +62,15 @@ public struct NumSwift {
     
     guard let rf = filterShape[safe: 0],
           let cf = filterShape[safe: 1] else {
-            return []
-          }
+      return []
+    }
     
     let shape = signal.shape
     
     guard let rd = shape[safe: 0],
           let cd = shape[safe: 1] else {
-            return []
-          }
+      return []
+    }
     
     var results: [[Float]] = []
     
@@ -95,16 +97,16 @@ public struct NumSwift {
   
   public static func conv2dValidD(signal: [[Double]], filter: [[Double]]) -> [[Double]] {
     let filterShape = filter.shape
-
+    
     guard let rf = filterShape[safe: 0],
           let cf = filterShape[safe: 1] else {
-            return []
-          }
+      return []
+    }
     
     let shape = signal.shape
-
+    
     if let rd = shape[safe: 0],
-        let cd = shape[safe: 1] {
+       let cd = shape[safe: 1] {
       
       var results: [[Double]] = []
       
@@ -155,17 +157,17 @@ public extension UIImage {
       var gVals: [[Float]] = []
       var bVals: [[Float]] = []
       var aVals: [[Float]] = []
-
+      
       for y in 0..<Int(size.height) {
         var rowR: [Float] = []
         var rowG: [Float] = []
         var rowB: [Float] = []
         var rowA: [Float] = []
-
+        
         for x in 0..<Int(size.width) {
           let numberOfComponents = 4
           let pixelData = ((Int(size.width) * y) + x) * numberOfComponents
-
+          
           let r = Float(data[pixelData]) / 255.0
           let g = Float(data[pixelData + 1]) / 255.0
           let b = Float(data[pixelData + 2]) / 255.0
@@ -182,12 +184,12 @@ public extension UIImage {
         bVals.append(rowB)
         aVals.append(rowA)
       }
-
+      
       var results: [[[Float]]] = [rVals, gVals, bVals]
       if alpha {
         results.append(aVals)
       }
-
+      
       return results
     }
     
@@ -195,3 +197,108 @@ public extension UIImage {
   }
 }
 #endif
+
+
+//MARK: Metal
+public extension NumSwift {
+  
+  typealias GPUData = (data: [Float], size: (rows: Int, columns: Int))
+  
+  class GPU {
+    private var device: MTLDevice?
+    private var commandQueue: MTLCommandQueue?
+    
+    
+    public init() {
+      device = MTLCreateSystemDefaultDevice()
+      commandQueue = device?.makeCommandQueue()
+    }
+    
+    func matrixMult(a: GPUData, b: GPUData) -> [Float] {
+      guard let device = device else {
+        return []
+      }
+      
+      let arrayA = a.data
+      let arrayB = b.data
+      
+      let rowsA = a.size.rows
+      let columnsA = a.size.columns
+      
+      let rowsB = b.size.rows
+      let columnsB = b.size.columns
+      
+      let rowsC = rowsA
+      let columnsC = columnsB
+      
+      guard let bufferA = device.makeBuffer(bytes: arrayA,
+                                            length: rowsA * columnsA * MemoryLayout<Float>.stride,
+                                            options: []),
+              let bufferB = device.makeBuffer(bytes: arrayB,
+                                              length: rowsB * columnsB * MemoryLayout<Float>.stride,
+                                              options: []),
+            let bufferC = device.makeBuffer(length: rowsC * columnsC * MemoryLayout<Float>.stride,
+                                            options: []) else {
+        return []
+      }
+      
+      
+      let descA = MPSMatrixDescriptor(rows: rowsA,
+                                      columns: columnsA,
+                                      matrices: 1,
+                                      rowBytes: columnsA * MemoryLayout<Float>.stride,
+                                      matrixBytes: columnsA * MemoryLayout<Float>.stride * rowsA * MemoryLayout<Float>.stride,
+                                      dataType: .float32)
+      
+      let descB = MPSMatrixDescriptor(rows: rowsB,
+                                      columns: columnsB,
+                                      matrices: 1,
+                                      rowBytes: columnsB * MemoryLayout<Float>.stride,
+                                      matrixBytes: columnsB * MemoryLayout<Float>.stride * rowsB * MemoryLayout<Float>.stride,
+                                      dataType: .float32)
+      
+      let descC =  MPSMatrixDescriptor(rows: rowsC,
+                                       columns: columnsC,
+                                       matrices: 1,
+                                       rowBytes: columnsC * MemoryLayout<Float>.stride,
+                                       matrixBytes: columnsC * MemoryLayout<Float>.stride * rowsC * MemoryLayout<Float>.stride,
+                                       dataType: .float32)
+
+      let matrixA = MPSMatrix(buffer: bufferA, descriptor: descA)
+      let matrixB = MPSMatrix(buffer: bufferB, descriptor: descB)
+      let matrixC = MPSMatrix(buffer: bufferC, descriptor: descC)
+      
+      let matrixMultiplication = MPSMatrixMultiplication(device: device,
+                                                         transposeLeft: true,
+                                                         transposeRight: false,
+                                                         resultRows: rowsC,
+                                                         resultColumns: columnsC,
+                                                         interiorColumns: columnsA,
+                                                         alpha: 1,
+                                                         beta: 0)
+      
+      guard let commandBuffer = commandQueue?.makeCommandBuffer() else {
+        return []
+      }
+      
+      matrixMultiplication.encode(commandBuffer: commandBuffer, leftMatrix: matrixA, rightMatrix: matrixB, resultMatrix: matrixC)
+      
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+      
+      var output: [Float] = []
+      let rawPointer = matrixC.data.contents()
+      let typePointer = rawPointer.bindMemory(to: Float.self, capacity: rowsC * columnsC)
+      let bufferPointer = UnsafeBufferPointer(start: typePointer, count: rowsC * columnsC)
+      
+      let _ = bufferPointer.map { value in 
+        output += [value]
+      }
+        
+      return output
+    
+    }
+    
+  }
+  
+}

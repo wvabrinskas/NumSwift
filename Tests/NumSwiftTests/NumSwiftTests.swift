@@ -159,7 +159,9 @@ final class NumSwiftTests: XCTestCase {
     
     layerMapped = layerMapped.transpose(columns: 3, rows: 3)
     
-    let inputs: [Float] = [2, 2, 2]
+    let inputs: [Float] = [2,
+                           2,
+                           2]
     
     let output = inputs.multiDotProduct(B: layerMapped,
                                         columns: Int32(3),
@@ -269,6 +271,32 @@ final class NumSwiftTests: XCTestCase {
       first.forEach { print($0) }
       i += 1
     }
+  }
+  
+  func testMetal() {
+    let n1: [Float] = [1, 1, 1]
+    let n2: [Float] = [2, 2, 2]
+    let n3: [Float] = [3, 3, 3]
+    
+    let layer = [n1, n2 , n3]
+    var layerMapped = layer.flatMap({ $0 })
+    
+    layerMapped = layerMapped.transpose(columns: 3, rows: 3)
+    
+    let inputs: [Float] = [2,
+                           2,
+                           2]
+
+    let expected: [Float] = [6.0, 12.0, 18.0]
+    
+    let mtl = NumSwift.GPU()
+    
+    let a = NumSwift.GPUData(layerMapped, (3,3))
+    let b = NumSwift.GPUData(inputs, (3, 1))
+    
+    let result = mtl.matrixMult(a: a, b: b)
+    
+    XCTAssertEqual(result, expected)
   }
 }
 

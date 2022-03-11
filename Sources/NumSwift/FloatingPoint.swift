@@ -129,13 +129,16 @@ public extension Array where Element == Float {
   }
   
   
-  @inlinable mutating func normalize(_ to: Element) {
+  @inlinable func normalize(_ to: Element) -> [Element] {
     //normalize gradients
-    let norm = self.sumOfSquares
+    var result = self
+    let norm = result.sumOfSquares
     if norm > to {
       let length = sqrt(norm)
-      self = self / length
+      result = result / length
     }
+    
+    return result
   }
   
   func normalize() -> Self {
@@ -291,13 +294,16 @@ public extension Array where Element == Double {
   }
   
   
-  @inlinable mutating func normalize(_ to: Element) {
+  @inlinable func normalize(_ to: Element) -> [Element] {
     //normalize gradients
-    let norm = self.sumOfSquares
+    var result = self
+    let norm = result.sumOfSquares
     if norm > to {
       let length = sqrt(norm)
-      self = self / length
+      result = result / length
     }
+    
+    return result
   }
   
   func normalize() -> Self {

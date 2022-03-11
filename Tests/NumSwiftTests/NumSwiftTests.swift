@@ -269,7 +269,12 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func testNormalize() {
+    let test: [Float] = [1,2,3,4]
+    let expected: Float = 1.0
     
+    let result = test.normalize(1.0)
+    
+    XCTAssertEqual(result.sumOfSquares, expected)
   }
 }
 

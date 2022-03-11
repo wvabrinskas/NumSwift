@@ -231,13 +231,17 @@ public extension NumSwift {
       let rowsC = rowsA
       let columnsC = columnsB
       
+      let aSize = rowsA * columnsA * MemoryLayout<Float>.stride
+      let bSize = rowsB * columnsB * MemoryLayout<Float>.stride
+      let cSize = rowsC * columnsC * MemoryLayout<Float>.stride
+      
       guard let bufferA = device.makeBuffer(bytes: arrayA,
-                                            length: rowsA * columnsA * MemoryLayout<Float>.stride,
+                                            length: aSize,
                                             options: []),
               let bufferB = device.makeBuffer(bytes: arrayB,
-                                              length: rowsB * columnsB * MemoryLayout<Float>.stride,
+                                              length: bSize,
                                               options: []),
-            let bufferC = device.makeBuffer(length: rowsC * columnsC * MemoryLayout<Float>.stride,
+            let bufferC = device.makeBuffer(length: cSize,
                                             options: []) else {
         return []
       }
@@ -245,23 +249,17 @@ public extension NumSwift {
       
       let descA = MPSMatrixDescriptor(rows: rowsA,
                                       columns: columnsA,
-                                      matrices: 1,
-                                      rowBytes: columnsA * MemoryLayout<Float>.stride,
-                                      matrixBytes: columnsA * rowsA * MemoryLayout<Float>.stride,
+                                      rowBytes: aSize / rowsA,
                                       dataType: .float32)
       
       let descB = MPSMatrixDescriptor(rows: rowsB,
                                       columns: columnsB,
-                                      matrices: 1,
-                                      rowBytes: columnsB * MemoryLayout<Float>.stride,
-                                      matrixBytes: columnsB * rowsB * MemoryLayout<Float>.stride,
+                                      rowBytes: bSize / rowsB,
                                       dataType: .float32)
       
       let descC =  MPSMatrixDescriptor(rows: rowsC,
                                        columns: columnsC,
-                                       matrices: 1,
-                                       rowBytes: columnsC * MemoryLayout<Float>.stride,
-                                       matrixBytes: columnsC * rowsC * MemoryLayout<Float>.stride,
+                                       rowBytes: cSize / rowsC,
                                        dataType: .float32)
 
       let matrixA = MPSMatrix(buffer: bufferA, descriptor: descA)

@@ -24,12 +24,6 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(result, expected)
   }
   
-  func testConv2dValid() {
-    let a: [[Float]] = [[Float]](repeating: [Float](repeating: 1, count: 16), count: 16)
-    let b: [[Float]] =  [[Float]](repeating: [Float](repeating: 1, count: 16), count: 16)
-    print(NumSwift.conv2dValid(signal: a.zeroPad(), filter: b))
-  }
-  
   func testFill() {
     let r = [1,1,1,1,1,1,1]
     
@@ -104,13 +98,15 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func testFlip() {
-    let v: [[Float]] = [[1,2],
-                        [3,4]]
+    let v: [[Float]] = [[1,2,3],
+                        [4,5,6],
+                        [7,8,9]]
     
     let r = v.flip180()
     
-    let expected: [[Float]] = [[4, 3],
-                               [2, 1]]
+    let expected: [[Float]] = [[9, 8, 7],
+                               [6, 5, 4],
+                               [3, 2, 1]]
     
     XCTAssertEqual(r, expected)
   }
@@ -223,7 +219,6 @@ final class NumSwiftTests: XCTestCase {
     
     let output = input.reshape(columns: 3)
     
-    print(output)
     XCTAssert(output == expected)
   }
   
@@ -273,30 +268,8 @@ final class NumSwiftTests: XCTestCase {
     }
   }
   
-  func testMetal() {
-    let n1: [Float] = [1, 1, 1]
-    let n2: [Float] = [2, 2, 2]
-    let n3: [Float] = [3, 3, 3]
+  func testNormalize() {
     
-    let layer = [n1, n2 , n3]
-    var layerMapped = layer.flatMap({ $0 })
-    
-    layerMapped = layerMapped.transpose(columns: 3, rows: 3)
-    
-    let inputs: [Float] = [2,
-                           2,
-                           2]
-
-    let expected: [Float] = [6.0, 12.0, 18.0]
-    
-    let mtl = NumSwift.GPU()
-    
-    let a = NumSwift.GPUData(layerMapped, (3,3))
-    let b = NumSwift.GPUData(inputs, (3, 1))
-    
-    let result = mtl.matrixMult(a: a, b: b)
-    
-    XCTAssertEqual(result, expected)
   }
 }
 

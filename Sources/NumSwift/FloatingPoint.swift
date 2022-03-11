@@ -128,6 +128,16 @@ public extension Array where Element == Float {
     vDSP.fill(&self, with: .zero)
   }
   
+  
+  @inlinable mutating func normalize(_ to: Element) {
+    //normalize gradients
+    let norm = self.sumOfSquares
+    if norm > to {
+      let length = sqrt(norm)
+      self = self / length
+    }
+  }
+  
   func normalize() -> Self {
     var mean: Float = 0
     var std: Float = 0
@@ -278,6 +288,16 @@ public extension Array where Element == Double {
   
   var min: Element {
     vDSP.minimum(self)
+  }
+  
+  
+  @inlinable mutating func normalize(_ to: Element) {
+    //normalize gradients
+    let norm = self.sumOfSquares
+    if norm > to {
+      let length = sqrt(norm)
+      self = self / length
+    }
   }
   
   func normalize() -> Self {

@@ -132,16 +132,26 @@ public extension Array where Element == Float {
     self = self.map { Swift.max(-to, Swift.min(to, $0)) }
   }
   
-  @inlinable mutating func normalize(_ to: Element) {
+  @inlinable mutating func l1Normalize(limit: Element) {
+    //normalize gradients
+    let norm = self.sum
+    if norm > limit {
+      self = self / norm
+    }
+  }
+  
+  @inlinable mutating func l2Normalize(limit: Element) {
     //normalize gradients
     let norm = self.sumOfSquares
-    if norm > to {
+    if norm > limit {
       let length = sqrt(norm)
       self = self / length
     }
   }
   
-  func normalize() -> Self {
+  /// Normalizes input to have 0 mean and 1 unit standard deviation
+  @discardableResult
+  @inlinable mutating func normalize() -> (mean: Element, std: Element) {
     var mean: Float = 0
     var std: Float = 0
     var result: [Float] = [Float](repeating: 0, count: self.count)
@@ -152,8 +162,8 @@ public extension Array where Element == Float {
                    &mean,
                    &std,
                    vDSP_Length(self.count))
-    
-    return result
+    self = result
+    return (mean, std)
   }
   
   func reverse() -> Self {
@@ -297,19 +307,29 @@ public extension Array where Element == Double {
     self = self.map { Swift.max(-to, Swift.min(to, $0)) }
   }
   
-  @inlinable mutating func normalize(_ to: Element) {
+  @inlinable mutating func l1Normalize(limit: Element) {
+    //normalize gradients
+    let norm = self.sum
+    if norm > limit {
+      self = self / norm
+    }
+  }
+  
+  @inlinable mutating func l2Normalize(limit: Element) {
     //normalize gradients
     let norm = self.sumOfSquares
-    if norm > to {
+    if norm > limit {
       let length = sqrt(norm)
       self = self / length
     }
   }
   
-  func normalize() -> Self {
-    var mean: Double = 0
-    var std: Double = 0
-    var result: [Double] = [Double](repeating: 0, count: self.count)
+  /// Normalizes input to have 0 mean and 1 unit standard deviation
+  @discardableResult
+  @inlinable mutating func normalize() -> (mean: Element, std: Element) {
+    var mean: Element = 0
+    var std: Element = 0
+    var result: [Element] = [Element](repeating: 0, count: self.count)
     vDSP_normalizeD(self,
                    vDSP_Stride(1),
                    &result,
@@ -317,8 +337,8 @@ public extension Array where Element == Double {
                    &mean,
                    &std,
                    vDSP_Length(self.count))
-    
-    return result
+    self = result
+    return (mean, std)
   }
   
   func reverse() -> Self {

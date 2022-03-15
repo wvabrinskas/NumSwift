@@ -128,6 +128,9 @@ public extension Array where Element == Float {
     vDSP.fill(&self, with: .zero)
   }
   
+  @inlinable mutating func clip(_ to: Element) {
+    self = self.map { Swift.max(-to, Swift.min(to, $0)) }
+  }
   
   @inlinable mutating func normalize(_ to: Element) {
     //normalize gradients
@@ -290,6 +293,9 @@ public extension Array where Element == Double {
     vDSP.minimum(self)
   }
   
+  @inlinable mutating func clip(_ to: Element) {
+    self = self.map { Swift.max(-to, Swift.min(to, $0)) }
+  }
   
   @inlinable mutating func normalize(_ to: Element) {
     //normalize gradients

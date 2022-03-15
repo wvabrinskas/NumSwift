@@ -268,6 +268,11 @@ final class NumSwiftTests: XCTestCase {
     }
   }
   
+  func testClip() {
+    var test: [Float] = [-0.2, 5.0, -0.5, 1.0]
+    print(test.clip(0.5))
+  }
+  
   func testNormalize() {
     var test: [Float] = [1,2,3,4]
     let expected: Float = 1.0

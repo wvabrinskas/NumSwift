@@ -140,6 +140,8 @@ public extension Array where Element == Float {
     }
   }
   
+  /// Will normalize the vector using the L2 norm to 1.0 if the sum of squares is greater than the limit
+  /// - Parameter limit: the sumOfSquares limit that when reached it should normalize
   @inlinable mutating func l2Normalize(limit: Element) {
     //normalize gradients
     let norm = self.sumOfSquares
@@ -315,6 +317,8 @@ public extension Array where Element == Double {
     }
   }
   
+  /// Will normalize the vector using the L2 norm to 1.0 if the sum of squares is greater than the limit
+  /// - Parameter limit: the sumOfSquares limit that when reached it should normalize
   @inlinable mutating func l2Normalize(limit: Element) {
     //normalize gradients
     let norm = self.sumOfSquares

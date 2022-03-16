@@ -159,9 +159,9 @@ final class NumSwiftTests: XCTestCase {
                            2,
                            2]
     
-    let output = inputs.multiDotProduct(B: layerMapped,
-                                        columns: Int32(3),
-                                        rows: Int32(3))
+    let output = inputs.multiply(B: layerMapped,
+                                 columns: Int32(3),
+                                 rows: Int32(3))
     
     let expected: [Float] = [6.0, 12.0, 18.0]
     

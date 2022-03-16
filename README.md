@@ -9,7 +9,7 @@
 
 [![Tests](https://github.com/wvabrinskas/NumSwift/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/wvabrinskas/NumSwift/actions/workflows/tests.yml)
 
-Adds array arithmetic to Swift. 
+Adds complex arithmetic to Swift with support for array arithmetic. Utilizes Apple's `Accelerate` framework when possible.
 
 ## Usage 
 ### Addition 
@@ -105,3 +105,27 @@ The subarrays must all be the same length
     print(testArray.shape)
 ```
 
+### Matrix arithmetic
+`multiply(B: [Element], columns: Int32, rows: Int32, dimensions: Int32 = 1) -> [Element]`
+
+`dot(_ b: [Element]) -> Element`
+
+`transpose(columns: Int, rows: Int) -> [Element]`
+
+#### Multidimensional 
+```
+conv2D(_ filter: [[Double]],
+              filterSize: (rows: Int, columns: Int),
+              inputSize: (rows: Int, columns: Int)) -> Element
+
+conv2D(_ filter: [[Float]],
+              filterSize: (rows: Int, columns: Int),
+              inputSize: (rows: Int, columns: Int)) -> Element 
+```
+
+### Vector normalization 
+`func l2Normalize(limit: Element)`
+
+`func l1Normalize(limit: Element)`
+
+`clip(_ to: Element)`

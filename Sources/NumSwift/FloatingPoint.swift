@@ -1,74 +1,91 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by William Vabrinskas on 1/22/22.
 //
 
 import Foundation
 import Accelerate
+import CloudKit
 
 public extension Array where Element == [Double] {
   /// Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
   /// - Parameter filter: filter to apply
   /// - Returns: 2D convolution result as a 1D array
-  func conv2D(_ filter: [[Double]]) -> Element {
-    let filterShape = filter.shape
-    guard let filterRows = filterShape[safe: 0],
-          let filterColumns = filterShape[safe: 1] else {
-            return []
-          }
+  func conv2D(_ filter: [[Double]],
+              filterSize: (rows: Int, columns: Int),
+              inputSize: (rows: Int, columns: Int)) -> Element {
+    let filterRows = filterSize.rows
+    let filterColumns = filterSize.columns
     
     let flatKernel = filter.flatMap { $0 }
     let flat = flatMap { $0 }
-    let shape = shape
     
-    if let rows = shape[safe: 0],
-        let columns = shape[safe: 1] {
-      let conv = vDSP.convolve(flat,
-                               rowCount: rows,
-                               columnCount: columns,
-                               withKernel: flatKernel,
-                               kernelRowCount: filterRows,
-                               kernelColumnCount: filterColumns)
-      
-      return conv
-    }
+    let conv = vDSP.convolve(flat,
+                             rowCount: inputSize.rows,
+                             columnCount: inputSize.columns,
+                             withKernel: flatKernel,
+                             kernelRowCount: filterRows,
+                             kernelColumnCount: filterColumns)
     
-    return []
+    return conv
+  }
+  
+  func flip180() -> Self {
+    self.reversed().map { $0.reverse() }
   }
 }
 
 
 public extension Array where Element == [Float] {
+
+  func zeroPad() -> Self {
+    guard let first = self.first else {
+      return self
+    }
+    
+    let result: [Element] = self
+
+    let mapped = result.map { r -> [Float] in
+      var newR: [Float] = [0]
+      newR.append(contentsOf: r)
+      newR.append(0)
+      return newR
+    }
+    
+    let zeros = [Float](repeating: 0, count: first.count + 2)
+    var r = [zeros]
+    r.append(contentsOf: mapped)
+    r.append(zeros)
+        
+    return r
+  }
   
   /// Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
   /// - Parameter filter: filter to apply
   /// - Returns: 2D convolution result as a 1D array
-  func conv2D(_ filter: [[Float]]) -> Element {
-    let filterShape = filter.shape
-    guard let filterRows = filterShape[safe: 0],
-          let filterColumns = filterShape[safe: 1] else {
-            return []
-          }
+  func conv2D(_ filter: [[Float]],
+              filterSize: (rows: Int, columns: Int),
+              inputSize: (rows: Int, columns: Int)) -> Element {
+    let filterRows = filterSize.rows
+    let filterColumns = filterSize.columns
     
     let flatKernel = filter.flatMap { $0 }
     let flat = flatMap { $0 }
-    let shape = shape
     
-    if let rows = shape[safe: 0],
-        let columns = shape[safe: 1] {
-      let conv = vDSP.convolve(flat,
-                               rowCount: rows,
-                               columnCount: columns,
-                               withKernel: flatKernel,
-                               kernelRowCount: filterRows,
-                               kernelColumnCount: filterColumns)
-      
-      return conv
-    }
+    let conv = vDSP.convolve(flat,
+                             rowCount: inputSize.rows,
+                             columnCount: inputSize.columns,
+                             withKernel: flatKernel,
+                             kernelRowCount: filterRows,
+                             kernelColumnCount: filterColumns)
     
-    return []
+    return conv
+  }
+
+  func flip180() -> Self {
+    self.reversed().map { $0.reverse() }
   }
 }
 
@@ -106,20 +123,55 @@ public extension Array where Element == Float {
   var mean: Element {
     vDSP.mean(self)
   }
-
-  func reshape(columns: Int) -> [[Element]] {
-    var twoDResult: [[Element]] = []
-    var oneDResult: [Element] = []
-      
-    for i in 0..<count {
-      oneDResult.append(self[i])
-      if (i + 1) % columns == 0 {
-        twoDResult.append(oneDResult)
-        oneDResult = []
-      }
+  
+  mutating func fillZeros() {
+    vDSP.fill(&self, with: .zero)
+  }
+  
+  @inlinable mutating func clip(_ to: Element) {
+    self = self.map { Swift.max(-to, Swift.min(to, $0)) }
+  }
+  
+  @inlinable mutating func l1Normalize(limit: Element) {
+    //normalize gradients
+    let norm = self.sum
+    if norm > limit {
+      self = self / norm
     }
-    
-    return twoDResult
+  }
+  
+  /// Will normalize the vector using the L2 norm to 1.0 if the sum of squares is greater than the limit
+  /// - Parameter limit: the sumOfSquares limit that when reached it should normalize
+  @inlinable mutating func l2Normalize(limit: Element) {
+    //normalize gradients
+    let norm = self.sumOfSquares
+    if norm > limit {
+      let length = sqrt(norm)
+      self = self / length
+    }
+  }
+  
+  /// Normalizes input to have 0 mean and 1 unit standard deviation
+  @discardableResult
+  @inlinable mutating func normalize() -> (mean: Element, std: Element) {
+    var mean: Float = 0
+    var std: Float = 0
+    var result: [Float] = [Float](repeating: 0, count: self.count)
+    vDSP_normalize(self,
+                   vDSP_Stride(1),
+                   &result,
+                   vDSP_Stride(1),
+                   &mean,
+                   &std,
+                   vDSP_Length(self.count))
+    self = result
+    return (mean, std)
+  }
+  
+  func reverse() -> Self {
+    var result = self
+    vDSP.reverse(&result)
+    return result
   }
   
   func dot(_ b: [Element]) -> Element {
@@ -139,7 +191,7 @@ public extension Array where Element == Float {
     return C
   }
   
-  func multiDotProduct(B: [Element], columns: Int32, rows: Int32, dimensions: Int32 = 1) -> [Element] {
+  func multiply(B: [Element], columns: Int32, rows: Int32, dimensions: Int32 = 1) -> [Element] {
     let M = vDSP_Length(dimensions)
     let N = vDSP_Length(columns)
     let K = vDSP_Length(rows)
@@ -211,6 +263,11 @@ public extension Array where Element == Float {
     precondition(lhs.count == rhs.count)
     return vDSP.divide(lhs, rhs)
   }
+  
+  static func /(lhs: [Element], rhs: Element) -> [Element] {
+    return vDSP.divide(lhs, rhs)
+  }
+  
 }
 
 //use accelerate
@@ -248,19 +305,54 @@ public extension Array where Element == Double {
     vDSP.minimum(self)
   }
   
-  func reshape(columns: Int) -> [[Element]] {
-    var twoDResult: [[Element]] = []
-    var oneDResult: [Element] = []
-      
-    for i in 0..<count {
-      oneDResult.append(self[i])
-      if (i + 1) % columns == 0 {
-        twoDResult.append(oneDResult)
-        oneDResult = []
-      }
+  @inlinable mutating func clip(_ to: Element) {
+    self = self.map { Swift.max(-to, Swift.min(to, $0)) }
+  }
+  
+  @inlinable mutating func l1Normalize(limit: Element) {
+    //normalize gradients
+    let norm = self.sum
+    if norm > limit {
+      self = self / norm
     }
-    
-    return twoDResult
+  }
+  
+  /// Will normalize the vector using the L2 norm to 1.0 if the sum of squares is greater than the limit
+  /// - Parameter limit: the sumOfSquares limit that when reached it should normalize
+  @inlinable mutating func l2Normalize(limit: Element) {
+    //normalize gradients
+    let norm = self.sumOfSquares
+    if norm > limit {
+      let length = sqrt(norm)
+      self = self / length
+    }
+  }
+  
+  /// Normalizes input to have 0 mean and 1 unit standard deviation
+  @discardableResult
+  @inlinable mutating func normalize() -> (mean: Element, std: Element) {
+    var mean: Element = 0
+    var std: Element = 0
+    var result: [Element] = [Element](repeating: 0, count: self.count)
+    vDSP_normalizeD(self,
+                   vDSP_Stride(1),
+                   &result,
+                   vDSP_Stride(1),
+                   &mean,
+                   &std,
+                   vDSP_Length(self.count))
+    self = result
+    return (mean, std)
+  }
+  
+  func reverse() -> Self {
+    var result = self
+    vDSP.reverse(&result)
+    return result
+  }
+
+  mutating func fillZeros() {
+    vDSP.fill(&self, with: .zero)
   }
   
   func dot(_ b: [Element]) -> Element {
@@ -280,7 +372,7 @@ public extension Array where Element == Double {
     return C
   }
   
-  func multiDotProduct(B: [Element], columns: Int32, rows: Int32, dimensions: Int32 = 1) -> [Element] {
+  func multiply(B: [Element], columns: Int32, rows: Int32, dimensions: Int32 = 1) -> [Element] {
     let M = vDSP_Length(dimensions)
     let N = vDSP_Length(columns)
     let K = vDSP_Length(rows)

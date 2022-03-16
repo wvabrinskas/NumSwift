@@ -1,30 +1,14 @@
 import Foundation
 import Accelerate
 
-public extension Array {
-  subscript(safe safeIndex: Int) -> Element? {
-    if safeIndex < self.count {
-      return self[safeIndex]
-    }
-    
-    return nil
-  }
-  
+public extension Collection {
+  /// Returns the shape of an N-dimensional array, ex 3D array -> (Col, Row, Dep)
   var shape: [Int] {
     var results: [Int] = []
     
     var currentElement: Any = self
     
     while let current = currentElement as? Array<Any> {
-      
-      if let currentArray = current as? Array<Array<Any>> {
-        if let first = currentArray.first,
-           currentArray.allSatisfy({ $0.count == first.count }) == false {
-          fatalError("ERROR: Using shape on an array where all elements arent the same length is not allowed.")
-          break
-        }
-      }
-      
       results.append(current.count)
       
       if let next = current.first {
@@ -34,8 +18,60 @@ public extension Array {
       }
     }
     
-    return results
+    return results.reversed()
   }
+}
+
+public extension Collection where Self.Iterator.Element: RandomAccessCollection {
+
+  // PRECONDITION: `self` must be rectangular, i.e. every row has equal size.
+  
+  /// Transposes an array. Does not use the vDSP library for fast transpose
+  /// - Returns: transposed array 
+  public func transposed() -> [[Self.Iterator.Element.Iterator.Element]] {
+    guard let firstRow = self.first else { return [] }
+    return firstRow.indices.map { index in
+      self.map{ $0[index] }
+    }
+  }
+}
+
+
+public extension Array {
+  subscript(safe safeIndex: Int) -> Element? {
+    if safeIndex < self.count {
+      return self[safeIndex]
+    }
+    
+    return nil
+  }
+
+  
+  func concurrentForEach(_ block: (_ element: Element, _ index: Int) -> ()) {
+    let group = DispatchGroup()
+
+    DispatchQueue.concurrentPerform(iterations: self.count) { i in
+      group.enter()
+      block(self[i], i)
+      group.leave()
+    }
+    
+    group.wait()
+  }
+  
+  func reshape(columns: Int) -> [[Element]] {
+    var twoDResult: [[Element]] = []
+          
+    for c in stride(from: 0, through: self.count, by: columns) {
+      if c + columns <= self.count {
+        let row = Array(self[c..<c + columns])
+        twoDResult.append(row)
+      }
+    }
+    
+    return twoDResult
+  }
+  
 }
 
 public extension Array where Element: Equatable & Numeric {

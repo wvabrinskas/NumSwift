@@ -191,7 +191,7 @@ public extension Array where Element == Float {
     return C
   }
   
-  func multiDotProduct(B: [Element], columns: Int32, rows: Int32, dimensions: Int32 = 1) -> [Element] {
+  func multiply(B: [Element], columns: Int32, rows: Int32, dimensions: Int32 = 1) -> [Element] {
     let M = vDSP_Length(dimensions)
     let N = vDSP_Length(columns)
     let K = vDSP_Length(rows)
@@ -372,7 +372,7 @@ public extension Array where Element == Double {
     return C
   }
   
-  func multiDotProduct(B: [Element], columns: Int32, rows: Int32, dimensions: Int32 = 1) -> [Element] {
+  func multiply(B: [Element], columns: Int32, rows: Int32, dimensions: Int32 = 1) -> [Element] {
     let M = vDSP_Length(dimensions)
     let N = vDSP_Length(columns)
     let K = vDSP_Length(rows)

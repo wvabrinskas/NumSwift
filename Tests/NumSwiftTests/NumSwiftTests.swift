@@ -284,6 +284,27 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(test.sumOfSquares, expected)
   }
   
+  func testFlatten() {
+    let data: [[[Float]]] = [[[0, 0, 1, 0, 0],
+                              [0, 0, 1, 0, 0],
+                              [0, 0, 1, 0, 0],
+                              [0, 0, 1, 0, 0],
+                              [0, 0, 1, 0, 0]]]
+    
+    let r: [Float] = data.flatten()
+    let expected: [Float] = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+    XCTAssertFalse(r.isEmpty)
+    XCTAssertEqual(r, expected)
+    
+    let data2D: [[Float]] = [[1, 1, 1],
+                              [2, 2, 2]]
+    
+    let r2D: [Float] = data2D.flatten()
+    let expected2D: [Float] = [1,1,1,2,2,2]
+    XCTAssertFalse(r2D.isEmpty)
+    XCTAssertEqual(r2D, expected2D)
+  }
+  
   //this fails in the CI for some reason...probably some float logic
 //  func testNormalization() {
 //    var test: [Float] = [1,2,3,4]

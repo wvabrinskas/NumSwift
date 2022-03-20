@@ -20,6 +20,23 @@ public extension Collection {
     
     return results.reversed()
   }
+  
+  func flatten<T>() -> [T] {
+    var results: [Any] = self as? [Any] ?? []
+    
+    var iterator = results.makeIterator()
+    
+    while results.first as? T == nil {
+      results = []
+      while let i = iterator.next() as? Array<Any> {
+        results.append(contentsOf: i)
+      }
+      
+      iterator = results.makeIterator()
+    }
+
+    return results as? [T] ?? []
+  }
 }
 
 public extension Collection where Self.Iterator.Element: RandomAccessCollection {
@@ -28,7 +45,7 @@ public extension Collection where Self.Iterator.Element: RandomAccessCollection 
   
   /// Transposes an array. Does not use the vDSP library for fast transpose
   /// - Returns: transposed array 
-  public func transposed() -> [[Self.Iterator.Element.Iterator.Element]] {
+  func transposed() -> [[Self.Iterator.Element.Iterator.Element]] {
     guard let firstRow = self.first else { return [] }
     return firstRow.indices.map { index in
       self.map{ $0[index] }

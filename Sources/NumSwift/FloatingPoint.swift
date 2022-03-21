@@ -10,6 +10,28 @@ import Accelerate
 import CloudKit
 
 public extension Array where Element == [Double] {
+  func zeroPad() -> Self {
+    guard let first = self.first else {
+      return self
+    }
+    
+    let result: [Element] = self
+
+    let mapped = result.map { r -> [Double] in
+      var newR: [Double] = [0]
+      newR.append(contentsOf: r)
+      newR.append(0)
+      return newR
+    }
+    
+    let zeros = [Double](repeating: 0, count: first.count + 2)
+    var r = [zeros]
+    r.append(contentsOf: mapped)
+    r.append(zeros)
+        
+    return r
+  }
+  
   func stridePad(strides: (rows: Int, columns: Int)) -> Self {
     guard let firstCount = self.first?.count else {
       return self

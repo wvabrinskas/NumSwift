@@ -197,6 +197,29 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(expected, padded)
   }
   
+  func testT() {
+    let test: [[Float]] = [[1.0, 0.0, 2.0, 0.0],
+                           [0.0, 0.0, 0.0, 0.0],
+                           [3.0, 0.0, 4.0, 0.0],
+                           [0.0, 0.0, 0.0, 0.0]]
+    
+    print(test[0...1].map { $0[0...1]})
+  }
+  
+  func testConv2DTransCustom() {
+    let filter: [[Float]] = [[Float]](repeating: [0,1,0], count: 3)
+    
+    let signal: [[Float]] = [[Float]](repeating: [0,0,0,1,0,0,0], count: 7)
+    
+    let r = NumSwift.transConv2d(signal: signal, filter: filter, strides: (2,2), padding: .same)
+    
+    let inputShape = signal.shape
+    let outputShape = r.shape
+    
+    let expected = [inputShape[0] * 2, inputShape[1] * 2]
+    XCTAssertEqual(outputShape, expected)
+  }
+  
   func test2DConvTranspose() {
     let filter: [[Float]] = [[0, 1, 0],
                              [0, 1, 0],

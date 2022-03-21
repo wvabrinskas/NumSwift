@@ -15,6 +15,10 @@ import UIKit
 
 public class NumSwift {
   
+  public enum ConvPadding {
+    case same, valid
+  }
+  
   public static func zerosLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float]]] {
     let shape = [size.columns, size.rows, size.depth]
     
@@ -71,7 +75,136 @@ public class NumSwift {
     return result
   }
   
-  public static func conv2dValid(signal: [[Float]], filter: [[Float]]) -> [[Float]] {
+  public static func transConv2dD(signal: [[Double]],
+                                 filter: [[Double]],
+                                 strides: (Int, Int) = (1,1),
+                                 padding: ConvPadding = .valid) -> [[Double]] {
+    let filterShape = filter.shape
+    
+    guard let rF = filterShape[safe: 0],
+          let cF = filterShape[safe: 1] else {
+      return []
+    }
+    
+    let shape = signal.shape
+    
+    guard let rS = shape[safe: 0],
+          let cS = shape[safe: 1] else {
+      return []
+    }
+    
+    let rows = (rS - 1) * strides.0 + rF
+    let columns = (cS - 1) * strides.1 + cF
+    
+    var result: [[Double]] = NumSwift.zerosLike((rows: rows,
+                                                columns: columns))
+    
+    for i in 0..<rS {
+      let iPrime = i * strides.0
+      
+      for j in 0..<cS {
+        
+        let jPrime = j * strides.1
+        
+        for r in 0..<rF {
+          for c in 0..<cF {
+            
+            result[iPrime + r][jPrime + c] += signal[i][j] * filter[r][c]
+          }
+        }
+      }
+    }
+    
+    var padLeft = 0
+    var padRight = 0
+    var padTop = 0
+    var padBottom = 0
+  
+    switch padding {
+    case .same:
+      padLeft = Int(floor(Double(rF - strides.0) / Double(2)))
+      padRight = rF - strides.0 - padLeft
+      padTop = Int(floor(Double(cF - strides.1) / Double(2)))
+      padBottom = cF - strides.1 - padTop
+
+    case .valid:
+      break
+    }
+    
+    let padded = Array(result[padLeft..<rows - padRight].map { Array($0[padTop..<columns - padBottom]) })
+    return padded
+  }
+  
+  public static func transConv2d(signal: [[Float]],
+                                 filter: [[Float]],
+                                 strides: (Int, Int) = (1,1),
+                                 padding: ConvPadding = .valid) -> [[Float]] {
+    let filterShape = filter.shape
+    
+    guard let rF = filterShape[safe: 0],
+          let cF = filterShape[safe: 1] else {
+      return []
+    }
+    
+    let shape = signal.shape
+    
+    guard let rS = shape[safe: 0],
+          let cS = shape[safe: 1] else {
+      return []
+    }
+    
+    let rows = (rS - 1) * strides.0 + rF
+    let columns = (cS - 1) * strides.1 + cF
+    
+    var result: [[Float]] = NumSwift.zerosLike((rows: rows,
+                                                columns: columns))
+    
+    for i in 0..<rS {
+      let iPrime = i * strides.0
+      
+      for j in 0..<cS {
+        
+        let jPrime = j * strides.1
+        
+        for r in 0..<rF {
+          for c in 0..<cF {
+            
+            result[iPrime + r][jPrime + c] += signal[i][j] * filter[r][c]
+          }
+        }
+      }
+    }
+    
+    var padLeft = 0
+    var padRight = 0
+    var padTop = 0
+    var padBottom = 0
+  
+    switch padding {
+    case .same:
+      padLeft = Int(floor(Double(rF - strides.0) / Double(2)))
+      padRight = rF - strides.0 - padLeft
+      padTop = Int(floor(Double(cF - strides.1) / Double(2)))
+      padBottom = cF - strides.1 - padTop
+
+    case .valid:
+      break
+    }
+    
+    let padded = Array(result[padLeft..<rows - padRight].map { Array($0[padTop..<columns - padBottom]) })
+    return padded
+  }
+  
+  public static func conv2d(signal: [[Float]],
+                            filter: [[Float]],
+                            strides: (Int, Int) = (1,1),
+                            padding: Int = 0) -> [[Float]] {
+    
+    var signal = signal
+    for _ in 0..<padding {
+      signal = signal.zeroPad()
+    }
+    
     let filterShape = filter.shape
     
     guard let rf = filterShape[safe: 0],
@@ -88,12 +221,16 @@ public class NumSwift {
     
     var results: [[Float]] = []
     
-    for r in 0...rd - rf {
+    let maxR = rd - rf + 1
+    let maxC = cd - cf + 1
+    
+    for r in stride(from: 0, to: maxR, by: strides.0) {
       var result: [Float] = []
       
-      for c in 0...cd - cf {
+      for c in stride(from: 0, to: maxC, by: strides.1) {
         
         var sum: Float = 0
+        
         for fr in 0..<rf {
           let dataRow = Array(signal[r + fr][c..<c + cf])
           let filterRow = filter[fr]
@@ -109,7 +246,16 @@ public class NumSwift {
     return results
   }
   
-  public static func conv2dValidD(signal: [[Double]], filter: [[Double]]) -> [[Double]] {
+  public static func conv2dD(signal: [[Double]],
+                            filter: [[Double]],
+                            strides: (Int, Int) = (1,1),
+                            padding: Int = 0) -> [[Double]] {
+    
+    var signal = signal
+    for _ in 0..<padding {
+      signal = signal.zeroPad()
+    }
+    
     let filterShape = filter.shape
     
     guard let rf = filterShape[safe: 0],
@@ -119,34 +265,38 @@ public class NumSwift {
     
     let shape = signal.shape
     
-    if let rd = shape[safe: 0],
-       let cd = shape[safe: 1] {
-      
-      var results: [[Double]] = []
-      
-      for r in 0..<rd - rf {
-        var result: [Double] = []
-        
-        for c in 0..<cd - cf {
-          
-          var sum: Double = 0
-          for fr in 0..<rf {
-            let dataRow = Array(signal[r + fr][c..<c + cf])
-            let filterRow = filter[fr]
-            let mult = (filterRow * dataRow).sum
-            sum += mult
-          }
-          result.append(sum)
-        }
-        
-        results.append(result)
-      }
-      
-      return results
+    guard let rd = shape[safe: 0],
+          let cd = shape[safe: 1] else {
+      return []
     }
     
-    return []
+    var results: [[Double]] = []
+    
+    let maxR = rd - rf + 1
+    let maxC = cd - cf + 1
+    
+    for r in stride(from: 0, to: maxR, by: strides.0) {
+      var result: [Double] = []
+      
+      for c in stride(from: 0, to: maxC, by: strides.1) {
+        
+        var sum: Double = 0
+        
+        for fr in 0..<rf {
+          let dataRow = Array(signal[r + fr][c..<c + cf])
+          let filterRow = filter[fr]
+          let mult = (filterRow * dataRow).sum
+          sum += mult
+        }
+        result.append(sum)
+      }
+      
+      results.append(result)
+    }
+    
+    return results
   }
+  
   
 }
 

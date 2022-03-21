@@ -183,6 +183,20 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(expected, layerMapped)
   }
   
+  func testStridePadding() {
+    let test: [[Float]] = [[1, 2],
+                           [3, 4]]
+    
+    let padded = test.stridePad(strides: (2,2))
+    
+    let expected: [[Float]] = [[1.0, 0.0, 2.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0],
+                               [3.0, 0.0, 4.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0]]
+    
+    XCTAssertEqual(expected, padded)
+  }
+  
   func test2DConvTranspose() {
     let filter: [[Float]] = [[0, 1, 0],
                              [0, 1, 0],
@@ -193,23 +207,25 @@ final class NumSwiftTests: XCTestCase {
                            [0, 0, 1, 0, 0],
                            [0, 0, 1, 0, 0],
                            [0, 0, 1, 0, 0]]
-    
-    let padded = data.zeroPad()
-    
-    let conv = padded.conv2D(filter,
+        
+    let conv = data.conv2D(filter,
+                           strides: (2,2),
                            filterSize: (3, 3),
-                           inputSize: (5 + 2, 5 + 2))
+                           inputSize: (5, 5))
     
-    let rows = conv.reshape(columns: 7)
+    let rows = conv.reshape(columns: 10)
     
-    let expected: [[Float]] =  [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                                [0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0],
-                                [0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0],
-                                [0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0],
-                                [0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0],
-                                [0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0],
-                                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
-    
+    let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
+
     XCTAssert(expected == rows)
   }
   

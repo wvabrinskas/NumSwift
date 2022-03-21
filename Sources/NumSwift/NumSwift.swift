@@ -29,6 +29,20 @@ public class NumSwift {
     return result as? [[[Float]]] ?? []
   }
   
+  public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Double]] {
+    let shape = [size.columns, size.rows]
+    
+    var result: [Any]  = []
+    var previous: Any = Double.zero
+    
+    shape.forEach { s in
+      result = Array(repeatElement(previous, count: s))
+      previous = result
+    }
+    
+    return result as? [[Double]] ?? []
+  }
+  
   public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Float]] {
     let shape = [size.columns, size.rows]
     

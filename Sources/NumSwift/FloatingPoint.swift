@@ -10,21 +10,53 @@ import Accelerate
 import CloudKit
 
 public extension Array where Element == [Double] {
+  func stridePad(strides: (rows: Int, columns: Int)) -> Self {
+    guard let firstCount = self.first?.count else {
+      return self
+    }
+    
+    let numToPad = (strides.rows - 1, strides.columns - 1)
+    
+    let newRows = count * strides.rows
+    let newColumns = firstCount * strides.columns
+    
+    var result: [[Double]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
+    
+    var mutableSelf: [Double] = self.flatten()
+    if numToPad.0 > 0 || numToPad.1 > 0 {
+      
+      for r in stride(from: 0, to: newRows, by: strides.rows) {
+        for c in stride(from: 0, to: newColumns, by: strides.columns) {
+            result[r][c] = mutableSelf.removeFirst()
+        }
+      }
+      
+    } else {
+      return self
+    }
+    
+    return result
+  }
+  
   /// Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
   /// - Parameter filter: filter to apply
   /// - Returns: 2D convolution result as a 1D array
   func conv2D(_ filter: [[Double]],
+              strides: (rows: Int, columns: Int) = (1,1),
               filterSize: (rows: Int, columns: Int),
               inputSize: (rows: Int, columns: Int)) -> Element {
     let filterRows = filterSize.rows
     let filterColumns = filterSize.columns
     
     let flatKernel = filter.flatMap { $0 }
-    let flat = flatMap { $0 }
+    
+    let padded = stridePad(strides: strides)
+    
+    let flat = padded.flatMap { $0 }
     
     let conv = vDSP.convolve(flat,
-                             rowCount: inputSize.rows,
-                             columnCount: inputSize.columns,
+                             rowCount: inputSize.rows * strides.rows,
+                             columnCount: inputSize.columns * strides.columns,
                              withKernel: flatKernel,
                              kernelRowCount: filterRows,
                              kernelColumnCount: filterColumns)
@@ -62,21 +94,53 @@ public extension Array where Element == [Float] {
     return r
   }
   
+  func stridePad(strides: (rows: Int, columns: Int)) -> Self {
+    guard let firstCount = self.first?.count else {
+      return self
+    }
+    
+    let numToPad = (strides.rows - 1, strides.columns - 1)
+    
+    let newRows = count * strides.rows
+    let newColumns = firstCount * strides.columns
+    
+    var result: [[Float]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
+    
+    var mutableSelf: [Float] = self.flatten()
+    if numToPad.0 > 0 || numToPad.1 > 0 {
+      
+      for r in stride(from: 0, to: newRows, by: strides.rows) {
+        for c in stride(from: 0, to: newColumns, by: strides.columns) {
+            result[r][c] = mutableSelf.removeFirst()
+        }
+      }
+      
+    } else {
+      return self
+    }
+    
+    return result
+  }
+  
   /// Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
   /// - Parameter filter: filter to apply
   /// - Returns: 2D convolution result as a 1D array
   func conv2D(_ filter: [[Float]],
+              strides: (rows: Int, columns: Int) = (1,1),
               filterSize: (rows: Int, columns: Int),
               inputSize: (rows: Int, columns: Int)) -> Element {
     let filterRows = filterSize.rows
     let filterColumns = filterSize.columns
     
     let flatKernel = filter.flatMap { $0 }
-    let flat = flatMap { $0 }
+    
+    let padded = stridePad(strides: strides)
+    
+    let flat = padded.flatMap { $0 }
     
     let conv = vDSP.convolve(flat,
-                             rowCount: inputSize.rows,
-                             columnCount: inputSize.columns,
+                             rowCount: inputSize.rows * strides.rows,
+                             columnCount: inputSize.columns * strides.columns,
                              withKernel: flatKernel,
                              kernelRowCount: filterRows,
                              kernelColumnCount: filterColumns)

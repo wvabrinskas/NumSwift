@@ -183,6 +183,36 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(expected, layerMapped)
   }
   
+  func test2DConvTranspose() {
+    let filter: [[Float]] = [[0, 1, 0],
+                             [0, 1, 0],
+                             [0, 1, 0]]
+    
+    let data: [[Float]] = [[0, 0, 1, 0, 0],
+                           [0, 0, 1, 0, 0],
+                           [0, 0, 1, 0, 0],
+                           [0, 0, 1, 0, 0],
+                           [0, 0, 1, 0, 0]]
+    
+    let padded = data.zeroPad()
+    
+    let conv = padded.conv2D(filter,
+                           filterSize: (3, 3),
+                           inputSize: (5 + 2, 5 + 2))
+    
+    let rows = conv.reshape(columns: 7)
+    
+    let expected: [[Float]] =  [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                [0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0],
+                                [0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0],
+                                [0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0],
+                                [0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0],
+                                [0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0],
+                                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
+    
+    XCTAssert(expected == rows)
+  }
+  
   func test2DConv() {
     let filter: [[Float]] = [[0, 1, 0],
                              [0, 1, 0],

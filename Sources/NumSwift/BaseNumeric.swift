@@ -26,8 +26,9 @@ public extension Collection {
     
     var iterator = results.makeIterator()
     
-    while results.first as? T == nil {
+    while results.first is Array<Any> {
       results = []
+      
       while let i = iterator.next() as? Array<Any> {
         results.append(contentsOf: i)
       }

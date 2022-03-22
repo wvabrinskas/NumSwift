@@ -372,6 +372,11 @@ final class NumSwiftTests: XCTestCase {
     let expected2D: [Float] = [1,1,1,2,2,2]
     XCTAssertFalse(r2D.isEmpty)
     XCTAssertEqual(r2D, expected2D)
+    
+    let dataEmpty: [[Float]] = [[],[]]
+    
+    let rEmpty: [Float] = dataEmpty.flatten()
+    XCTAssertEqual(rEmpty, [])
   }
   
   //this fails in the CI for some reason...probably some float logic

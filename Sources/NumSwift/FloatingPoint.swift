@@ -60,30 +60,61 @@ public extension Array where Element == [Double] {
     return result
   }
   
-  /// Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
-  /// - Parameter filter: filter to apply
+  ///Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
+  /// - Parameters:
+  ///   - filter: Filter to apply
+  ///   - padding: Zero padding applied to the input.
+  ///   - filterSize: Size of the filter (rows, columns)
+  ///   - inputSize: Input size (rows, columns)
   /// - Returns: 2D convolution result as a 1D array
   func conv2D(_ filter: [[Double]],
-              strides: (rows: Int, columns: Int) = (1,1),
+              padding: NumSwift.ConvPadding = .valid,
               filterSize: (rows: Int, columns: Int),
               inputSize: (rows: Int, columns: Int)) -> Element {
+    
+    let newInputSize = (inputSize.rows + (2 * padding.extra), inputSize.columns + (2 * padding.extra))
+    
+    var signal = self
+    
+    if padding == .same {
+      signal = signal.zeroPad()
+    }
+    
     let filterRows = filterSize.rows
     let filterColumns = filterSize.columns
     
     let flatKernel = filter.flatMap { $0 }
+        
+    let flat = signal.flatMap { $0 }
     
-    let padded = stridePad(strides: strides)
+    let conv: [Double] = vDSP.convolve(flat,
+                                      rowCount: newInputSize.0,
+                                      columnCount: newInputSize.1,
+                                      withKernel: flatKernel,
+                                      kernelRowCount: filterRows,
+                                      kernelColumnCount: filterColumns)
     
-    let flat = padded.flatMap { $0 }
+    //remove padded 0s
+    let paddingValue = padding.extra
+    let rows = (((inputSize.rows + 2 * paddingValue) - (filterSize.rows - 1) - 1)) + 1
+    let columns = (((inputSize.columns + 2 * paddingValue) - (filterSize.columns - 1) - 1)) + 1
+
+    let outputSize = (rows, columns) //+ 2 because the vDSP library above 0 pads everything
     
-    let conv = vDSP.convolve(flat,
-                             rowCount: inputSize.rows * strides.rows,
-                             columnCount: inputSize.columns * strides.columns,
-                             withKernel: flatKernel,
-                             kernelRowCount: filterRows,
-                             kernelColumnCount: filterColumns)
+    let starting: Int = outputSize.0 + 2
+    let ending: Int = conv.count - outputSize.0 + 2
     
-    return conv
+    let newConv = ArraySlice(conv[starting..<ending])
+    var results: [Double] = []
+    
+    for i in 0..<newConv.count {
+      let e = newConv[i]
+      if i % (outputSize.0 + 2) != 0 && (i + 1) % (outputSize.0 + 2) != 0 {
+        results.append(e)
+      }
+    }
+    
+    return results
   }
   
   func flip180() -> Self {
@@ -144,31 +175,116 @@ public extension Array where Element == [Float] {
     return result
   }
   
-  /// Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
-  /// - Parameter filter: filter to apply
-  /// - Returns: 2D convolution result as a 1D array
-  func conv2D(_ filter: [[Float]],
-              strides: (rows: Int, columns: Int) = (1,1),
-              filterSize: (rows: Int, columns: Int),
-              inputSize: (rows: Int, columns: Int)) -> Element {
+  func transConv2d(_ filter: [[Float]],
+                   strides: (rows: Int, columns: Int) = (1,1),
+                   padding: NumSwift.ConvPadding = .valid,
+                   filterSize: (rows: Int, columns: Int),
+                   inputSize: (rows: Int, columns: Int)) -> Element {
+    
+    let newInputSize = (inputSize.rows + (2 * padding.extra), inputSize.columns + (2 * padding.extra))
+    
+    var signal = self
+    
+    if padding == .same {
+      signal = signal.zeroPad()
+    }
     
     let filterRows = filterSize.rows
     let filterColumns = filterSize.columns
     
     let flatKernel = filter.flatMap { $0 }
     
-    let padded = stridePad(strides: strides)
+    let padded = signal.stridePad(strides: strides)
     
     let flat = padded.flatMap { $0 }
     
-    let conv = vDSP.convolve(flat,
-                             rowCount: inputSize.rows * strides.rows,
-                             columnCount: inputSize.columns * strides.columns,
-                             withKernel: flatKernel,
-                             kernelRowCount: filterRows,
-                             kernelColumnCount: filterColumns)
+    let conv: [Float] = vDSP.convolve(flat,
+                                      rowCount: newInputSize.0 * strides.rows,
+                                      columnCount: newInputSize.1 * strides.columns,
+                                      withKernel: flatKernel,
+                                      kernelRowCount: filterRows,
+                                      kernelColumnCount: filterColumns)
     
-    return conv
+    //remove padded 0s
+    let paddingValue = padding.extra
+    
+    let rows = strides.rows * inputSize.rows - 1 + filterSize.rows - 2 * paddingValue
+    let columns = strides.columns * inputSize.columns - 1 + filterSize.columns - 2 * paddingValue
+
+    let outputSize = (rows, columns)
+    
+    let starting: Int = Int(ceil(sqrt(Double(conv.count)))) + 1
+    let ending: Int = conv.count
+    
+    var results: [Float] = []
+    
+    for i in stride(from: starting, to: ending, by: starting - 1) {
+      let slice = conv[i..<(i + outputSize.0)]
+      results.append(contentsOf: slice)
+      if results.count == rows * columns {
+        break
+      }
+    }
+
+    return results
+  }
+  
+  
+  ///Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
+  /// - Parameters:
+  ///   - filter: Filter to apply
+  ///   - padding: Zero padding applied to the input.
+  ///   - filterSize: Size of the filter (rows, columns)
+  ///   - inputSize: Input size (rows, columns)
+  /// - Returns: 2D convolution result as a 1D array
+  func conv2D(_ filter: [[Float]],
+              padding: NumSwift.ConvPadding = .valid,
+              filterSize: (rows: Int, columns: Int),
+              inputSize: (rows: Int, columns: Int)) -> Element {
+    
+    let newInputSize = (inputSize.rows + (2 * padding.extra), inputSize.columns + (2 * padding.extra))
+    
+    var signal = self
+    
+    if padding == .same {
+      signal = signal.zeroPad()
+    }
+    
+    let filterRows = filterSize.rows
+    let filterColumns = filterSize.columns
+    
+    let flatKernel = filter.flatMap { $0 }
+        
+    let flat = signal.flatMap { $0 }
+    
+    let conv: [Float] = vDSP.convolve(flat,
+                                      rowCount: newInputSize.0,
+                                      columnCount: newInputSize.1,
+                                      withKernel: flatKernel,
+                                      kernelRowCount: filterRows,
+                                      kernelColumnCount: filterColumns)
+    
+    //remove padded 0s
+    let paddingValue = padding.extra
+    let rows = (((inputSize.rows + 2 * paddingValue) - (filterSize.rows - 1) - 1)) + 1
+    let columns = (((inputSize.columns + 2 * paddingValue) - (filterSize.columns - 1) - 1)) + 1
+
+    let outputSize = (rows, columns) //+ 2 because the vDSP library above 0 pads everything
+    
+    let starting: Int = Int(ceil(sqrt(Double(conv.count)))) + 1
+    let ending: Int = conv.count
+    
+    var results: [Float] = []
+    
+    for i in stride(from: starting, to: ending, by: starting - 1) {
+      let slice = conv[i..<(i + outputSize.0)]
+      results.append(contentsOf: slice)
+      if results.count == rows * columns {
+        break
+      }
+    }
+    
+    return results
   }
 
   func flip180() -> Self {

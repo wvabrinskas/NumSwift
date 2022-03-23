@@ -84,10 +84,10 @@ public class NumSwift {
     return result
   }
   
-  public static func transConv2dD(signal: [[Double]],
-                                 filter: [[Double]],
-                                 strides: (Int, Int) = (1,1),
-                                 padding: ConvPadding = .valid) -> [[Double]] {
+  public static func deconvolution(signal: [[Double]],
+                                   filter: [[Double]],
+                                   strides: (Int, Int) = (1,1),
+                                   padding: ConvPadding = .valid) -> [[Double]] {
     let filterShape = filter.shape
     
     guard let rF = filterShape[safe: 0],
@@ -144,10 +144,10 @@ public class NumSwift {
     return padded
   }
   
-  public static func transConv2d(signal: [[Float]],
-                                 filter: [[Float]],
-                                 strides: (Int, Int) = (1,1),
-                                 padding: ConvPadding = .valid) -> [[Float]] {
+  public static func deconvolution(signal: [[Float]],
+                                   filter: [[Float]],
+                                   strides: (Int, Int) = (1,1),
+                                   padding: ConvPadding = .valid) -> [[Float]] {
     let filterShape = filter.shape
     
     guard let rF = filterShape[safe: 0],
@@ -203,232 +203,6 @@ public class NumSwift {
     let padded = Array(result[padLeft..<rows - padRight].map { Array($0[padTop..<columns - padBottom]) })
     return padded
   }
-  
-  public static func conv2d(signal: [[Float]],
-                            filter: [[Float]],
-                            strides: (Int, Int) = (1,1),
-                            padding: ConvPadding = .valid,
-                            filterSize: (rows: Int, columns: Int),
-                            inputSize: (rows: Int, columns: Int)) -> [[Float]] {
-    
-    var signal = signal
-    
-    if padding == .same {
-      signal = signal.zeroPad()
-    }
-    
-    let rf = filterSize.rows
-    let cf = filterSize.columns
-    let rd = inputSize.rows + padding.extra * 2
-    let cd = inputSize.columns + padding.extra * 2
-  
-    var results: [[Float]] = []
-    
-    let maxR = rd - rf + 1
-    let maxC = cd - cf + 1
-    
-    for r in stride(from: 0, to: maxR, by: strides.0) {
-      var result: [Float] = []
-      
-      for c in stride(from: 0, to: maxC, by: strides.1) {
-        
-        var sum: Float = 0
-        
-        for fr in 0..<rf {
-          let dataRow = Array(signal[r + fr][c..<c + cf])
-          let filterRow = filter[fr]
-          let mult = (filterRow * dataRow).sum
-          sum += mult
-        }
-        
-        result.append(sum)
-      }
-      
-      results.append(result)
-    }
-    
-    return results
-  }
-  
-  public static func fastConv2dD(signal: [[Double]],
-                                filter: [[Double]],
-                                strides: (Int, Int) = (1,1),
-                                padding: ConvPadding = .valid,
-                                filterSize: (rows: Int, columns: Int),
-                                inputSize: (rows: Int, columns: Int)) -> [[Double]] {
-    
-    let paddingValue = padding == .valid ? 0 : 1
-
-    let rows = (((inputSize.rows + 2 * paddingValue) - (filterSize.rows - 1) - 1) / strides.0) + 1
-    let columns = (((inputSize.columns + 2 * paddingValue) - (filterSize.columns - 1) - 1) / strides.1) + 1
-
-    let outputSize = (rows, columns)
-        
-    var signal = signal
-    
-    if padding == .same {
-      signal = signal.zeroPad()
-    }
-    
-    let rf = filterSize.rows
-    let cf = filterSize.columns
-    let rd = inputSize.rows + padding.extra * 2
-    let cd = inputSize.columns + padding.extra * 2
-      
-    let maxR = rd - rf + 1
-    let maxC = cd - cf + 1
-    
-    let rowSequence = Array(stride(from: 0, to: maxR, by: strides.0))
-    let columnSequence = Array(stride(from: 0, to: maxC, by: strides.1))
-    
-    var coordinates: [(r: Int, c: Int, i: Int, j: Int)] = []
-    
-    for i in 0..<rowSequence.count {
-      let r = rowSequence[i]
-
-      for j in 0..<columnSequence.count {
-        let c = columnSequence[j]
-        coordinates.append((r,c,i,j))
-      }
-
-    }
-    
-    var results: [[Double]] = NumSwift.zerosLike(outputSize)
-
-    coordinates.concurrentForEach { element, index in
-      let newSignal = Array(signal)
-      
-      let r = element.r
-      let c = element.c
-      
-      var sum: Double = 0
-      
-      for fr in 0..<rf {
-        let dataRow = Array(newSignal[r + fr][c..<c + cf])
-        let filterRow = filter[fr]
-        let mult = (filterRow * dataRow).sum
-        sum += mult
-      }
-      
-      results[element.i][element.j] = sum
-    }
-    
-    return results
-  }
-  
-  public static func fastConv2d(signal: [[Float]],
-                                filter: [[Float]],
-                                strides: (Int, Int) = (1,1),
-                                padding: ConvPadding = .valid,
-                                filterSize: (rows: Int, columns: Int),
-                                inputSize: (rows: Int, columns: Int)) -> [[Float]] {
-    
-    let paddingValue = padding == .valid ? 0 : 1
-
-    let rows = (((inputSize.rows + 2 * paddingValue) - (filterSize.rows - 1) - 1) / strides.0) + 1
-    let columns = (((inputSize.columns + 2 * paddingValue) - (filterSize.columns - 1) - 1) / strides.1) + 1
-
-    let outputSize = (rows, columns)
-        
-    var signal = signal
-    
-    if padding == .same {
-      signal = signal.zeroPad()
-    }
-    
-    let rf = filterSize.rows
-    let cf = filterSize.columns
-    let rd = inputSize.rows + padding.extra * 2
-    let cd = inputSize.columns + padding.extra * 2
-      
-    let maxR = rd - rf + 1
-    let maxC = cd - cf + 1
-    
-    let rowSequence = Array(stride(from: 0, to: maxR, by: strides.0))
-    let columnSequence = Array(stride(from: 0, to: maxC, by: strides.1))
-    
-    var coordinates: [(r: Int, c: Int, i: Int, j: Int)] = []
-    
-    for i in 0..<rowSequence.count {
-      let r = rowSequence[i]
-
-      for j in 0..<columnSequence.count {
-        let c = columnSequence[j]
-        coordinates.append((r,c,i,j))
-      }
-
-    }
-    
-    var results: [[Float]] = NumSwift.zerosLike(outputSize)
-
-    coordinates.concurrentForEach { element, index in
-      let newSignal = Array(signal)
-      
-      let r = element.r
-      let c = element.c
-      
-      var sum: Float = 0
-      
-      for fr in 0..<rf {
-        let dataRow = Array(newSignal[r + fr][c..<c + cf])
-        let filterRow = filter[fr]
-        let mult = (filterRow * dataRow).sum
-        sum += mult
-      }
-      
-      results[element.i][element.j] = sum
-    }
-    
-    
-    return results
-  }
-  
-  public static func conv2dD(signal: [[Double]],
-                             filter: [[Double]],
-                             strides: (Int, Int) = (1,1),
-                             padding: ConvPadding = .valid,
-                             filterSize: (rows: Int, columns: Int),
-                             inputSize: (rows: Int, columns: Int)) -> [[Double]] {
-    
-    var signal = signal
-    
-    if padding == .same {
-      signal = signal.zeroPad()
-    }
-        
-    let rf = filterSize.rows
-    let cf = filterSize.columns
-    let rd = inputSize.rows + padding.extra * 2
-    let cd = inputSize.columns + padding.extra * 2
-    
-    var results: [[Double]] = []
-    
-    let maxR = rd - rf + 1
-    let maxC = cd - cf + 1
-    
-    for r in stride(from: 0, to: maxR, by: strides.0) {
-      var result: [Double] = []
-      
-      for c in stride(from: 0, to: maxC, by: strides.1) {
-        
-        var sum: Double = 0
-        
-        for fr in 0..<rf {
-          let dataRow = Array(signal[r + fr][c..<c + cf])
-          let filterRow = filter[fr]
-          let mult = (filterRow * dataRow).sum
-          sum += mult
-        }
-        result.append(sum)
-      }
-      
-      results.append(result)
-    }
-    
-    return results
-  }
-  
-  
 }
 
 

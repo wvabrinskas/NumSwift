@@ -206,75 +206,47 @@ final class NumSwiftTests: XCTestCase {
     print(test[0...1].map { $0[0...1]})
   }
   
-  func testConv2DTransCustom() {
-    let filter: [[Float]] = [[Float]](repeating: [0,1,0], count: 3)
-    
-    let signal: [[Float]] = [[Float]](repeating: [0,0,0,0], count: 4)
-    
-    let r = NumSwift.transConv2d(signal: signal, filter: filter, strides: (2,2), padding: .same)
-    
-    let inputShape = signal.shape
-    let outputShape = r.shape
-    
-    print(outputShape)
-   // let expected = [inputShape[0] * 2, inputShape[1] * 2]
-   // XCTAssertEqual(outputShape, expected)
-  }
-  
-  
-  func test2DConvCustom() {
-    let signalShape = (28,28)
+  func testConv2DBig() {
+    let signalShape = (5,5)
     
     let filter: [[Float]] = [[Float]](repeating: [0,1,0], count: 3)
+    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: 5)
     
-    let signal: [[Float]] = [[Float]](repeating: [Float].init(repeating: 1, count: signalShape.0), count: signalShape.1)
-    
-    let r = NumSwift.conv2d(signal: signal,
-                            filter: filter,
-                            strides: (2,2),
-                            padding: .same,
-                            filterSize: (3,3),
-                            inputSize: signalShape)
-    //multi threaded
-    let r2 = NumSwift.fastConv2d(signal: signal,
-                                filter: filter,
-                                strides: (2,2),
-                                padding: .same,
-                                filterSize: (3,3),
-                                inputSize: signalShape)
+    let r2 = signal.conv2D(filter,
+                           padding: .same,
+                           filterSize: (3,3),
+                           inputSize: (signalShape))
 
-    
-    XCTAssertEqual(r, r2)
+    r2.reshape(columns: 5).forEach { print($0) }
   }
   
   func test2DConvTranspose() {
+    let signalShape = (5,5)
+
     let filter: [[Float]] = [[0, 1, 0],
                              [0, 1, 0],
                              [0, 1, 0]]
     
-    let data: [[Float]] = [[0, 0, 1, 0, 0],
-                           [0, 0, 1, 0, 0],
-                           [0, 0, 1, 0, 0],
-                           [0, 0, 1, 0, 0],
-                           [0, 0, 1, 0, 0]]
-        
-    let conv = data.conv2D(filter,
-                           strides: (2,2),
-                           filterSize: (3, 3),
-                           inputSize: (5, 5))
+    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
+
+    let conv = signal.transConv2d(filter,
+                                strides: (2,2),
+                                padding: .same,
+                                filterSize: (3, 3),
+                                inputSize: signalShape)
     
     let rows = conv.reshape(columns: 10)
-    
-    let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                               [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
+      
+    let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]]
 
     XCTAssert(expected == rows)
   }
@@ -291,16 +263,17 @@ final class NumSwiftTests: XCTestCase {
                            [0, 0, 1, 0, 0]]
     
     let conv = data.conv2D(filter,
+                           padding: .same,
                            filterSize: (3, 3),
                            inputSize: (5, 5))
     
     let rows = conv.reshape(columns: 5)
     
-    let expected: [[Float]] =  [[0.0, 0.0, 0.0, 0.0, 0.0],
+    let expected: [[Float]] =  [[0.0, 0.0, 2.0, 0.0, 0.0],
                                 [0.0, 0.0, 3.0, 0.0, 0.0],
                                 [0.0, 0.0, 3.0, 0.0, 0.0],
                                 [0.0, 0.0, 3.0, 0.0, 0.0],
-                                [0.0, 0.0, 0.0, 0.0, 0.0]]
+                                [0.0, 0.0, 2.0, 0.0, 0.0]]
     
     XCTAssert(expected == rows)
   }

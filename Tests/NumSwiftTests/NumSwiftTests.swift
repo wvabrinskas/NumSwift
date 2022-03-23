@@ -296,11 +296,11 @@ final class NumSwiftTests: XCTestCase {
     
     let rows = conv.reshape(columns: 5)
     
-    let expected: [[Float]] =  [[0.0, 0.0, 2.0, 0.0, 0.0],
+    let expected: [[Float]] =  [[0.0, 0.0, 0.0, 0.0, 0.0],
                                 [0.0, 0.0, 3.0, 0.0, 0.0],
                                 [0.0, 0.0, 3.0, 0.0, 0.0],
                                 [0.0, 0.0, 3.0, 0.0, 0.0],
-                                [0.0, 0.0, 2.0, 0.0, 0.0]]
+                                [0.0, 0.0, 0.0, 0.0, 0.0]]
     
     XCTAssert(expected == rows)
   }

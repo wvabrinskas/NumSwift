@@ -17,6 +17,15 @@ public class NumSwift {
   
   public enum ConvPadding {
     case same, valid
+    
+    var extra: Int {
+      switch self {
+      case .same:
+        return 1
+      case .valid:
+        return 0
+      }
+    }
   }
   
   public static func zerosLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float]]] {
@@ -210,9 +219,9 @@ public class NumSwift {
     
     let rf = filterSize.rows
     let cf = filterSize.columns
-    let rd = inputSize.rows
-    let cd = inputSize.columns
-    
+    let rd = inputSize.rows + padding.extra * 2
+    let cd = inputSize.columns + padding.extra * 2
+  
     var results: [[Float]] = []
     
     let maxR = rd - rf + 1
@@ -256,9 +265,9 @@ public class NumSwift {
         
     let rf = filterSize.rows
     let cf = filterSize.columns
-    let rd = inputSize.rows
-    let cd = inputSize.columns
-
+    let rd = inputSize.rows + padding.extra * 2
+    let cd = inputSize.columns + padding.extra * 2
+    
     var results: [[Double]] = []
     
     let maxR = rd - rf + 1

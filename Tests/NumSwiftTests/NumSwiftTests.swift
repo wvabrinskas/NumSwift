@@ -231,7 +231,13 @@ final class NumSwiftTests: XCTestCase {
     
     let signal: [[Float]] = [[Float]](repeating: [0,0,1,0], count: 4)
     
-    let r = NumSwift.conv2d(signal: signal, filter: filter, strides: (2,2), padding: .same)
+    let r = NumSwift.conv2d(signal: signal,
+                            filter: filter,
+                            strides: (2,2),
+                            padding: .same,
+                            filterSize: (3,3),
+                            inputSize: (4,4))
+    
     r.forEach { print($0) }
     
   }

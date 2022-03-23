@@ -178,6 +178,10 @@ public extension Array where Element == [Float] {
 
 //use accelerate
 public extension Array where Element == Float {
+  var sum: Element {
+    vDSP.sum(self)
+  }
+  
   var sumOfSquares: Element {
     let stride = vDSP_Stride(1)
     let n = vDSP_Length(self.count)
@@ -359,6 +363,10 @@ public extension Array where Element == Float {
 
 //use accelerate
 public extension Array where Element == Double {
+  var sum: Element {
+    vDSP.sum(self)
+  }
+  
   var sumOfSquares: Element {
     let stride = vDSP_Stride(1)
     let n = vDSP_Length(self.count)
@@ -544,7 +552,7 @@ public extension Array where Element == Double {
 public extension Array where Element: Equatable & Numeric & FloatingPoint {
   
   var average: Element {
-    let sum = self.sum
+    let sum = self.sumSlow
     return sum / Element(self.count)
   }
   

@@ -223,23 +223,28 @@ final class NumSwiftTests: XCTestCase {
   
   
   func test2DConvCustom() {
-//    let filter: [[Float]] = NumSwift.zerosLike((14,14))
-//
-//    var signal: [[Float]] = NumSwift.zerosLike((28,28)).zeroPad()
+    let signalShape = (28,28)
     
     let filter: [[Float]] = [[Float]](repeating: [0,1,0], count: 3)
     
-    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0], count: 4)
+    let signal: [[Float]] = [[Float]](repeating: [Float].init(repeating: 1, count: signalShape.0), count: signalShape.1)
     
     let r = NumSwift.conv2d(signal: signal,
                             filter: filter,
                             strides: (2,2),
                             padding: .same,
                             filterSize: (3,3),
-                            inputSize: (4,4))
+                            inputSize: signalShape)
+    //multi threaded
+    let r2 = NumSwift.fastConv2d(signal: signal,
+                                filter: filter,
+                                strides: (2,2),
+                                padding: .same,
+                                filterSize: (3,3),
+                                inputSize: signalShape)
+
     
-    r.forEach { print($0) }
-    
+    XCTAssertEqual(r, r2)
   }
   
   func test2DConvTranspose() {

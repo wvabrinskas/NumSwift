@@ -250,6 +250,139 @@ public class NumSwift {
     return results
   }
   
+  public static func fastConv2dD(signal: [[Double]],
+                                filter: [[Double]],
+                                strides: (Int, Int) = (1,1),
+                                padding: ConvPadding = .valid,
+                                filterSize: (rows: Int, columns: Int),
+                                inputSize: (rows: Int, columns: Int)) -> [[Double]] {
+    
+    let paddingValue = padding == .valid ? 0 : 1
+
+    let rows = (((inputSize.rows + 2 * paddingValue) - (filterSize.rows - 1) - 1) / strides.0) + 1
+    let columns = (((inputSize.columns + 2 * paddingValue) - (filterSize.columns - 1) - 1) / strides.1) + 1
+
+    let outputSize = (rows, columns)
+        
+    var signal = signal
+    
+    if padding == .same {
+      signal = signal.zeroPad()
+    }
+    
+    let rf = filterSize.rows
+    let cf = filterSize.columns
+    let rd = inputSize.rows + padding.extra * 2
+    let cd = inputSize.columns + padding.extra * 2
+      
+    let maxR = rd - rf + 1
+    let maxC = cd - cf + 1
+    
+    let rowSequence = Array(stride(from: 0, to: maxR, by: strides.0))
+    let columnSequence = Array(stride(from: 0, to: maxC, by: strides.1))
+    
+    var coordinates: [(r: Int, c: Int, i: Int, j: Int)] = []
+    
+    for i in 0..<rowSequence.count {
+      let r = rowSequence[i]
+
+      for j in 0..<columnSequence.count {
+        let c = columnSequence[j]
+        coordinates.append((r,c,i,j))
+      }
+
+    }
+    
+    var results: [[Double]] = NumSwift.zerosLike(outputSize)
+
+    coordinates.concurrentForEach { element, index in
+      let newSignal = Array(signal)
+      
+      let r = element.r
+      let c = element.c
+      
+      var sum: Double = 0
+      
+      for fr in 0..<rf {
+        let dataRow = Array(newSignal[r + fr][c..<c + cf])
+        let filterRow = filter[fr]
+        let mult = (filterRow * dataRow).sum
+        sum += mult
+      }
+      
+      results[element.i][element.j] = sum
+    }
+    
+    return results
+  }
+  
+  public static func fastConv2d(signal: [[Float]],
+                                filter: [[Float]],
+                                strides: (Int, Int) = (1,1),
+                                padding: ConvPadding = .valid,
+                                filterSize: (rows: Int, columns: Int),
+                                inputSize: (rows: Int, columns: Int)) -> [[Float]] {
+    
+    let paddingValue = padding == .valid ? 0 : 1
+
+    let rows = (((inputSize.rows + 2 * paddingValue) - (filterSize.rows - 1) - 1) / strides.0) + 1
+    let columns = (((inputSize.columns + 2 * paddingValue) - (filterSize.columns - 1) - 1) / strides.1) + 1
+
+    let outputSize = (rows, columns)
+        
+    var signal = signal
+    
+    if padding == .same {
+      signal = signal.zeroPad()
+    }
+    
+    let rf = filterSize.rows
+    let cf = filterSize.columns
+    let rd = inputSize.rows + padding.extra * 2
+    let cd = inputSize.columns + padding.extra * 2
+      
+    let maxR = rd - rf + 1
+    let maxC = cd - cf + 1
+    
+    let rowSequence = Array(stride(from: 0, to: maxR, by: strides.0))
+    let columnSequence = Array(stride(from: 0, to: maxC, by: strides.1))
+    
+    var coordinates: [(r: Int, c: Int, i: Int, j: Int)] = []
+    
+    for i in 0..<rowSequence.count {
+      let r = rowSequence[i]
+
+      for j in 0..<columnSequence.count {
+        let c = columnSequence[j]
+        coordinates.append((r,c,i,j))
+      }
+
+    }
+    
+    var results: [[Float]] = NumSwift.zerosLike(outputSize)
+
+    coordinates.concurrentForEach { element, index in
+      let newSignal = Array(signal)
+      
+      let r = element.r
+      let c = element.c
+      
+      var sum: Float = 0
+      
+      for fr in 0..<rf {
+        let dataRow = Array(newSignal[r + fr][c..<c + cf])
+        let filterRow = filter[fr]
+        let mult = (filterRow * dataRow).sum
+        sum += mult
+      }
+      
+      results[element.i][element.j] = sum
+    }
+    
+    
+    return results
+  }
+  
   public static func conv2dD(signal: [[Double]],
                              filter: [[Double]],
                              strides: (Int, Int) = (1,1),

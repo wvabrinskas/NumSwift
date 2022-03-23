@@ -93,7 +93,7 @@ public extension Array {
 }
 
 public extension Array where Element: Equatable & Numeric {
-  var sum: Element {
+  var sumSlow: Element {
     return self.reduce(0, +)
   }
 }

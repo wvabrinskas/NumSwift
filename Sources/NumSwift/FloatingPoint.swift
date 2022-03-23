@@ -151,6 +151,7 @@ public extension Array where Element == [Float] {
               strides: (rows: Int, columns: Int) = (1,1),
               filterSize: (rows: Int, columns: Int),
               inputSize: (rows: Int, columns: Int)) -> Element {
+    
     let filterRows = filterSize.rows
     let filterColumns = filterSize.columns
     

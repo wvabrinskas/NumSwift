@@ -198,11 +198,11 @@ public class NumSwift {
   public static func conv2d(signal: [[Float]],
                             filter: [[Float]],
                             strides: (Int, Int) = (1,1),
-                            padding: ConvPadding = .valid) -> [[Float]] {
+                            padding: Int = 0) -> [[Float]] {
     
     var signal = signal
     
-    if padding == .same {
+    for _ in 0..<padding {
       signal = signal.zeroPad()
     }
     
@@ -250,11 +250,11 @@ public class NumSwift {
   public static func conv2dD(signal: [[Double]],
                             filter: [[Double]],
                             strides: (Int, Int) = (1,1),
-                            padding: ConvPadding = .valid) -> [[Double]] {
+                            padding: Int = 0) -> [[Double]] {
     
     var signal = signal
     
-    if padding == .same {
+    for _ in 0..<padding {
       signal = signal.zeroPad()
     }
     

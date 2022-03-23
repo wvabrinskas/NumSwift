@@ -198,7 +198,9 @@ public class NumSwift {
   public static func conv2d(signal: [[Float]],
                             filter: [[Float]],
                             strides: (Int, Int) = (1,1),
-                            padding: ConvPadding = .valid) -> [[Float]] {
+                            padding: ConvPadding = .valid,
+                            filterSize: (rows: Int, columns: Int),
+                            inputSize: (rows: Int, columns: Int)) -> [[Float]] {
     
     var signal = signal
     
@@ -206,19 +208,10 @@ public class NumSwift {
       signal = signal.zeroPad()
     }
     
-    let filterShape = filter.shape
-    
-    guard let rf = filterShape[safe: 0],
-          let cf = filterShape[safe: 1] else {
-      return []
-    }
-    
-    let shape = signal.shape
-    
-    guard let rd = shape[safe: 0],
-          let cd = shape[safe: 1] else {
-      return []
-    }
+    let rf = filterSize.rows
+    let cf = filterSize.columns
+    let rd = inputSize.rows
+    let cd = inputSize.columns
     
     var results: [[Float]] = []
     
@@ -238,6 +231,7 @@ public class NumSwift {
           let mult = (filterRow * dataRow).sum
           sum += mult
         }
+        
         result.append(sum)
       }
       
@@ -248,30 +242,23 @@ public class NumSwift {
   }
   
   public static func conv2dD(signal: [[Double]],
-                            filter: [[Double]],
-                            strides: (Int, Int) = (1,1),
-                            padding: ConvPadding = .valid) -> [[Double]] {
+                             filter: [[Double]],
+                             strides: (Int, Int) = (1,1),
+                             padding: ConvPadding = .valid,
+                             filterSize: (rows: Int, columns: Int),
+                             inputSize: (rows: Int, columns: Int)) -> [[Double]] {
     
     var signal = signal
     
     if padding == .same {
       signal = signal.zeroPad()
     }
-    
-    let filterShape = filter.shape
-    
-    guard let rf = filterShape[safe: 0],
-          let cf = filterShape[safe: 1] else {
-      return []
-    }
-    
-    let shape = signal.shape
-    
-    guard let rd = shape[safe: 0],
-          let cd = shape[safe: 1] else {
-      return []
-    }
-    
+        
+    let rf = filterSize.rows
+    let cf = filterSize.columns
+    let rd = inputSize.rows
+    let cd = inputSize.columns
+
     var results: [[Double]] = []
     
     let maxR = rd - rf + 1

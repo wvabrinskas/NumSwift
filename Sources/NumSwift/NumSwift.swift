@@ -109,7 +109,7 @@ public class NumSwift {
     
     let paddingNum = padding.extra(inputSize: inputSize,
                                    filterSize: filterSize,
-                                   stride: (1,1))
+                                   stride: strides)
     
     //let newInputSize = ((inputSize.rows + paddingNum.0), (inputSize.columns + paddingNum.1))
     

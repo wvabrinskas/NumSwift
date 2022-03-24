@@ -25,10 +25,10 @@ let package = Package(
         .target(
             name: "NumSwift",
             dependencies: [],
-            resources: [ .process("Resources") ]),
+            resources: [ .process("Resources/") ]),
         .testTarget(
             name: "NumSwiftTests",
             dependencies: ["NumSwift"],
-            resources: [ .process("Resources") ]),
+            resources: [ .process("Resources/") ]),
     ]
 )

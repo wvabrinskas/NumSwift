@@ -18,12 +18,28 @@ public class NumSwift {
   public enum ConvPadding {
     case same, valid
     
-    var extra: Int {
+    public func extra(inputSize: (Int, Int),
+                      filterSize: (Int, Int),
+                      stride: (Int, Int) = (1,1)) -> (Int, Int) {
       switch self {
       case .same:
-        return 1
+        let height = Double(inputSize.0)
+        let width = Double(inputSize.1)
+        
+        let outHeight = ceil(height / Double(stride.0))
+        let outWidth = ceil(width / Double(stride.1))
+        
+        let padAlongHeight = Swift.max((outHeight - 1) * Double(stride.0) + Double(filterSize.0) - height, 0)
+        let padAlongWidth = Swift.max((outWidth - 1) * Double(stride.1) + Double(filterSize.1) - width, 0)
+
+        let paddingTop = Int(floor(padAlongHeight / 2))
+        let paddingBottom = Int(padAlongHeight - Double(paddingTop))
+        let paddingLeft = Int(floor(padAlongWidth / 2))
+        let paddingRight = Int(padAlongWidth - Double(paddingLeft))
+        
+        return (paddingTop + paddingBottom, paddingLeft + paddingRight)
       case .valid:
-        return 0
+        return (0,0)
       }
     }
   }
@@ -83,6 +99,59 @@ public class NumSwift {
     
     return result
   }
+  
+  public static func conv2d(signal: [[Float]],
+                            filter: [[Float]],
+                            strides: (Int, Int) = (1,1),
+                            padding: ConvPadding = .valid,
+                            filterSize: (rows: Int, columns: Int),
+                            inputSize: (rows: Int, columns: Int)) -> [[Float]] {
+    
+    let paddingNum = padding.extra(inputSize: inputSize,
+                                   filterSize: filterSize,
+                                   stride: (1,1))
+    
+    //let newInputSize = ((inputSize.rows + paddingNum.0), (inputSize.columns + paddingNum.1))
+    
+    var signal = signal
+        
+    if padding == .same {
+      signal = signal.zeroPad(filterSize: filterSize)
+    }
+    
+    let rf = filterSize.rows
+    let cf = filterSize.columns
+    let rd = inputSize.rows + paddingNum.0
+    let cd = inputSize.columns + paddingNum.1
+  
+    var results: [[Float]] = []
+    
+    let maxR = rd - rf + 1
+    let maxC = cd - cf + 1
+    
+    for r in stride(from: 0, to: maxR, by: strides.0) {
+      var result: [Float] = []
+      
+      for c in stride(from: 0, to: maxC, by: strides.1) {
+        
+        var sum: Float = 0
+        
+        for fr in 0..<rf {
+          let dataRow = Array(signal[r + fr][c..<c + cf])
+          let filterRow = filter[fr]
+          let mult = (filterRow * dataRow).sum
+          sum += mult
+        }
+        
+        result.append(sum)
+      }
+      
+      results.append(result)
+    }
+    
+    return results
+  }
+
   
   public static func deconvolution(signal: [[Double]],
                                    filter: [[Double]],

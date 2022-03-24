@@ -10,6 +10,64 @@ import Accelerate
 import CloudKit
 
 public extension Array where Element == [Double] {
+  
+  func zeroPad(filterSize: (Int, Int), stride: (Int, Int) = (1,1)) -> Self {
+    guard let first = self.first else {
+      return self
+    }
+    
+    let height = Double(self.count)
+    let width = Double(first.count)
+    
+    let outHeight = ceil(height / Double(stride.0))
+    let outWidth = ceil(width / Double(stride.1))
+    
+    let padAlongHeight = Swift.max((outHeight - 1) * Double(stride.0) + Double(filterSize.0) - height, 0)
+    let padAlongWidth = Swift.max((outWidth - 1) * Double(stride.1) + Double(filterSize.1) - width, 0)
+
+    let paddingTop = Int(floor(padAlongHeight / 2))
+    let paddingBottom = Int(padAlongHeight - Double(paddingTop))
+    let paddingLeft = Int(floor(padAlongWidth / 2))
+    let paddingRight = Int(padAlongWidth - Double(paddingLeft))
+    
+    var result: [Element] = self
+    let newRow = [Double](repeating: 0, count: first.count)
+    
+    //top / bottom comes first so we can match row insertion
+    for _ in 0..<paddingTop {
+      result.insert(newRow, at: 0)
+    }
+    
+    for _ in 0..<paddingBottom {
+      result.append(newRow)
+    }
+    
+    var paddingLeftMapped: [[Double]] = []
+    result.forEach { v in
+      var row = v
+      for _ in 0..<paddingLeft {
+        row.insert(0, at: 0)
+      }
+      paddingLeftMapped.append(row)
+    }
+    
+    result = paddingLeftMapped
+    
+    var paddingRightMapped: [[Double]] = []
+    
+    result.forEach { v in
+      var row = v
+      for _ in 0..<paddingRight {
+        row.append(0)
+      }
+      paddingRightMapped.append(row)
+    }
+    
+    result = paddingRightMapped
+    
+    return result
+  }
+  
   func zeroPad() -> Self {
     guard let first = self.first else {
       return self
@@ -60,70 +118,69 @@ public extension Array where Element == [Double] {
     return result
   }
   
-  ///Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
-  /// - Parameters:
-  ///   - filter: Filter to apply
-  ///   - padding: Zero padding applied to the input.
-  ///   - filterSize: Size of the filter (rows, columns)
-  ///   - inputSize: Input size (rows, columns)
-  /// - Returns: 2D convolution result as a 1D array
-  func conv2D(_ filter: [[Double]],
-              padding: NumSwift.ConvPadding = .valid,
-              filterSize: (rows: Int, columns: Int),
-              inputSize: (rows: Int, columns: Int)) -> Element {
-    
-    let newInputSize = (inputSize.rows + (2 * padding.extra), inputSize.columns + (2 * padding.extra))
-    
-    var signal = self
-    
-    if padding == .same {
-      signal = signal.zeroPad()
-    }
-    
-    let filterRows = filterSize.rows
-    let filterColumns = filterSize.columns
-    
-    let flatKernel = filter.flatMap { $0 }
-        
-    let flat = signal.flatMap { $0 }
-    
-    let conv: [Double] = vDSP.convolve(flat,
-                                      rowCount: newInputSize.0,
-                                      columnCount: newInputSize.1,
-                                      withKernel: flatKernel,
-                                      kernelRowCount: filterRows,
-                                      kernelColumnCount: filterColumns)
-    
-    //remove padded 0s
-    let paddingValue = padding.extra
-    let rows = (((inputSize.rows + 2 * paddingValue) - (filterSize.rows - 1) - 1)) + 1
-    let columns = (((inputSize.columns + 2 * paddingValue) - (filterSize.columns - 1) - 1)) + 1
-
-    let outputSize = (rows, columns) //+ 2 because the vDSP library above 0 pads everything
-    
-    let starting: Int = outputSize.0 + 2
-    let ending: Int = conv.count - outputSize.0 + 2
-    
-    let newConv = ArraySlice(conv[starting..<ending])
-    var results: [Double] = []
-    
-    for i in 0..<newConv.count {
-      let e = newConv[i]
-      if i % (outputSize.0 + 2) != 0 && (i + 1) % (outputSize.0 + 2) != 0 {
-        results.append(e)
-      }
-    }
-    
-    return results
-  }
-  
   func flip180() -> Self {
     self.reversed().map { $0.reverse() }
   }
 }
 
-
 public extension Array where Element == [Float] {
+  func zeroPad(filterSize: (Int, Int), stride: (Int, Int) = (1,1)) -> Self {
+    guard let first = self.first else {
+      return self
+    }
+    
+    let height = Double(self.count)
+    let width = Double(first.count)
+    
+    let outHeight = ceil(height / Double(stride.0))
+    let outWidth = ceil(width / Double(stride.1))
+    
+    let padAlongHeight = Swift.max((outHeight - 1) * Double(stride.0) + Double(filterSize.0) - height, 0)
+    let padAlongWidth = Swift.max((outWidth - 1) * Double(stride.1) + Double(filterSize.1) - width, 0)
+
+    let paddingTop = Int(floor(padAlongHeight / 2))
+    let paddingBottom = Int(padAlongHeight - Double(paddingTop))
+    let paddingLeft = Int(floor(padAlongWidth / 2))
+    let paddingRight = Int(padAlongWidth - Double(paddingLeft))
+    
+    var result: [Element] = self
+    let newRow = [Float](repeating: 0, count: first.count)
+    
+    //top / bottom comes first so we can match row insertion
+    for _ in 0..<paddingTop {
+      result.insert(newRow, at: 0)
+    }
+    
+    for _ in 0..<paddingBottom {
+      result.append(newRow)
+    }
+    
+    var paddingLeftMapped: [[Float]] = []
+    result.forEach { v in
+      var row = v
+      for _ in 0..<paddingLeft {
+        row.insert(0, at: 0)
+      }
+      paddingLeftMapped.append(row)
+    }
+    
+    result = paddingLeftMapped
+    
+    var paddingRightMapped: [[Float]] = []
+    
+    result.forEach { v in
+      var row = v
+      for _ in 0..<paddingRight {
+        row.append(0)
+      }
+      paddingRightMapped.append(row)
+    }
+    
+    result = paddingRightMapped
+    
+    return result
+    
+  }
 
   func zeroPad() -> Self {
     guard let first = self.first else {
@@ -181,12 +238,16 @@ public extension Array where Element == [Float] {
                    filterSize: (rows: Int, columns: Int),
                    inputSize: (rows: Int, columns: Int)) -> Element {
     
-    let newInputSize = (inputSize.rows + (2 * padding.extra), inputSize.columns + (2 * padding.extra))
+    let paddingNum = padding.extra(inputSize: inputSize,
+                                   filterSize: filterSize,
+                                   stride: strides)
+    
+    let newInputSize = ((inputSize.rows + paddingNum.0), (inputSize.columns + paddingNum.1))
     
     var signal = self
     
     if padding == .same {
-      signal = signal.zeroPad()
+      signal = signal.zeroPad(filterSize: filterSize)
     }
     
     let filterRows = filterSize.rows
@@ -205,11 +266,13 @@ public extension Array where Element == [Float] {
                                       kernelRowCount: filterRows,
                                       kernelColumnCount: filterColumns)
     
-    //remove padded 0s
-    let paddingValue = padding.extra
+    if padding == .valid {
+      return conv
+    }
     
-    let rows = strides.rows * inputSize.rows - 1 + filterSize.rows - 2 * paddingValue
-    let columns = strides.columns * inputSize.columns - 1 + filterSize.columns - 2 * paddingValue
+    //remove padded 0s
+    let rows = strides.rows * inputSize.rows - 1 + filterSize.rows - paddingNum.0
+    let columns = strides.columns * inputSize.columns - 1 + filterSize.columns - paddingNum.1
 
     let outputSize = (rows, columns)
     
@@ -242,12 +305,16 @@ public extension Array where Element == [Float] {
               filterSize: (rows: Int, columns: Int),
               inputSize: (rows: Int, columns: Int)) -> Element {
     
-    let newInputSize = (inputSize.rows + (2 * padding.extra), inputSize.columns + (2 * padding.extra))
+    let paddingNum = padding.extra(inputSize: inputSize,
+                                   filterSize: filterSize,
+                                   stride: (1,1))
+    
+    let newInputSize = ((inputSize.rows + paddingNum.0), (inputSize.columns + paddingNum.1))
     
     var signal = self
     
     if padding == .same {
-      signal = signal.zeroPad()
+      signal = signal.zeroPad(filterSize: filterSize)
     }
     
     let filterRows = filterSize.rows
@@ -257,20 +324,41 @@ public extension Array where Element == [Float] {
         
     let flat = signal.flatMap { $0 }
     
+    /*
+     (Input height + padding height top + padding height bottom - kernel height) / (stride height) + 1*/
+    let rows = (((inputSize.rows + paddingNum.0) - (filterSize.rows - 1) - 1)) + 1
+    let columns = (((inputSize.columns + paddingNum.1) - (filterSize.columns - 1) - 1)) + 1
+
+    let outputSize = (rows, columns)
+      
+//    let n = ((inputSize.rows + (filterSize.rows - 1)) / 2) * ((inputSize.columns + (filterSize.columns - 1)) / 2)
+//
+//    var conv: [Float] = [Float](repeating: 0, count: newInputSize.0 * newInputSize.1)
+//
+//    vDSP_imgfir(flat,
+//                vDSP_Length(newInputSize.0),
+//                vDSP_Length(newInputSize.1),
+//                flatKernel,
+//                &conv,
+//                vDSP_Length(filterRows),
+//                vDSP_Length(filterColumns))
+//
+//    conv.withUnsafeMutableBufferPointer { dest in
+//      flat.withUnsafeBufferPointer { src in
+//        flatKernel.withUnsafeBufferPointer { kernel in
+//
+//        }
+//      }
+//    }
+//
     let conv: [Float] = vDSP.convolve(flat,
                                       rowCount: newInputSize.0,
                                       columnCount: newInputSize.1,
                                       withKernel: flatKernel,
                                       kernelRowCount: filterRows,
                                       kernelColumnCount: filterColumns)
-    
-    //remove padded 0s
-    let paddingValue = padding.extra
-    let rows = (((inputSize.rows + 2 * paddingValue) - (filterSize.rows - 1) - 1)) + 1
-    let columns = (((inputSize.columns + 2 * paddingValue) - (filterSize.columns - 1) - 1)) + 1
 
-    let outputSize = (rows, columns) //+ 2 because the vDSP library above 0 pads everything
-    
+    //remove padded 0s
     let starting: Int = Int(ceil(sqrt(Double(conv.count)))) + 1
     let ending: Int = conv.count
     

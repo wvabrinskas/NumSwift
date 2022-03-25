@@ -523,12 +523,10 @@ public extension Array where Element == Float {
   }
   
   static func +(lhs: [Element], rhs: [Element]) -> [Element] {
-    precondition(lhs.count == rhs.count)
     return vDSP.add(rhs, lhs)
   }
   
   static func -(lhs: [Element], rhs: [Element]) -> [Element] {
-    precondition(lhs.count == rhs.count)
     return vDSP.subtract(lhs, rhs)
   }
   
@@ -541,12 +539,10 @@ public extension Array where Element == Float {
   }
   
   static func *(lhs: [Element], rhs: [Element]) -> [Element] {
-    precondition(lhs.count == rhs.count)
     return vDSP.multiply(lhs, rhs)
   }
   
   static func /(lhs: [Element], rhs: [Element]) -> [Element] {
-    precondition(lhs.count == rhs.count)
     return vDSP.divide(lhs, rhs)
   }
   
@@ -708,12 +704,10 @@ public extension Array where Element == Double {
   }
   
   static func +(lhs: [Element], rhs: [Element]) -> [Element] {
-    precondition(lhs.count == rhs.count)
     return vDSP.add(rhs, lhs)
   }
   
   static func -(lhs: [Element], rhs: [Element]) -> [Element] {
-    precondition(lhs.count == rhs.count)
     return vDSP.subtract(lhs, rhs)
   }
   
@@ -726,12 +720,10 @@ public extension Array where Element == Double {
   }
   
   static func *(lhs: [Element], rhs: [Element]) -> [Element] {
-    precondition(lhs.count == rhs.count)
     return vDSP.multiply(lhs, rhs)
   }
   
   static func /(lhs: [Element], rhs: [Element]) -> [Element] {
-    precondition(lhs.count == rhs.count)
     return vDSP.divide(lhs, rhs)
   }
   

@@ -153,29 +153,22 @@ public class NumSwift {
   }
 
   
-  public static func deconvolution(signal: [[Double]],
-                                   filter: [[Double]],
-                                   strides: (Int, Int) = (1,1),
-                                   padding: ConvPadding = .valid) -> [[Double]] {
-    let filterShape = filter.shape
-    
-    guard let rF = filterShape[safe: 0],
-          let cF = filterShape[safe: 1] else {
-      return []
-    }
-    
-    let shape = signal.shape
-    
-    guard let rS = shape[safe: 0],
-          let cS = shape[safe: 1] else {
-      return []
-    }
+  public static func transConv2D(signal: [[Double]],
+                                 filter: [[Double]],
+                                 strides: (Int, Int) = (1,1),
+                                 padding: ConvPadding = .valid,
+                                 filterSize: (Int, Int),
+                                 inputSize: (Int, Int)) -> [[Double]] {
+    let rF = filterSize.0
+    let cF = filterSize.1
+    let rS = inputSize.0
+    let cS = inputSize.1
     
     let rows = (rS - 1) * strides.0 + rF
     let columns = (cS - 1) * strides.1 + cF
     
     var result: [[Double]] = NumSwift.zerosLike((rows: rows,
-                                                columns: columns))
+                                                 columns: columns))
     
     for i in 0..<rS {
       let iPrime = i * strides.0
@@ -213,23 +206,16 @@ public class NumSwift {
     return padded
   }
   
-  public static func deconvolution(signal: [[Float]],
-                                   filter: [[Float]],
-                                   strides: (Int, Int) = (1,1),
-                                   padding: ConvPadding = .valid) -> [[Float]] {
-    let filterShape = filter.shape
-    
-    guard let rF = filterShape[safe: 0],
-          let cF = filterShape[safe: 1] else {
-      return []
-    }
-    
-    let shape = signal.shape
-    
-    guard let rS = shape[safe: 0],
-          let cS = shape[safe: 1] else {
-      return []
-    }
+  public static func transConv2D(signal: [[Float]],
+                                 filter: [[Float]],
+                                 strides: (Int, Int) = (1,1),
+                                 padding: ConvPadding = .valid,
+                                 filterSize: (Int, Int),
+                                 inputSize: (Int, Int)) -> [[Float]] {
+    let rF = filterSize.0
+    let cF = filterSize.1
+    let rS = inputSize.0
+    let cS = inputSize.1
     
     let rows = (rS - 1) * strides.0 + rF
     let columns = (cS - 1) * strides.1 + cF
@@ -246,7 +232,7 @@ public class NumSwift {
         
         for r in 0..<rF {
           for c in 0..<cF {
-            
+    
             result[iPrime + r][jPrime + c] += signal[i][j] * filter[r][c]
           }
         }

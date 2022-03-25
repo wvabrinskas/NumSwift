@@ -90,7 +90,7 @@ public extension Array where Element == [Double] {
     return r
   }
   
-  func stridePad(strides: (rows: Int, columns: Int)) -> Self {
+  func stridePad(strides: (rows: Int, columns: Int), padding: Int = 0) -> Self {
     guard let firstCount = self.first?.count else {
       return self
     }
@@ -112,9 +112,43 @@ public extension Array where Element == [Double] {
       }
       
     } else {
-      return self
+      result = self
     }
     
+    //remove based on padding
+    var results: [[Double]] = result
+    
+    for _ in 0..<padding {
+      var newResult: [[Double]] = []
+        
+      results.forEach { p in
+        var newRow: [Double] = p
+        newRow.removeFirst()
+        newRow.removeLast()
+        newResult.append(newRow)
+      }
+      
+      results = newResult
+      results.removeFirst()
+      results.removeLast()
+    }
+      
+    return results
+  }
+  
+  func transConv2d(_ filter: [[Double]],
+                   strides: (rows: Int, columns: Int) = (1,1),
+                   padding: NumSwift.ConvPadding = .valid,
+                   filterSize: (rows: Int, columns: Int),
+                   inputSize: (rows: Int, columns: Int)) -> Element {
+    
+    let result: Element = NumSwift.transConv2D(signal: self,
+                                               filter: filter,
+                                               strides: strides,
+                                               padding: padding,
+                                               filterSize: filterSize,
+                                               inputSize: inputSize).flatten()
+      
     return result
   }
   
@@ -204,6 +238,27 @@ public extension Array where Element == [Float] {
     return r
   }
   
+  func shrink(by size: Int) -> Self {
+    var results: [[Float]] = self
+    
+    for _ in 0..<size {
+      var newResult: [[Float]] = []
+        
+      results.forEach { p in
+        var newRow: [Float] = p
+        newRow.removeFirst()
+        newRow.removeLast()
+        newResult.append(newRow)
+      }
+      
+      results = newResult
+      results.removeFirst()
+      results.removeLast()
+    }
+    
+    return results
+  }
+  
   func stridePad(strides: (rows: Int, columns: Int)) -> Self {
     guard let firstCount = self.first?.count else {
       return self
@@ -211,16 +266,16 @@ public extension Array where Element == [Float] {
     
     let numToPad = (strides.rows - 1, strides.columns - 1)
     
-    let newRows = count * strides.rows
-    let newColumns = firstCount * strides.columns
+    let newRows = count * strides.rows + numToPad.0
+    let newColumns = firstCount * strides.columns + numToPad.1
     
     var result: [[Float]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
     
     var mutableSelf: [Float] = self.flatten()
     if numToPad.0 > 0 || numToPad.1 > 0 {
       
-      for r in stride(from: 0, to: newRows, by: strides.rows) {
-        for c in stride(from: 0, to: newColumns, by: strides.columns) {
+      for r in stride(from: numToPad.0, to: newRows, by: strides.rows) {
+        for c in stride(from: numToPad.1, to: newColumns, by: strides.columns) {
             result[r][c] = mutableSelf.removeFirst()
         }
       }
@@ -228,7 +283,7 @@ public extension Array where Element == [Float] {
     } else {
       return self
     }
-    
+      
     return result
   }
   
@@ -238,58 +293,14 @@ public extension Array where Element == [Float] {
                    filterSize: (rows: Int, columns: Int),
                    inputSize: (rows: Int, columns: Int)) -> Element {
     
-    let paddingNum = padding.extra(inputSize: inputSize,
-                                   filterSize: filterSize,
-                                   stride: strides)
-    
-    let newInputSize = ((inputSize.rows + paddingNum.0), (inputSize.columns + paddingNum.1))
-    
-    var signal = self
-    
-    if padding == .same {
-      signal = signal.zeroPad(filterSize: filterSize)
-    }
-    
-    let filterRows = filterSize.rows
-    let filterColumns = filterSize.columns
-    
-    let flatKernel = filter.flatMap { $0 }
-    
-    let padded = signal.stridePad(strides: strides)
-    
-    let flat = padded.flatMap { $0 }
-    
-    let conv: [Float] = vDSP.convolve(flat,
-                                      rowCount: newInputSize.0 * strides.rows,
-                                      columnCount: newInputSize.1 * strides.columns,
-                                      withKernel: flatKernel,
-                                      kernelRowCount: filterRows,
-                                      kernelColumnCount: filterColumns)
-    
-    if padding == .valid {
-      return conv
-    }
-    
-    //remove padded 0s
-    let rows = strides.rows * inputSize.rows - 1 + filterSize.rows - paddingNum.0
-    let columns = strides.columns * inputSize.columns - 1 + filterSize.columns - paddingNum.1
-
-    let outputSize = (rows, columns)
-    
-    let starting: Int = Int(ceil(sqrt(Double(conv.count)))) + 1
-    let ending: Int = conv.count
-    
-    var results: [Float] = []
-    
-    for i in stride(from: starting, to: ending, by: starting - 1) {
-      let slice = conv[i..<(i + outputSize.0)]
-      results.append(contentsOf: slice)
-      if results.count == rows * columns {
-        break
-      }
-    }
-
-    return results
+    let result: Element = NumSwift.transConv2D(signal: self,
+                                               filter: filter,
+                                               strides: strides,
+                                               padding: padding,
+                                               filterSize: filterSize,
+                                               inputSize: inputSize).flatten()
+      
+    return result
   }
   
   
@@ -330,27 +341,7 @@ public extension Array where Element == [Float] {
     let columns = (((inputSize.columns + paddingNum.1) - (filterSize.columns - 1) - 1)) + 1
 
     let outputSize = (rows, columns)
-      
-//    let n = ((inputSize.rows + (filterSize.rows - 1)) / 2) * ((inputSize.columns + (filterSize.columns - 1)) / 2)
-//
-//    var conv: [Float] = [Float](repeating: 0, count: newInputSize.0 * newInputSize.1)
-//
-//    vDSP_imgfir(flat,
-//                vDSP_Length(newInputSize.0),
-//                vDSP_Length(newInputSize.1),
-//                flatKernel,
-//                &conv,
-//                vDSP_Length(filterRows),
-//                vDSP_Length(filterColumns))
-//
-//    conv.withUnsafeMutableBufferPointer { dest in
-//      flat.withUnsafeBufferPointer { src in
-//        flatKernel.withUnsafeBufferPointer { kernel in
-//
-//        }
-//      }
-//    }
-//
+    
     let conv: [Float] = vDSP.convolve(flat,
                                       rowCount: newInputSize.0,
                                       columnCount: newInputSize.1,

@@ -28,7 +28,6 @@ let package = Package(
             resources: [ .process("Resources/") ]),
         .testTarget(
             name: "NumSwiftTests",
-            dependencies: ["NumSwift"],
-            resources: [ .process("Resources/") ]),
+            dependencies: ["NumSwift"])
     ]
 )

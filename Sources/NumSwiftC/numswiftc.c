@@ -134,7 +134,7 @@ extern void nsc_conv2d(const float signal[],
                           pad_l_ptr,
                           pad_r_ptr);
   
-  float *working_signal;
+  const float *working_signal;
   if (padding == same) {
     working_signal = nsc_zero_pad(signal,
                                   filter_size,
@@ -190,14 +190,13 @@ extern void nsc_conv2d(const float signal[],
       }
       
       mutable_result[result_index] = sum;
-      memmove(mutable_result, result, expected_r * expected_c * sizeof(float));
       result_index += 1;
     }
   }
-  printf("%f \n", result[2]);
-
- // result = mutable_result;
-  free(working_signal);
+  
+  memmove(result, mutable_result, expected_r * expected_c * sizeof(float));
+  
+  free(mutable_result);
 }
 
 extern void nsc_transConv2d(const float signal[],
@@ -272,7 +271,10 @@ extern void nsc_transConv2d(const float signal[],
     }
   }
   
-  memcpy(result, padded, padded_col_total * padded_row_total * sizeof(float));
+  if (padded == NULL)
+    return;
+  
+  memmove(result, padded, padded_col_total * padded_row_total * sizeof(float));
   
   free(padded);
   free(working_result);

@@ -214,60 +214,56 @@ final class NumSwiftTests: XCTestCase {
                                   inputSize: signalShape)
 
     let rows = conv.reshape(columns: 10)
-    rows.forEach { print($0) }
-//    let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                               [0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                               [0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                               [0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                               [0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-//                               [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
-//    XCTAssert(expected == rows)
+    let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]]
+    XCTAssert(expected == rows)
   }
   
-  func testCConv2D() {
-    let signalShape = (5,5)
-
-    let filter: [[Float]] = [[0, 0, 1, 0],
-                             [0, 0, 1, 0],
-                             [0, 0, 1, 0],
-                             [0, 0, 1, 0]]
-    
-    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
-        
-    let result = NumSwiftC.conv2d(signal: signal.flatten(),
-                                  filter: filter.flatten(),
-                                  strides: (1,1),
-                                  padding: .same,
-                                  filterSize: (rows: 4, columns: 4),
-                                  inputSize: signalShape)
-    
-    let reshaped = result.reshape(columns: 5)
-    reshaped.forEach { print($0) }
-  }
-  
-  func testTransCConv2D() {
-    let signalShape = (5,5)
-    let filterShape = (4,4)
-
-    let filter: [[Float]] = [[Float]](repeating: [0,0,1,0], count: filterShape.0)
-    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
-        
-    let result = NumSwiftC.transConv2d(signal: signal.flatten(),
-                                       filter: filter.flatten(),
-                                       strides: (2,2),
-                                       padding: .same,
-                                       filterSize: filterShape,
-                                       inputSize: signalShape)
-    
-    let reshaped = result.reshape(columns: 10)
-    reshaped.forEach { print($0) }
-  }
+//  func testCConv2D() {
+//    let signalShape = (5,5)
+//
+//    let filter: [[Float]] = [[0, 1, 0],
+//                             [0, 1, 0],
+//                             [0, 1, 0]]
+//
+//    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
+//
+//    let result = NumSwiftC.conv2d(signal: signal.flatten(),
+//                                  filter: filter.flatten(),
+//                                  strides: (1,1),
+//                                  padding: .same,
+//                                  filterSize: (rows: 3, columns: 3),
+//                                  inputSize: signalShape)
+//    
+//    let reshaped = result.reshape(columns: 5)
+//    reshaped.forEach { print($0) }
+//  }
+//
+//  func testTransCConv2D() {
+//    let signalShape = (5,5)
+//    let filterShape = (4,4)
+//
+//    let filter: [[Float]] = [[Float]](repeating: [0,0,1,0], count: filterShape.0)
+//    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
+//
+//    let result = NumSwiftC.transConv2d(signal: signal.flatten(),
+//                                       filter: filter.flatten(),
+//                                       strides: (2,2),
+//                                       padding: .same,
+//                                       filterSize: filterShape,
+//                                       inputSize: signalShape)
+//
+//    let reshaped = result.reshape(columns: 10)
+//    reshaped.forEach { print($0) }
+//  }
   
   func test2DConv() {
     let signalShape = (5,5)

@@ -9,6 +9,7 @@ import Foundation
 import Accelerate
 import Metal
 import MetalPerformanceShaders
+
 #if os(iOS)
 import UIKit
 #endif
@@ -255,7 +256,7 @@ public class NumSwift {
       break
     }
     
-    let padded = Array(result[padLeft..<rows - padRight].map { Array($0[padTop..<columns - padBottom]) })
+    let padded = Array(result[padTop..<rows - padBottom].map { Array($0[padLeft..<columns - padRight]) })
     return padded
   }
 }

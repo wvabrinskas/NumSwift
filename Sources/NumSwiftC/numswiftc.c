@@ -94,7 +94,7 @@ extern void nsc_zero_pad(const float input[],
   }
   
   if (padded == NULL || input == NULL)
-    return NULL;
+    return;
   
   for (int r = 0; r < inputRows; r++) {
     for (int c = 0; c < inputColumns; c++) {

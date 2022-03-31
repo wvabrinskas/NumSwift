@@ -50,10 +50,11 @@ extern void nsc_padding_calculation(NSC_Size stride,
   }
 }
 
-extern float * nsc_zero_pad(const float input[],
-                             NSC_Size filter_size,
-                             NSC_Size input_size,
-                             NSC_Size stride) {
+extern void nsc_zero_pad(const float input[],
+                         float *result,
+                         NSC_Size filter_size,
+                         NSC_Size input_size,
+                         NSC_Size stride) {
   int paddingLeft;
   int paddingRight;
   int paddingBottom;
@@ -88,7 +89,7 @@ extern float * nsc_zero_pad(const float input[],
   int length = padded_row_total * padded_col_total;
   float *padded = malloc(length * sizeof(float));
   
-  for (int i = 0; i < inputRows * inputColumns; i++) {
+  for (int i = 0; i < padded_row_total * padded_col_total; i++) {
     padded[i] = 0;
   }
   
@@ -104,8 +105,10 @@ extern float * nsc_zero_pad(const float input[],
       padded[index] = input[(r * inputRows) + c];
     }
   }
+    
+  memmove(result, padded, length * sizeof(float));
   
-  return padded;
+  free(padded);
 }
 
 extern void nsc_conv2d(const float signal[],
@@ -134,16 +137,18 @@ extern void nsc_conv2d(const float signal[],
                           pad_l_ptr,
                           pad_r_ptr);
   
-  const float *working_signal;
+  int padded_row_total = input_size.rows + paddingLeft + paddingRight;
+  int padded_col_total = input_size.columns + paddingTop + paddingBottom;
+  
+  float *working_signal = malloc(padded_row_total * padded_col_total * sizeof(float));
   if (padding == same) {
-    working_signal = nsc_zero_pad(signal,
-                                  filter_size,
-                                  input_size,
-                                  stride);
-  } else {
-    working_signal = signal;
+    nsc_zero_pad(signal,
+                 working_signal,
+                 filter_size,
+                 input_size,
+                 stride);
   }
-   
+  
   int inputRows = input_size.rows;
   int inputColumns = input_size.columns;
   
@@ -187,7 +192,7 @@ extern void nsc_conv2d(const float signal[],
           int signal_index = (current_data_row * rd) + current_data_col;
           int filter_index = (fr * rf) + fc;
           
-          float s_data = working_signal[signal_index]; //do some checking of size here?
+          float s_data = padding == valid ? signal[signal_index] : working_signal[signal_index]; //do some checking of size here?
           float f_data = filter[filter_index]; //do some checking of size here?
           sum += s_data * f_data;
         }
@@ -201,6 +206,7 @@ extern void nsc_conv2d(const float signal[],
   memmove(result, mutable_result, expected_r * expected_c * sizeof(float));
   
   free(mutable_result);
+  free(working_signal);
 }
 
 extern void nsc_transConv2d(const float signal[],

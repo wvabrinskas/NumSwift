@@ -73,4 +73,58 @@ public struct NumSwiftC {
                     NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
     return results
   }
+  
+  public static func paddingCalculation(strides: (Int, Int) = (1,1),
+                                        padding: NumSwift.ConvPadding = .valid,
+                                        filterSize: (rows: Int, columns: Int),
+                                        inputSize: (rows: Int, columns: Int)) -> (top: Int, bottom: Int, left: Int, right: Int) {
+    let paddingInt: UInt32 = padding == .valid ? 0 : 1
+
+    var left: Int32 = 0
+    var right: Int32 = 0
+    var top: Int32 = 0
+    var bottom: Int32 = 0
+    
+    nsc_padding_calculation(NSC_Size(rows: Int32(strides.0),
+                                     columns: Int32(strides.1)),
+                            NSC_Padding(paddingInt),
+                            NSC_Size(rows: Int32(filterSize.rows),
+                                     columns: Int32(filterSize.columns)),
+                            NSC_Size(rows: Int32(inputSize.rows),
+                                     columns: Int32(inputSize.columns)),
+                            &top,
+                            &bottom,
+                            &left,
+                            &right)
+    
+    return (Int(top), Int(bottom), Int(left), Int(right))
+  }
+  
+  public static func zeroPad(signal: [Float],
+                             filterSize: (rows: Int, columns: Int),
+                             inputSize: (rows: Int, columns: Int),
+                             stride: (Int, Int) = (1,1)) -> [Float] {
+    
+    
+    let padding = NumSwiftC.paddingCalculation(strides: stride,
+                                               padding: .same,
+                                               filterSize: filterSize,
+                                               inputSize: inputSize)
+    
+    let count = (inputSize.rows + padding.top + padding.bottom) * (inputSize.columns + padding.left + padding.right)
+
+    var results: [Float] = [Float](repeating: 0,
+                                   count: count)
+    
+    nsc_zero_pad(signal,
+                 &results,
+                 NSC_Size(rows: Int32(filterSize.rows),
+                          columns: Int32(filterSize.columns)),
+                 NSC_Size(rows: Int32(inputSize.rows),
+                          columns: Int32(inputSize.columns)),
+                 NSC_Size(rows: Int32(stride.0),
+                          columns: Int32(stride.1)))
+    
+    return results
+  }
 }

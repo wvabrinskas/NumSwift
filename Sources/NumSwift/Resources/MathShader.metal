@@ -1,20 +1,25 @@
 #include <metal_stdlib>
 using namespace metal;
 
-kernel void conv2d(const float signal[],
-                   const float filter[],
-                   float *result,
-                   NSC_Size stride,
-                   NSC_Padding padding,
-                   NSC_Size filter_size,
-                   NSC_Size input_size,
-                   
+//multiple filters can be applied at the same time using thread groups
+kernel void conv2d(const device float* signal [[ buffer(0) ]],
+                   const device float* filter [[ buffer(1) ]],
+                   device float* result [[ buffer(2) ]],
+                   const device uint &stride_r [[ buffer(3) ]],
+                   const device uint &stride_c [[ buffer(4) ]],
+                   const device uint &padding [[ buffer(5) ]],
+                   const device uint &filter_r [[ buffer(6) ]],
+                   const device uint &filter_c [[ buffer(7) ]],
+                   const device uint &input_r [[ buffer(8) ]],
+                   const device uint &input_c [[ buffer(9) ]],
+
                    const uint tgPos [[ threadgroup_position_in_grid ]],
                    const uint tPerTg [[ threads_per_threadgroup ]],
                    const uint tPos [[ thread_position_in_threadgroup ]]) {
   
   uint resultIndex = tgPos * tPerTg + tPos;
-
+  
+  uint offset = resultIndex; 
   
 }
 

@@ -227,6 +227,30 @@ final class NumSwiftTests: XCTestCase {
     XCTAssert(expected == rows)
   }
   
+  func testMetalConv2D() {
+    let signalShape = (5,5,1)
+    let outputShape = (5,5,1)
+
+    let filter: [[Float]] = [[0, 1, 0],
+                             [0, 1, 0],
+                             [0, 1, 0]]
+
+    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
+    
+    let manager = MetalManager()
+    
+    let result = manager.conv2D(signal: signal,
+                                filter: filter,
+                                strides: (1,1),
+                                padding: .same,
+                                filterSize: (rows: 3, columns: 3),
+                                inputSize: signalShape,
+                                outputSize: outputShape)
+    
+    let reshaped = result.reshape(columns: 5)
+    reshaped.forEach { print($0) }
+  }
+  
   func testCConv2D() {
     let signalShape = (5,5)
 

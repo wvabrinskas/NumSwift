@@ -1,11 +1,15 @@
 import Foundation
 import Metal
+import MetalPerformanceShaders
 
 public typealias DataType = [[CFloat]]
 public typealias ResultType = CFloat
 
-public class MetalManager {
+public class MetalManager: NSObject {
   public static let shared = MetalManager()
+  
+  private var incomingWeights: [Float] = []
+  private var incomingBiases: [Float] = []
   
   public enum MetalFunction: String {
     case activation
@@ -47,14 +51,108 @@ public class MetalManager {
     }
   }
   
+  private func buildImage(size: (rows: Int, columns: Int, depth: Int), data: [Float]? = nil) -> MPSImage {
+    guard let device = device else {
+      fatalError("no metal device")
+    }
+
+    let outputImageDescriptor = MPSImageDescriptor(channelFormat: .float32,
+                                                   width: size.columns,
+                                                   height: size.rows,
+                                                   featureChannels: size.depth)
+    
+    let outputImage = MPSImage(device: device, imageDescriptor: outputImageDescriptor)
+    
+    if let data = data {
+      let region = MTLRegion(origin: MTLOrigin(x: 0, y: 0, z: 0),
+                             size: MTLSize(width: size.columns,
+                                           height: size.rows,
+                                           depth: size.depth))
+      
+      data.withUnsafeBufferPointer { input32 in
+        
+        let bytesPerRow: Int = MemoryLayout<Float>.size * outputImage.width
+        
+        let ff16 = UnsafeMutableBufferPointer<Float>.allocate(capacity: data.count)
+        
+        ff16.initialize(repeating: 0)
+              
+        let rr16 = UnsafeRawPointer(ff16.baseAddress!)
+        
+        outputImage.texture.replace(
+          region: region,
+          mipmapLevel: 0,
+          withBytes: rr16,
+          bytesPerRow: bytesPerRow)
+        
+        ff16.deallocate()
+      }
+    }
+    
+    return outputImage
+  }
+  
+  private func extractData(image: MPSImage) -> [Float] {
+    
+    let region = MTLRegion(origin: MTLOrigin(x: 0, y: 0, z: 0),
+                           size: MTLSize(width: image.width,
+                                         height: image.height,
+                                         depth: image.featureChannels))
+    
+    let bytesPerRow: Int = MemoryLayout<Float>.size * image.width
+    
+    let ff16 = UnsafeMutableBufferPointer<Float>.allocate(capacity: image.width * image.height)
+    
+    image.texture.getBytes(
+      UnsafeMutableRawPointer(ff16.baseAddress!),
+      bytesPerRow: bytesPerRow, from: region, mipmapLevel: 0
+    )
+    
+    return Array(ff16)
+  }
+  
   public func conv2D(signal: [[Float]],
                      filter: [[Float]],
                      strides: (Int, Int) = (1,1),
                      padding: NumSwift.ConvPadding = .valid,
                      filterSize: (rows: Int, columns: Int),
-                     inputSize: (rows: Int, columns: Int)) -> [Float] {
+                     inputSize: (rows: Int, columns: Int, depth: Int),
+                     outputSize: (rows: Int, columns: Int, depth: Int)) -> [Float] {
     
-    return []
+    guard let device = self.device else {
+      return []
+    }
+    
+    let descriptor = MPSCNNConvolutionDescriptor(kernelWidth: filterSize.columns,
+                                                 kernelHeight: filterSize.rows,
+                                                 inputFeatureChannels: inputSize.depth,
+                                                 outputFeatureChannels: outputSize.depth)
+    
+    descriptor.strideInPixelsX = strides.1
+    descriptor.strideInPixelsY = strides.0
+    
+    let conv = MPSCNNConvolution(device: de, weights: <#T##MPSCNNConvolutionDataSource#>)
+    conv.offset = MPSOffset(x: inputSize.columns / 2, y: inputSize.rows / 2, z: 0)
+    conv.edgeMode = .zero
+    
+    let queue = self.device?.makeCommandQueue()
+    let cmds = queue?.makeCommandBuffer()
+    
+    guard let buffer = cmds else {
+      return []
+    }
+    
+    let image = buildImage(size: inputSize, data: signal.flatten())
+    let outputImage = buildImage(size: outputSize)
+    
+    conv.encode(commandBuffer: buffer,
+                sourceImage: image,
+                destinationImage: outputImage)
+    
+    buffer.commit()
+    buffer.waitUntilCompleted()
+    
+    return extractData(image: outputImage)
   }
   
   public func activate(_ num: Float,
@@ -120,4 +218,15 @@ public class MetalManager {
         
     return sum
   }
+}
+
+extension MetalManager: MPSCNNConvolutionDataSource {
+    public func dataType() ->   MPSDataType { .float32 }
+  public func descriptor() -> MPSCNNConvolutionDescriptor { convolutionDescriptor }
+  public func weights() ->    UnsafeMutableRawPointer { incomingWeights }
+  public func biasTerms() ->  UnsafeMutablePointer<Float>? { incomingBiases }
+  public func load() -> Bool { true }
+  public func purge() { }
+  public func label() -> String? { nil }
+  public func copy(with zone: NSZone? = nil) -> Any { false }
 }

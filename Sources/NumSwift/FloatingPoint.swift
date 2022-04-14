@@ -158,6 +158,52 @@ public extension Array where Element == [Double] {
 }
 
 public extension Array where Element == [Float] {
+  func stridePad(strides: (rows: Int, columns: Int), padding: Int = 0) -> Self {
+    guard let firstCount = self.first?.count else {
+      return self
+    }
+    
+    let numToPad = (strides.rows - 1, strides.columns - 1)
+    
+    let newRows = count * strides.rows
+    let newColumns = firstCount * strides.columns
+    
+    var result: [[Float]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
+    
+    var mutableSelf: [Float] = self.flatten()
+    if numToPad.0 > 0 || numToPad.1 > 0 {
+      
+      for r in stride(from: 0, to: newRows, by: strides.rows) {
+        for c in stride(from: 0, to: newColumns, by: strides.columns) {
+            result[r][c] = mutableSelf.removeFirst()
+        }
+      }
+      
+    } else {
+      result = self
+    }
+    
+    //remove based on padding
+    var results: [[Float]] = result
+    
+    for _ in 0..<padding {
+      var newResult: [[Float]] = []
+        
+      results.forEach { p in
+        var newRow: [Float] = p
+        newRow.removeFirst()
+        newRow.removeLast()
+        newResult.append(newRow)
+      }
+      
+      results = newResult
+      results.removeFirst()
+      results.removeLast()
+    }
+      
+    return results
+  }
+  
   func zeroPad(filterSize: (Int, Int), stride: (Int, Int) = (1,1)) -> Self {
     guard let first = self.first else {
       return self

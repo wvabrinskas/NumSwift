@@ -7,7 +7,6 @@
 
 import Foundation
 import Accelerate
-import CloudKit
 
 public extension Array where Element == [Double] {
   
@@ -158,32 +157,16 @@ public extension Array where Element == [Double] {
 }
 
 public extension Array where Element == [Float] {
-  func stridePad(strides: (rows: Int, columns: Int), padding: Int = 0) -> Self {
-    var result = stridePad(strides: strides)
-    
-    result = result.shrink(by: padding)
-        
-    return result
-  }
   
-  func zeroPad(filterSize: (Int, Int), stride: (Int, Int) = (1,1)) -> Self {
+  func zeroPad(padding: NumSwiftPadding) -> Self {
     guard let first = self.first else {
       return self
     }
     
-    let height = Double(self.count)
-    let width = Double(first.count)
-    
-    let outHeight = ceil(height / Double(stride.0))
-    let outWidth = ceil(width / Double(stride.1))
-    
-    let padAlongHeight = Swift.max((outHeight - 1) * Double(stride.0) + Double(filterSize.0) - height, 0)
-    let padAlongWidth = Swift.max((outWidth - 1) * Double(stride.1) + Double(filterSize.1) - width, 0)
-
-    let paddingTop = Int(floor(padAlongHeight / 2))
-    let paddingBottom = Int(padAlongHeight - Double(paddingTop))
-    let paddingLeft = Int(floor(padAlongWidth / 2))
-    let paddingRight = Int(padAlongWidth - Double(paddingLeft))
+    let paddingTop = padding.top
+    let paddingLeft = padding.left
+    let paddingRight = padding.right
+    let paddingBottom = padding.bottom
     
     var result: [Element] = self
     let newRow = [Float](repeating: 0, count: first.count)
@@ -221,7 +204,41 @@ public extension Array where Element == [Float] {
     result = paddingRightMapped
     
     return result
+  }
+  
+  func stridePad(strides: (rows: Int, columns: Int), padding: Int = 0) -> Self {
+    var result = stridePad(strides: strides)
     
+    result = result.shrink(by: padding)
+        
+    return result
+  }
+  
+  func zeroPad(filterSize: (Int, Int), stride: (Int, Int) = (1,1)) -> Self {
+    guard let first = self.first else {
+      return self
+    }
+    
+    let height = Double(self.count)
+    let width = Double(first.count)
+    
+    let outHeight = ceil(height / Double(stride.0))
+    let outWidth = ceil(width / Double(stride.1))
+    
+    let padAlongHeight = Swift.max((outHeight - 1) * Double(stride.0) + Double(filterSize.0) - height, 0)
+    let padAlongWidth = Swift.max((outWidth - 1) * Double(stride.1) + Double(filterSize.1) - width, 0)
+
+    let paddingTop = Int(floor(padAlongHeight / 2))
+    let paddingBottom = Int(padAlongHeight - Double(paddingTop))
+    let paddingLeft = Int(floor(padAlongWidth / 2))
+    let paddingRight = Int(padAlongWidth - Double(paddingLeft))
+        
+    let paddingObc = NumSwiftPadding(top: paddingTop,
+                                     left: paddingLeft,
+                                     right: paddingRight,
+                                     bottom: paddingBottom)
+    
+    return self.zeroPad(padding: paddingObc)
   }
 
   func zeroPad() -> Self {

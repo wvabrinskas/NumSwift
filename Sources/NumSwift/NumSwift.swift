@@ -14,6 +14,20 @@ import MetalPerformanceShaders
 import UIKit
 #endif
 
+public struct NumSwiftPadding {
+  var top: Int
+  var left: Int
+  var right: Int
+  var bottom: Int
+  
+  public init(top: Int, left: Int, right: Int, bottom: Int) {
+    self.top = top
+    self.left = left
+    self.right = right
+    self.bottom = bottom
+  }
+}
+
 public class NumSwift {
   
   public enum ConvPadding {
@@ -43,6 +57,62 @@ public class NumSwift {
         return (0,0)
       }
     }
+  }
+  
+  public static func onesLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float]]] {
+    let shape = [size.columns, size.rows, size.depth]
+    
+    var result: [Any]  = []
+    var previous: Any = Float(1.0)
+    
+    shape.forEach { s in
+      result = Array(repeatElement(previous, count: s))
+      previous = result
+    }
+    
+    return result as? [[[Float]]] ?? []
+  }
+  
+  public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Double]] {
+    let shape = [size.columns, size.rows]
+    
+    var result: [Any]  = []
+    var previous: Any = 1.0
+
+    shape.forEach { s in
+      result = Array(repeatElement(previous, count: s))
+      previous = result
+    }
+    
+    return result as? [[Double]] ?? []
+  }
+  
+  public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Float]] {
+    let shape = [size.columns, size.rows]
+    
+    var result: [Any]  = []
+    var previous: Any = Float(1.0)
+
+    shape.forEach { s in
+      result = Array(repeatElement(previous, count: s))
+      previous = result
+    }
+    
+    return result as? [[Float]] ?? []
+  }
+  
+  public static func onesLike<T: Collection>(_ array: T) -> Array<AnyHashable> {
+    let shape = array.shape
+    
+    var result: [AnyHashable]  = []
+    var previous: AnyHashable = 1.0
+    
+    shape.forEach { s in
+      result = Array(repeatElement(previous, count: s))
+      previous = result
+    }
+    
+    return result
   }
   
   public static func zerosLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float]]] {

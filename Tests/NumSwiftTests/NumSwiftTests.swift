@@ -243,6 +243,46 @@ final class NumSwiftTests: XCTestCase {
     XCTAssert(expected == rows)
   }
   
+  func testCPadding() {
+
+    var signalShape = (8,8)
+    let filterShape = (16,16)
+    let strides = (2,2)
+
+    var signal: [[Float]] = NumSwift.onesLike(signalShape)
+    
+    signal = signal.stridePad(strides: strides, padding: strides.0 - 1)
+    signal = signal.zeroPad(padding: NumSwiftPadding(top: strides.0, left: strides.1, right: 1, bottom: 1))
+    
+    let newShape = signal.shape
+    
+    signalShape = (newShape[safe: 1] ?? 0,newShape[safe: 0] ?? 0)
+    
+//    let padding: NumSwift.ConvPadding = .same
+//    print(padding.extra(inputSize: signalShape, filterSize: (3,3), stride: (1,1)))
+    
+    let filter: [[Float]] = NumSwift.zerosLike(filterShape)
+
+    let result = NumSwiftC.conv2d(signal: signal.flatten(),
+                                  filter: filter.flatten(),
+                                  strides: (1,1),
+                                  padding: .valid,
+                                  filterSize: filterShape,
+                                  inputSize: signalShape)
+    
+    let reshaped = result.reshape(columns: 3)
+    print(reshaped.shape)
+//    let expected: [[Float]] = [[0.0, 0.0, 2.0, 0.0, 0.0],
+//                               [0.0, 0.0, 3.0, 0.0, 0.0],
+//                               [0.0, 0.0, 3.0, 0.0, 0.0],
+//                               [0.0, 0.0, 3.0, 0.0, 0.0],
+//                               [0.0, 0.0, 2.0, 0.0, 0.0]]
+    
+    reshaped.forEach { print($0) }
+   // XCTAssert(reshaped == expected)
+    
+  }
+  
   func testCConv2D() {
     let signalShape = (5,5)
 

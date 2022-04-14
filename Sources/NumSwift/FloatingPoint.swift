@@ -88,53 +88,7 @@ public extension Array where Element == [Double] {
         
     return r
   }
-  
-  func stridePad(strides: (rows: Int, columns: Int), padding: Int = 0) -> Self {
-    guard let firstCount = self.first?.count else {
-      return self
-    }
-    
-    let numToPad = (strides.rows - 1, strides.columns - 1)
-    
-    let newRows = count * strides.rows
-    let newColumns = firstCount * strides.columns
-    
-    var result: [[Double]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
-    
-    var mutableSelf: [Double] = self.flatten()
-    if numToPad.0 > 0 || numToPad.1 > 0 {
-      
-      for r in stride(from: 0, to: newRows, by: strides.rows) {
-        for c in stride(from: 0, to: newColumns, by: strides.columns) {
-            result[r][c] = mutableSelf.removeFirst()
-        }
-      }
-      
-    } else {
-      result = self
-    }
-    
-    //remove based on padding
-    var results: [[Double]] = result
-    
-    for _ in 0..<padding {
-      var newResult: [[Double]] = []
-        
-      results.forEach { p in
-        var newRow: [Double] = p
-        newRow.removeFirst()
-        newRow.removeLast()
-        newResult.append(newRow)
-      }
-      
-      results = newResult
-      results.removeFirst()
-      results.removeLast()
-    }
-      
-    return results
-  }
-  
+
   func transConv2d(_ filter: [[Double]],
                    strides: (rows: Int, columns: Int) = (1,1),
                    padding: NumSwift.ConvPadding = .valid,
@@ -206,11 +160,19 @@ public extension Array where Element == [Float] {
     return result
   }
   
+  func stridePad(strides: (rows: Int, columns: Int), shrink: Int = 0) -> Self {
+    var result = stridePad(strides: strides)
+    result = result.shrink(by: shrink)
+    return result
+  }
+  
   func stridePad(strides: (rows: Int, columns: Int), padding: Int = 0) -> Self {
     var result = stridePad(strides: strides)
     
-    result = result.shrink(by: padding)
-        
+    for _ in 0..<padding {
+      result = result.zeroPad()
+    }
+    
     return result
   }
   
@@ -290,18 +252,18 @@ public extension Array where Element == [Float] {
     }
     
     let numToPad = (strides.rows - 1, strides.columns - 1)
-    
-    let newRows = count * strides.rows + numToPad.0
-    let newColumns = firstCount * strides.columns + numToPad.1
+        
+    let newRows = (count - 1) + ((strides.rows - 1) * 2)
+    let newColumns = (firstCount - 1) + ((strides.columns - 1) * 2)
     
     var result: [[Float]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
     
     var mutableSelf: [Float] = self.flatten()
     if numToPad.0 > 0 || numToPad.1 > 0 {
       
-      for r in stride(from: numToPad.0, to: newRows, by: strides.rows) {
-        for c in stride(from: numToPad.1, to: newColumns, by: strides.columns) {
-            result[r][c] = mutableSelf.removeFirst()
+      for r in stride(from: 0, to: newRows, by: strides.rows) {
+        for c in stride(from: 0, to: newColumns, by: strides.columns) {
+          result[r][c] = mutableSelf.removeFirst()
         }
       }
       

@@ -204,7 +204,7 @@ final class NumSwiftTests: XCTestCase {
     let test: [[Float]] = [[1, 2],
                            [3, 4]]
 
-    let padded = test.stridePad(strides: (2,2))
+    let padded = test.stridePad(strides: (2,2), padding: 1)
     
     let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 0.0],
                                [0.0, 1.0, 0.0, 2.0, 0.0],

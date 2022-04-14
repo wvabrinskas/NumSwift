@@ -253,8 +253,8 @@ public extension Array where Element == [Float] {
     
     let numToPad = (strides.rows - 1, strides.columns - 1)
         
-    let newRows = (count - 1) + ((strides.rows - 1) * 2)
-    let newColumns = (firstCount - 1) + ((strides.columns - 1) * 2)
+    let newRows = count + ((strides.rows - 1) * (count - 1))
+    let newColumns = firstCount + ((strides.columns - 1) * (count - 1))
     
     var result: [[Float]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
     

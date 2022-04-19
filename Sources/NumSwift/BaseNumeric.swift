@@ -64,6 +64,11 @@ public extension Array {
     return nil
   }
 
+  func concurrentForEach(workers: Int, _ block: @escaping (_ element: Element, _ index: Int) -> ()) {
+    DispatchQueue.concurrentPerform(units: workers, workers: workers) { i in
+      block(self[i], i)
+    }
+  }
   
   func concurrentForEach(_ block: (_ element: Element, _ index: Int) -> ()) {
     let group = DispatchGroup()

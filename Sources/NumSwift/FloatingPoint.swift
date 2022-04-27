@@ -789,9 +789,11 @@ public extension Array where Element == [[Double]] {
     
     var result: Self = []
     for d in 0..<depth {
+      var new2d: Element = []
       for r in 0..<rows {
-        result.append(left[d][r] * right[d][r])
+        new2d.append(left[d][r] * right[d][r])
       }
+      result.append(new2d)
     }
     
     return result
@@ -811,9 +813,11 @@ public extension Array where Element == [[Double]] {
     
     var result: Self = []
     for d in 0..<depth {
+      var new2d: Element = []
       for r in 0..<rows {
-        result.append(left[d][r] / right[d][r])
+        new2d.append(left[d][r] / right[d][r])
       }
+      result.append(new2d)
     }
     
     return result
@@ -833,9 +837,11 @@ public extension Array where Element == [[Double]] {
     
     var result: Self = []
     for d in 0..<depth {
+      var new2d: Element = []
       for r in 0..<rows {
-        result.append(left[d][r] - right[d][r])
+        new2d.append(left[d][r] - right[d][r])
       }
+      result.append(new2d)
     }
     
     return result
@@ -855,11 +861,12 @@ public extension Array where Element == [[Double]] {
     
     var result: Self = []
     for d in 0..<depth {
+      var new2d: Element = []
       for r in 0..<rows {
-        result.append(left[d][r] + right[d][r])
+        new2d.append(left[d][r] + right[d][r])
       }
+      result.append(new2d)
     }
-    
     return result
   }
 }
@@ -880,9 +887,11 @@ public extension Array where Element == [[Float]] {
     
     var result: Self = []
     for d in 0..<depth {
+      var new2d: Element = []
       for r in 0..<rows {
-        result.append(left[d][r] * right[d][r])
+        new2d.append(left[d][r] * right[d][r])
       }
+      result.append(new2d)
     }
     
     return result
@@ -902,9 +911,11 @@ public extension Array where Element == [[Float]] {
     
     var result: Self = []
     for d in 0..<depth {
+      var new2d: Element = []
       for r in 0..<rows {
-        result.append(left[d][r] / right[d][r])
+        new2d.append(left[d][r] / right[d][r])
       }
+      result.append(new2d)
     }
     
     return result
@@ -924,9 +935,11 @@ public extension Array where Element == [[Float]] {
     
     var result: Self = []
     for d in 0..<depth {
+      var new2d: Element = []
       for r in 0..<rows {
-        result.append(left[d][r] - right[d][r])
+        new2d.append(left[d][r] - right[d][r])
       }
+      result.append(new2d)
     }
     
     return result
@@ -946,11 +959,12 @@ public extension Array where Element == [[Float]] {
     
     var result: Self = []
     for d in 0..<depth {
+      var new2d: Element = []
       for r in 0..<rows {
-        result.append(left[d][r] + right[d][r])
+        new2d.append(left[d][r] + right[d][r])
       }
+      result.append(new2d)
     }
-    
     return result
   }
 }

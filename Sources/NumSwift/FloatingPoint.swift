@@ -10,6 +10,94 @@ import Accelerate
 
 public extension Array where Element == [Double] {
   
+  static func *(lhs: Self, rhs: Self) -> Self {
+    let left = lhs
+    let right = rhs
+    
+    let leftShape = left.shape
+    let rightShape = right.shape
+    
+    precondition(leftShape == rightShape)
+    
+    let depth = leftShape[safe: 2] ?? 0
+    let rows = leftShape[safe: 1] ?? 0
+    
+    var result: Self = []
+    for d in 0..<depth {
+      for r in 0..<rows {
+        result[d][r] = left[d][r] * right[d][r]
+      }
+    }
+    
+    return result
+  }
+  
+  static func /(lhs: Self, rhs: Self) -> Self {
+    let left = lhs
+    let right = rhs
+    
+    let leftShape = left.shape
+    let rightShape = right.shape
+    
+    precondition(leftShape == rightShape)
+    
+    let depth = leftShape[safe: 2] ?? 0
+    let rows = leftShape[safe: 1] ?? 0
+    
+    var result: Self = []
+    for d in 0..<depth {
+      for r in 0..<rows {
+        result[d][r] = left[d][r] / right[d][r]
+      }
+    }
+    
+    return result
+  }
+  
+  static func -(lhs: Self, rhs: Self) -> Self {
+    let left = lhs
+    let right = rhs
+    
+    let leftShape = left.shape
+    let rightShape = right.shape
+    
+    precondition(leftShape == rightShape)
+    
+    let depth = leftShape[safe: 2] ?? 0
+    let rows = leftShape[safe: 1] ?? 0
+    
+    var result: Self = []
+    for d in 0..<depth {
+      for r in 0..<rows {
+        result[d][r] = left[d][r] - right[d][r]
+      }
+    }
+    
+    return result
+  }
+  
+  static func +(lhs: Self, rhs: Self) -> Self {
+    let left = lhs
+    let right = rhs
+    
+    let leftShape = left.shape
+    let rightShape = right.shape
+    
+    precondition(leftShape == rightShape)
+    
+    let depth = leftShape[safe: 2] ?? 0
+    let rows = leftShape[safe: 1] ?? 0
+    
+    var result: Self = []
+    for d in 0..<depth {
+      for r in 0..<rows {
+        result[d][r] = left[d][r] + right[d][r]
+      }
+    }
+    
+    return result
+  }
+  
   func zeroPad(filterSize: (Int, Int), stride: (Int, Int) = (1,1)) -> Self {
     guard let first = self.first else {
       return self
@@ -111,6 +199,94 @@ public extension Array where Element == [Double] {
 }
 
 public extension Array where Element == [Float] {
+  
+  static func *(lhs: Self, rhs: Self) -> Self {
+    let left = lhs
+    let right = rhs
+    
+    let leftShape = left.shape
+    let rightShape = right.shape
+    
+    precondition(leftShape == rightShape)
+    
+    let depth = leftShape[safe: 2] ?? 0
+    let rows = leftShape[safe: 1] ?? 0
+    
+    var result: Self = []
+    for d in 0..<depth {
+      for r in 0..<rows {
+        result[d][r] = left[d][r] * right[d][r]
+      }
+    }
+    
+    return result
+  }
+  
+  static func /(lhs: Self, rhs: Self) -> Self {
+    let left = lhs
+    let right = rhs
+    
+    let leftShape = left.shape
+    let rightShape = right.shape
+    
+    precondition(leftShape == rightShape)
+    
+    let depth = leftShape[safe: 2] ?? 0
+    let rows = leftShape[safe: 1] ?? 0
+    
+    var result: Self = []
+    for d in 0..<depth {
+      for r in 0..<rows {
+        result[d][r] = left[d][r] / right[d][r]
+      }
+    }
+    
+    return result
+  }
+  
+  static func -(lhs: Self, rhs: Self) -> Self {
+    let left = lhs
+    let right = rhs
+    
+    let leftShape = left.shape
+    let rightShape = right.shape
+    
+    precondition(leftShape == rightShape)
+    
+    let depth = leftShape[safe: 2] ?? 0
+    let rows = leftShape[safe: 1] ?? 0
+    
+    var result: Self = []
+    for d in 0..<depth {
+      for r in 0..<rows {
+        result[d][r] = left[d][r] - right[d][r]
+      }
+    }
+    
+    return result
+  }
+  
+  static func +(lhs: Self, rhs: Self) -> Self {
+    let left = lhs
+    let right = rhs
+    
+    let leftShape = left.shape
+    let rightShape = right.shape
+    
+    precondition(leftShape == rightShape)
+    
+    let depth = leftShape[safe: 2] ?? 0
+    let rows = leftShape[safe: 1] ?? 0
+    
+    var result: Self = []
+    for d in 0..<depth {
+      for r in 0..<rows {
+        result[d][r] = left[d][r] + right[d][r]
+      }
+    }
+    
+    return result
+  }
   
   func zeroPad(padding: NumSwiftPadding) -> Self {
     guard let first = self.first else {

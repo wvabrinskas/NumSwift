@@ -56,6 +56,13 @@ public extension Collection where Self.Iterator.Element: RandomAccessCollection 
 
 
 public extension Array {
+  
+  func batched(into size: Int) -> [[Element]] {
+    return stride(from: 0, to: count, by: size).map {
+      Array(self[$0 ..< Swift.min($0 + size, count)])
+    }
+  }
+  
   subscript(safe safeIndex: Int) -> Element? {
     if safeIndex < self.count {
       return self[safeIndex]
@@ -104,12 +111,7 @@ public extension Array where Element: Equatable & Numeric {
 }
 
 public extension Array where Element: Equatable {
-  
-  func batched(into size: Int) -> [[Element]] {
-    return stride(from: 0, to: count, by: size).map {
-      Array(self[$0 ..< Swift.min($0 + size, count)])
-    }
-  }
+
   /// Get a copy of self but with randomized data indexes
   /// - Returns: Returns Self but with the data randomized
   func randomize() -> Self {

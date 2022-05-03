@@ -8,29 +8,6 @@
 import Foundation
 import Accelerate
 
-@propertyWrapper
-struct Atomic<Value> {
-  private let lock = NSLock()
-  private var value: Value
-  
-  init(default: Value) {
-    self.value = `default`
-  }
-  
-  var wrappedValue: Value {
-    get {
-      lock.lock()
-      defer { lock.unlock() }
-      return value
-    }
-    set {
-      lock.lock()
-      value = newValue
-      lock.unlock()
-    }
-  }
-}
-
 public extension Array where Element == [Double] {
   
   func zeroPad(filterSize: (Int, Int), stride: (Int, Int) = (1,1)) -> Self {

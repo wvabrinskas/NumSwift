@@ -1,6 +1,29 @@
 import Foundation
 import Accelerate
 
+@propertyWrapper
+public struct Atomic<Value> {
+  private let lock = NSLock()
+  private var value: Value
+  
+  public init(default: Value) {
+    self.value = `default`
+  }
+  
+  public var wrappedValue: Value {
+    get {
+      lock.lock()
+      defer { lock.unlock() }
+      return value
+    }
+    set {
+      lock.lock()
+      value = newValue
+      lock.unlock()
+    }
+  }
+}
+
 public extension Collection {
   /// Returns the shape of an N-dimensional array, ex 3D array -> (Col, Row, Dep)
   var shape: [Int] {

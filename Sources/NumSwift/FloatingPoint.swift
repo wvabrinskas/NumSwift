@@ -873,6 +873,27 @@ public extension Array where Element == [[Double]] {
 
 
 public extension Array where Element == [[Float]] {
+  var sumOfSquares: Float {
+    var result: Float = 0
+    self.forEach { a in
+      a.forEach { b in
+        let stride = vDSP_Stride(1)
+        let n = vDSP_Length(b.count)
+        
+        var c: Float = .nan
+        
+        vDSP_svesq(b,
+                   stride,
+                   &c,
+                   n)
+        
+        result += c
+      }
+    }
+
+    return result
+  }
+  
   var mean: Float {
     var r: Float = 0
     var total = 0

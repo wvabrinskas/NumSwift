@@ -6,10 +6,6 @@ public struct Atomic<Value> {
   private let lock = NSLock()
   private var value: Value
   
-  public init(default: Value) {
-    self.value = `default`
-  }
-  
   public var wrappedValue: Value {
     get {
       lock.lock()

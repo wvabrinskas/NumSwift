@@ -930,6 +930,16 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  static func *(lhs: Float, rhs: Self) -> Self {
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d: Element = rhs[d].map { $0 * lhs }
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
   static func /(lhs: Self, rhs: Float) -> Self {
     let left = lhs
             
@@ -953,6 +963,17 @@ public extension Array where Element == [[Float]] {
     
     return result
   }
+  
+  static func +(lhs: Float, rhs: Self) -> Self {
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d: Element = rhs[d].map { $0 + lhs }
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
   
   static func -(lhs: Self, rhs: Float) -> Self {
     let left = lhs

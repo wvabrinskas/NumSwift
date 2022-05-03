@@ -873,6 +873,30 @@ public extension Array where Element == [[Double]] {
 
 
 public extension Array where Element == [[Float]] {
+  var mean: Float {
+    var r: Float = 0
+    var total = 0
+    self.forEach { a in
+      a.forEach { b in
+        r += b.mean
+        total += 1
+      }
+    }
+    
+    return r / Float(total)
+  }
+  
+  var sum: Float {
+    var r: Float = 0
+    self.forEach { a in
+      a.forEach { b in
+        r += b.sum
+      }
+    }
+    
+    return r
+  }
+  
   static func *(lhs: Self, rhs: Float) -> Self {
     let left = lhs
             

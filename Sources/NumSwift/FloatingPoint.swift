@@ -1082,3 +1082,195 @@ public extension Array where Element == [[Float]] {
     return result
   }
 }
+
+
+public extension Array {
+  func as3D() -> [[[Element]]] {
+    let amount = count
+    let result: [[[Element]]] = [[[Element]]].init(repeating: [[Element]].init(repeating: self,
+                                                                               count: amount),
+                                                   count: amount)
+    return result
+  }
+  
+  func as2D() -> [[Element]] {
+    let amount = count
+    let result: [[Element]] = [[Element]].init(repeating: self, count: amount)
+    return result
+  }
+  
+  subscript(safe safeIndex: Int, default: Element) -> Element {
+    if safeIndex < 0 {
+      return `default`
+    }
+    
+    return self[safe: safeIndex] ?? `default`
+  }
+  
+  subscript(_ multiple: [Int], default: Element) -> Self {
+    var result: Self = []
+    result.reserveCapacity(multiple.count)
+    
+    multiple.forEach { i in
+      result.append(self[safe: i, `default`])
+    }
+    
+    return result
+  }
+  
+  subscript(range multiple: Range<Int>, default: Element) -> Self {
+    var result: Self = []
+    result.reserveCapacity(multiple.count)
+    
+    multiple.forEach { i in
+      result.append(self[safe: i, `default`])
+    }
+    
+    return result
+  }
+
+  subscript(range multiple: Range<Int>, dialate: Int, default: Element) -> Self {
+    var result: Self = []
+    result.reserveCapacity(multiple.count)
+    
+    var i: Int = 0
+    var dialateTotal: Int = 0
+    
+    let range = [Int](multiple)
+
+    while i < multiple.count {
+      if i > 0 && dialateTotal < dialate {
+        result.append(self[safe: -1, `default`])
+        dialateTotal += 1
+      } else {
+        result.append(self[safe: range[i], `default`])
+        i += 1
+        dialateTotal = 0
+      }
+    }
+
+    return result
+  }
+  
+  subscript(range multiple: Range<Int>, padding: Int, dialate: Int, default: Element) -> Self {
+    var result: Self = []
+    //result.reserveCapacity(multiple.count)
+    
+    var i: Int = 0
+    var dialateTotal: Int = 0
+    var paddingTotal: Int = 0
+    
+    let range = [Int](multiple)
+    
+    while i < (multiple.count + padding * 4) {
+      if (i > multiple.count || i == 0) && paddingTotal < padding {
+        result.append(self[safe: -1, `default`])
+        paddingTotal += 1
+      } else if i > 0 && i < multiple.count && dialateTotal < dialate {
+        result.append(self[safe: -1, `default`])
+        dialateTotal += 1
+      } else {
+        if i < multiple.count {
+          result.append(self[safe: range[i], `default`])
+          paddingTotal = 0
+          dialateTotal = 0
+        }
+        i += 1
+      }
+    }
+
+    return result
+  }
+}
+
+public extension Array where Element == [Float] {
+  
+  subscript(_ start: (row: Int, column: Int),
+            end: (row: Int, column: Int),
+            default: Float) -> Self {
+    var result: Self = []
+    
+    let defaultRow = [Float].init(repeating: `default`, count: count)
+    result.append(contentsOf: self[range: start.row..<end.row, defaultRow])
+    
+    return result.map { $0[range: start.column..<end.column, `default`] }
+  }
+
+  subscript(flat start: (row: Int, column: Int),
+            end: (row: Int, column: Int),
+            default: Float) -> [Float] {
+    var result: [Float] = []
+    
+    let defaultRow = [Float].init(repeating: `default`, count: count)
+    
+    self[range: start.row..<end.row, defaultRow].forEach { row in
+      let column = row[range: start.column..<end.column, `default`]
+      result.append(contentsOf: column)
+    }
+        
+    return result
+  }
+
+  subscript(_ start: (row: Int, column: Int),
+            end: (row: Int, column: Int),
+            dialate: Int,
+            default: Float) -> Self {
+    
+    var result: Self = []
+
+    let defaultRow = [Float].init(repeating: `default`, count: count)
+    result.append(contentsOf: self[range: start.row..<end.row, dialate, defaultRow])
+    
+    return result.map { $0[range: start.column..<end.column, dialate, `default`] }
+  }
+  
+  subscript(_ start: (row: Int, column: Int),
+            end: (row: Int, column: Int),
+            padding: Int,
+            dialate: Int,
+            default: Float) -> Self {
+    
+    var result: Self = []
+
+    let defaultRow = [Float].init(repeating: `default`, count: count)
+    result.append(contentsOf: self[range: start.row..<end.row, padding, dialate, defaultRow])
+    
+    return result.map { $0[range: start.column..<end.column, padding, dialate, `default`] }
+  }
+  
+  subscript(flat start: (row: Int, column: Int),
+            end: (row: Int, column: Int),
+            dialate: Int,
+            default: Float) -> [Float] {
+    
+    var result: [Float] = []
+
+    let defaultRow = [Float].init(repeating: `default`, count: count)
+    
+    self[range: start.row..<end.row, dialate, defaultRow].forEach { row in
+      let column = row[range: start.column..<end.column, dialate, `default`]
+      result.append(contentsOf: column)
+    }
+            
+    return result
+  }
+  
+  subscript(flat start: (row: Int, column: Int),
+            end: (row: Int, column: Int),
+            padding: Int,
+            dialate: Int,
+            default: Float) -> [Float] {
+    
+    var result: [Float] = []
+
+    let defaultRow = [Float].init(repeating: `default`, count: count)
+    
+    self[range: start.row..<end.row, padding, dialate, defaultRow].forEach { row in
+      let column = row[range: start.column..<end.column, padding, dialate, `default`]
+      result.append(contentsOf: column)
+    }
+            
+    return result
+  }
+}
+

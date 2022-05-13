@@ -174,55 +174,51 @@ public class NumSwift {
   public static func conv2d(signal: [[Float]],
                             filter: [[Float]],
                             strides: (Int, Int) = (1,1),
-                            padding: ConvPadding = .valid,
+                            padding: NumSwift.ConvPadding = .valid,
                             filterSize: (rows: Int, columns: Int),
                             inputSize: (rows: Int, columns: Int)) -> [[Float]] {
     
-    let paddingNum = padding.extra(inputSize: inputSize,
-                                   filterSize: filterSize,
-                                   stride: strides)
+    let paddingValue = padding.extra(inputSize: (inputSize.rows, inputSize.columns), filterSize: filterSize)
     
-    //let newInputSize = ((inputSize.rows + paddingNum.0), (inputSize.columns + paddingNum.1))
+    let rows = (((inputSize.rows + (paddingValue.0)) - (filterSize.rows - 1) - 1) / strides.1) + 1
+    let columns = (((inputSize.columns + (paddingValue.1)) - (filterSize.columns - 1) - 1) / strides.0) + 1
     
-    var signal = signal
-        
-    if padding == .same {
-      signal = signal.zeroPad(filterSize: filterSize)
-    }
+    let flatFilter: [Float] = filter.flatten()
     
-    let rf = filterSize.rows
-    let cf = filterSize.columns
-    let rd = inputSize.rows + paddingNum.0
-    let cd = inputSize.columns + paddingNum.1
-  
-    var results: [[Float]] = []
+    var results: [[Float]] = NumSwift.zerosLike((rows,columns))
     
-    let maxR = rd - rf + 1
-    let maxC = cd - cf + 1
+    let rowPadding = paddingValue.1 / 2
+    let colPadding = paddingValue.0 / 2
     
-    for r in stride(from: 0, to: maxR, by: strides.0) {
-      var result: [Float] = []
+    var currentRowIndex = 0
+    var currentColIndex = 0
+    
+    let columnRange = -colPadding...(inputSize.columns + colPadding) - filterSize.columns
+    let rowRange = -rowPadding...(inputSize.rows + rowPadding) - filterSize.rows
+    
+    let strideColumnRange = [Int](stride(from: columnRange.lowerBound, through: columnRange.upperBound, by: strides.0))
+    let strideRowRange = [Int](stride(from: rowRange.lowerBound, through: rowRange.upperBound, by: strides.1))
+    
+    strideColumnRange.concurrentForEach(workers: 16) { c, _ in
+      currentRowIndex = 0
       
-      for c in stride(from: 0, to: maxC, by: strides.1) {
+      strideRowRange.concurrentForEach(workers: 16) { r, _ in
         
-        var sum: Float = 0
+        let sig = signal[flat: (r,c), (r + filterSize.rows, c + filterSize.columns), 0]
+        let dot = sig.dot(flatFilter)
         
-        for fr in 0..<rf {
-          let dataRow = Array(signal[r + fr][c..<c + cf])
-          let filterRow = filter[fr]
-          let mult = (filterRow * dataRow).sum
-          sum += mult
-        }
+        let adjustedR = min(currentRowIndex, rows)
+        let adjustedC = min(currentColIndex, columns)
         
-        result.append(sum)
+        results[adjustedR][adjustedC] = dot
+        currentRowIndex += 1
       }
       
-      results.append(result)
+      currentColIndex += 1
     }
     
     return results
   }
-
   
   public static func transConv2D(signal: [[Double]],
                                  filter: [[Double]],

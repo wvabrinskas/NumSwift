@@ -1211,3 +1211,189 @@ public extension Array where Element == [Float] {
   }
 }
 
+
+public extension Array where Element == [Float] {
+  var sumOfSquares: Float {
+    var result: Float = 0
+    self.forEach { a in
+      let stride = vDSP_Stride(1)
+      let n = vDSP_Length(a.count)
+      
+      var c: Float = .nan
+      
+      vDSP_svesq(a,
+                 stride,
+                 &c,
+                 n)
+      
+      result += c
+    }
+
+    return result
+  }
+  
+  var mean: Float {
+    var r: Float = 0
+    var total = 0
+    self.forEach { a in
+      r += a.mean
+      total += 1
+    }
+    
+    return r / Float(total)
+  }
+  
+  var sum: Float {
+    var r: Float = 0
+    self.forEach { a in
+      r += a.sum
+    }
+    
+    return r
+  }
+  
+  static func *(lhs: Self, rhs: Float) -> Self {
+    let left = lhs
+            
+    var result: Self = []
+    for d in 0..<lhs.count {
+      let new2d: Element = left[d] * rhs
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func *(lhs: Float, rhs: Self) -> Self {
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d: Element = rhs[d] * lhs
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func /(lhs: Self, rhs: Float) -> Self {
+    let left = lhs
+            
+    var result: Self = []
+    for d in 0..<lhs.count {
+      let new2d: Element = left[d] / rhs
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func +(lhs: Self, rhs: Float) -> Self {
+    let left = lhs
+            
+    var result: Self = []
+    for d in 0..<lhs.count {
+      let new2d: Element = left[d] + rhs
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func +(lhs: Float, rhs: Self) -> Self {
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d: Element = rhs[d] + lhs
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  
+  static func -(lhs: Self, rhs: Float) -> Self {
+    let left = lhs
+            
+    var result: Self = []
+    for d in 0..<lhs.count {
+      let new2d: Element = left[d] - rhs
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func *(lhs: Self, rhs: Self) -> Self {
+    let left = lhs
+    let right = rhs
+    
+    let leftShape = left.shape
+    let rightShape = right.shape
+    
+    precondition(leftShape == rightShape)
+    
+    let depth = left.count
+    
+    var result: Self = []
+    for d in 0..<depth {
+      result.append(left[d] * right[d])
+    }
+    
+    return result
+  }
+  
+  static func /(lhs: Self, rhs: Self) -> Self {
+    let left = lhs
+    let right = rhs
+    
+    let leftShape = left.shape
+    let rightShape = right.shape
+    
+    precondition(leftShape == rightShape)
+    
+    let depth = left.count
+    
+    var result: Self = []
+    for d in 0..<depth {
+      result.append(left[d] / right[d])
+    }
+    
+    return result
+  }
+  
+  static func -(lhs: Self, rhs: Self) -> Self {
+    let left = lhs
+    let right = rhs
+    
+    let leftShape = left.shape
+    let rightShape = right.shape
+    
+    precondition(leftShape == rightShape)
+    
+    let depth = left.count
+    
+    var result: Self = []
+    for d in 0..<depth {
+      result.append(left[d] - right[d])
+    }
+    
+    return result
+  }
+  
+  static func +(lhs: Self, rhs: Self) -> Self {
+    let left = lhs
+    let right = rhs
+    
+    let leftShape = left.shape
+    let rightShape = right.shape
+    
+    precondition(leftShape == rightShape)
+    
+    let depth = left.count
+    
+    var result: Self = []
+    for d in 0..<depth {
+      result.append(left[d] + right[d])
+    }
+    
+    return result
+  }
+}

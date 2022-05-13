@@ -383,7 +383,7 @@ final class NumSwiftTests: XCTestCase {
     
     XCTAssertEqual(test.sumOfSquares, expected)
   }
-  
+
   func testFlatten() {
     let data: [[[Float]]] = [[[0, 0, 1, 0, 0],
                               [0, 0, 1, 0, 0],

@@ -198,10 +198,10 @@ public class NumSwift {
     let strideColumnRange = [Int](stride(from: columnRange.lowerBound, through: columnRange.upperBound, by: strides.0))
     let strideRowRange = [Int](stride(from: rowRange.lowerBound, through: rowRange.upperBound, by: strides.1))
     
-    strideColumnRange.concurrentForEach(workers: 16) { c, _ in
+    strideColumnRange.forEach { c in
       currentRowIndex = 0
       
-      strideRowRange.concurrentForEach(workers: 16) { r, _ in
+      strideRowRange.forEach { r in
         let sig = signal[flat: (r,c), (r + filterSize.rows, c + filterSize.columns), 0]
         let dot = sig.dot(flatFilter)
         

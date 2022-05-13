@@ -18,8 +18,8 @@ public struct NumSwiftC {
                             inputSize: (rows: Int, columns: Int)) -> [Float] {
     
     let paddingResult = padding.extra(inputSize: inputSize, filterSize: filterSize, stride: strides)
-    let expectedRows = ((inputSize.rows - filterSize.rows + paddingResult.0) / strides.0) + 1
-    let expectedColumns = ((inputSize.columns - filterSize.columns + paddingResult.1) / strides.1) + 1
+    let expectedRows = ((inputSize.rows - filterSize.rows + paddingResult.top + paddingResult.bottom) / strides.0) + 1
+    let expectedColumns = ((inputSize.columns - filterSize.columns + paddingResult.left + paddingResult.right) / strides.1) + 1
     
     let paddingInt: UInt32 = padding == .valid ? 0 : 1
     var results: [Float] = [Float](repeating: 0, count: expectedRows * expectedColumns)

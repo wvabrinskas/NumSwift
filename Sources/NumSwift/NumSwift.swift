@@ -35,9 +35,10 @@ public class NumSwift {
     
     public func extra(inputSize: (Int, Int),
                       filterSize: (Int, Int),
-                      stride: (Int, Int) = (1,1)) -> (Int, Int) {
+                      stride: (Int, Int) = (1,1)) -> (top: Int, bottom: Int, left: Int, right: Int) {
       switch self {
       case .same:
+        //((S-1)*W-S+F)/2
         let height = Double(inputSize.0)
         let width = Double(inputSize.1)
         
@@ -46,18 +47,19 @@ public class NumSwift {
         
         let padAlongHeight = Swift.max((outHeight - 1) * Double(stride.0) + Double(filterSize.0) - height, 0)
         let padAlongWidth = Swift.max((outWidth - 1) * Double(stride.1) + Double(filterSize.1) - width, 0)
-
+        
         let paddingTop = Int(floor(padAlongHeight / 2))
         let paddingBottom = Int(padAlongHeight - Double(paddingTop))
         let paddingLeft = Int(floor(padAlongWidth / 2))
         let paddingRight = Int(padAlongWidth - Double(paddingLeft))
         
-        return (paddingTop + paddingBottom, paddingLeft + paddingRight)
+        return (paddingTop, paddingBottom, paddingLeft, paddingRight)
       case .valid:
-        return (0,0)
+        return (0,0,0,0)
       }
     }
   }
+  
   
   public static func onesLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float]]] {
     let shape = [size.columns, size.rows, size.depth]
@@ -78,7 +80,7 @@ public class NumSwift {
     
     var result: [Any]  = []
     var previous: Any = 1.0
-
+    
     shape.forEach { s in
       result = Array(repeatElement(previous, count: s))
       previous = result
@@ -92,7 +94,7 @@ public class NumSwift {
     
     var result: [Any]  = []
     var previous: Any = Float(1.0)
-
+    
     shape.forEach { s in
       result = Array(repeatElement(previous, count: s))
       previous = result
@@ -180,21 +182,18 @@ public class NumSwift {
     
     let paddingValue = padding.extra(inputSize: (inputSize.rows, inputSize.columns), filterSize: filterSize)
     
-    let rows = (((inputSize.rows + (paddingValue.0)) - (filterSize.rows - 1) - 1) / strides.1) + 1
-    let columns = (((inputSize.columns + (paddingValue.1)) - (filterSize.columns - 1) - 1) / strides.0) + 1
+    let rows = (((inputSize.rows + (paddingValue.top + paddingValue.bottom)) - (filterSize.rows - 1) - 1) / strides.1) + 1
+    let columns = (((inputSize.columns + (paddingValue.left + paddingValue.right)) - (filterSize.columns - 1) - 1) / strides.0) + 1
     
     let flatFilter: [Float] = filter.flatten()
     
     var results: [[Float]] = NumSwift.zerosLike((rows,columns))
     
-    let rowPadding = paddingValue.1 / 2
-    let colPadding = paddingValue.0 / 2
-    
     var currentRowIndex = 0
     var currentColIndex = 0
     
-    let columnRange = -colPadding...(inputSize.columns + colPadding) - filterSize.columns
-    let rowRange = -rowPadding...(inputSize.rows + rowPadding) - filterSize.rows
+    let columnRange = -paddingValue.left...(inputSize.columns + paddingValue.right) - filterSize.columns
+    let rowRange = -paddingValue.top...(inputSize.rows + paddingValue.bottom) - filterSize.rows
     
     let strideColumnRange = [Int](stride(from: columnRange.lowerBound, through: columnRange.upperBound, by: strides.0))
     let strideRowRange = [Int](stride(from: rowRange.lowerBound, through: rowRange.upperBound, by: strides.1))
@@ -203,14 +202,10 @@ public class NumSwift {
       currentRowIndex = 0
       
       strideRowRange.concurrentForEach(workers: 16) { r, _ in
-        
         let sig = signal[flat: (r,c), (r + filterSize.rows, c + filterSize.columns), 0]
         let dot = sig.dot(flatFilter)
         
-        let adjustedR = min(currentRowIndex, rows)
-        let adjustedC = min(currentColIndex, columns)
-        
-        results[adjustedR][adjustedC] = dot
+        results[currentRowIndex][currentColIndex] = dot
         currentRowIndex += 1
       }
       
@@ -257,14 +252,14 @@ public class NumSwift {
     var padRight = 0
     var padTop = 0
     var padBottom = 0
-  
+    
     switch padding {
     case .same:
       padLeft = Int(floor(Double(rF - strides.0) / Double(2)))
       padRight = rF - strides.0 - padLeft
       padTop = Int(floor(Double(cF - strides.1) / Double(2)))
       padBottom = cF - strides.1 - padTop
-
+      
     case .valid:
       break
     }
@@ -299,7 +294,7 @@ public class NumSwift {
         
         for r in 0..<rF {
           for c in 0..<cF {
-    
+            
             result[iPrime + r][jPrime + c] += signal[i][j] * filter[r][c]
           }
         }
@@ -310,14 +305,14 @@ public class NumSwift {
     var padRight = 0
     var padTop = 0
     var padBottom = 0
-  
+    
     switch padding {
     case .same:
       padLeft = Int(floor(Double(rF - strides.0) / Double(2)))
       padRight = rF - strides.0 - padLeft
       padTop = Int(floor(Double(cF - strides.1) / Double(2)))
       padBottom = cF - strides.1 - padTop
-
+      
     case .valid:
       break
     }
@@ -429,9 +424,9 @@ public extension NumSwift {
       guard let bufferA = device.makeBuffer(bytes: arrayA,
                                             length: aSize,
                                             options: []),
-              let bufferB = device.makeBuffer(bytes: arrayB,
-                                              length: bSize,
-                                              options: []),
+            let bufferB = device.makeBuffer(bytes: arrayB,
+                                            length: bSize,
+                                            options: []),
             let bufferC = device.makeBuffer(length: cSize,
                                             options: []) else {
         return []
@@ -452,7 +447,7 @@ public extension NumSwift {
                                        columns: columnsC,
                                        rowBytes: cSize / rowsC,
                                        dataType: .float32)
-
+      
       let matrixA = MPSMatrix(buffer: bufferA, descriptor: descA)
       let matrixB = MPSMatrix(buffer: bufferB, descriptor: descB)
       let matrixC = MPSMatrix(buffer: bufferC, descriptor: descC)
@@ -480,12 +475,12 @@ public extension NumSwift {
       let typePointer = rawPointer.bindMemory(to: Float.self, capacity: rowsC * columnsC)
       let bufferPointer = UnsafeBufferPointer(start: typePointer, count: rowsC * columnsC)
       
-      let _ = bufferPointer.map { value in 
+      let _ = bufferPointer.map { value in
         output += [value]
       }
-        
+      
       return output
-    
+      
     }
     
   }

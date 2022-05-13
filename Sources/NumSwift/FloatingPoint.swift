@@ -289,69 +289,6 @@ public extension Array where Element == [Float] {
       
     return result
   }
-  
-  
-  ///Performs a convolutional operation on a 2D array with the given filter and returns a 1D array with the results
-  /// - Parameters:
-  ///   - filter: Filter to apply
-  ///   - padding: Zero padding applied to the input.
-  ///   - filterSize: Size of the filter (rows, columns)
-  ///   - inputSize: Input size (rows, columns)
-  /// - Returns: 2D convolution result as a 1D array
-  func conv2D(_ filter: [[Float]],
-              padding: NumSwift.ConvPadding = .valid,
-              filterSize: (rows: Int, columns: Int),
-              inputSize: (rows: Int, columns: Int)) -> Element {
-    
-    let paddingNum = padding.extra(inputSize: inputSize,
-                                   filterSize: filterSize,
-                                   stride: (1,1))
-    
-    let newInputSize = ((inputSize.rows + paddingNum.0), (inputSize.columns + paddingNum.1))
-    
-    var signal = self
-    
-    if padding == .same {
-      signal = signal.zeroPad(filterSize: filterSize)
-    }
-    
-    let filterRows = filterSize.rows
-    let filterColumns = filterSize.columns
-    
-    let flatKernel = filter.flatMap { $0 }
-        
-    let flat = signal.flatMap { $0 }
-    
-    /*
-     (Input height + padding height top + padding height bottom - kernel height) / (stride height) + 1*/
-    let rows = (((inputSize.rows + paddingNum.0) - (filterSize.rows - 1) - 1)) + 1
-    let columns = (((inputSize.columns + paddingNum.1) - (filterSize.columns - 1) - 1)) + 1
-
-    let outputSize = (rows, columns)
-    
-    let conv: [Float] = vDSP.convolve(flat,
-                                      rowCount: newInputSize.0,
-                                      columnCount: newInputSize.1,
-                                      withKernel: flatKernel,
-                                      kernelRowCount: filterRows,
-                                      kernelColumnCount: filterColumns)
-
-    //remove padded 0s
-    let starting: Int = Int(ceil(sqrt(Double(conv.count)))) + 1
-    let ending: Int = conv.count
-    
-    var results: [Float] = []
-    
-    for i in stride(from: starting, to: ending, by: starting - 1) {
-      let slice = conv[i..<(i + outputSize.0)]
-      results.append(contentsOf: slice)
-      if results.count == rows * columns {
-        break
-      }
-    }
-    
-    return results
-  }
 
   func flip180() -> Self {
     self.reversed().map { $0.reverse() }

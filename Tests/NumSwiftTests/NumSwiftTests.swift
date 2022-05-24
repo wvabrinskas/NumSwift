@@ -315,7 +315,7 @@ final class NumSwiftTests: XCTestCase {
     
     XCTAssert(reshaped == expected)
   }
-  
+
   func test2DConv() {
     let signalShape = (5,5)
 
@@ -424,7 +424,7 @@ final class NumSwiftTests: XCTestCase {
                               [0, 0, 1, 0, 0],
                               [0, 0, 1, 0, 0]]]
     
-    let r: [Float] = data.flatten()
+    let r: [Float] = data.flatten().flatten()
     let expected: [Float] = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     XCTAssertFalse(r.isEmpty)
     XCTAssertEqual(r, expected)

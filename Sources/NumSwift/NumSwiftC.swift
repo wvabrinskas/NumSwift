@@ -9,7 +9,6 @@ import Foundation
 import NumSwiftC
 
 public struct NumSwiftC {
-  
   public static func stridePad(signal: [[Float]],
                                strides: (rows: Int, columns: Int)) -> [[Float]] {
     

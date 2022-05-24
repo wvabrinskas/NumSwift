@@ -1,6 +1,29 @@
 
 #include "include/numswiftc.h"
 
+//extern void nsc_flatten2d(NSC_Size input_size,
+//                          float input[input_size.rows][input_size.columns],
+//                          float *result) {
+//  
+//  int length = input_size.rows * input_size.columns;
+//  float *padded = malloc(length * sizeof(float));
+//  
+//  for (int i = 0; i < input_size.rows * input_size.columns; i++) {
+//    padded[i] = 0;
+//  }
+//
+//  for (int r = 0; r < input_size.rows; r++) {
+//    for (int c = 0; c < input_size.columns; c++) {
+////      printf("index %i ---> obj %ld \n", (input_size.columns * r) + c, input[r][c]);
+//      float value = input[r][c];
+//      padded[(input_size.columns * r) + c] = value;
+//    }
+//  }
+//  
+//  memmove(result, padded, length * sizeof(float));
+//  free(padded);
+//}
+
 extern void nsc_stride_pad(const float input[],
                            float *result,
                            NSC_Size input_size,

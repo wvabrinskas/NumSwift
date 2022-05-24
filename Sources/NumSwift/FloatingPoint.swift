@@ -161,16 +161,19 @@ public extension Array where Element == [Float] {
   }
   
   func stridePad(strides: (rows: Int, columns: Int), shrink: Int = 0) -> Self {
-    var result = stridePad(strides: strides)
+    var result = NumSwiftC.stridePad(signal: self, strides: strides)
     result = result.shrink(by: shrink)
     return result
   }
   
   func stridePad(strides: (rows: Int, columns: Int), padding: Int = 0) -> Self {
-    var result = stridePad(strides: strides)
-    
+    var result = NumSwiftC.stridePad(signal: self, strides: strides)
+
     for _ in 0..<padding {
-      result = result.zeroPad()
+      result = NumSwiftC.zeroPad(signal: result, padding: NumSwiftPadding(top: 1,
+                                                                          left: 1,
+                                                                          right: 1,
+                                                                          bottom: 1))
     }
     
     return result

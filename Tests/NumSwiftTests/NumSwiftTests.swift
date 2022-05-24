@@ -184,12 +184,31 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(expected, layerMapped)
   }
   
+  func testCPadding() {
+    let test: [[Float]] = [[1, 2],
+                           [3, 4]]
+
+        
+    let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0],
+                               [0.0, 1.0, 2.0, 0.0],
+                               [0.0, 3.0, 4.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0]]
+    
+    let padded = NumSwiftC.zeroPad(signal: test,
+                                   padding: NumSwiftPadding(top: 1,
+                                                            left: 1,
+                                                            right: 1,
+                                                            bottom: 1))
+    
+    XCTAssertEqual(expected, padded)
+  }
+  
   func testStridePadding() {
     let test: [[Float]] = [[1, 2],
                            [3, 4]]
 
     let padded = test.stridePad(strides: (2,2), padding: 1)
-    
+        
     let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 0.0],
                                [0.0, 1.0, 0.0, 2.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0, 0.0],

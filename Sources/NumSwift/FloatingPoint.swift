@@ -167,13 +167,11 @@ public extension Array where Element == [Float] {
   }
   
   func stridePad(strides: (rows: Int, columns: Int), padding: Int = 0) -> Self {
-    var result = stridePad(strides: strides)
-    
-    for _ in 0..<padding {
-      result = result.zeroPad()
+    guard let firstCount = self.first?.count else {
+      return self
     }
     
-    return result
+    return self[(0,0),(self.count, firstCount), padding, strides.rows - 1, 0]
   }
   
   func zeroPad(filterSize: (Int, Int), stride: (Int, Int) = (1,1)) -> Self {
@@ -251,27 +249,7 @@ public extension Array where Element == [Float] {
       return self
     }
     
-    let numToPad = (strides.rows - 1, strides.columns - 1)
-        
-    let newRows = count + ((strides.rows - 1) * (count - 1))
-    let newColumns = firstCount + ((strides.columns - 1) * (count - 1))
-    
-    var result: [[Float]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
-    
-    var mutableSelf: [Float] = self.flatten()
-    if numToPad.0 > 0 || numToPad.1 > 0 {
-      
-      for r in stride(from: 0, to: newRows, by: strides.rows) {
-        for c in stride(from: 0, to: newColumns, by: strides.columns) {
-          result[r][c] = mutableSelf.removeFirst()
-        }
-      }
-      
-    } else {
-      return self
-    }
-      
-    return result
+    return self[(0,0),(self.count, firstCount), strides.rows - 1, 0]
   }
   
   func transConv2d(_ filter: [[Float]],

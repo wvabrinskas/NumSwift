@@ -35,6 +35,14 @@ extern void nsc_zero_pad(const float input[],
                          NSC_Size input_size,
                          NSC_Size stride);
 
+extern void nsc_specific_zero_pad(const float input[],
+                                  float *result,
+                                  NSC_Size input_size,
+                                  int paddingTop,
+                                  int paddingBottom,
+                                  int paddingLeft,
+                                  int paddingRight);
+
 extern void nsc_padding_calculation(NSC_Size stride,
                                     NSC_Padding padding,
                                     NSC_Size filter_size,

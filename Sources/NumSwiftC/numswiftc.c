@@ -50,38 +50,16 @@ extern void nsc_padding_calculation(NSC_Size stride,
   }
 }
 
-extern void nsc_zero_pad(const float input[],
-                         float *result,
-                         NSC_Size filter_size,
-                         NSC_Size input_size,
-                         NSC_Size stride) {
-  int paddingLeft;
-  int paddingRight;
-  int paddingBottom;
-  int paddingTop;
-  
-  int *pad_l_ptr = &paddingLeft;
-  int *pad_r_ptr = &paddingRight;
-  int *pad_b_ptr = &paddingBottom;
-  int *pad_t_ptr = &paddingTop;
-  
-  nsc_padding_calculation(stride,
-                          same,
-                          filter_size,
-                          input_size,
-                          pad_t_ptr,
-                          pad_b_ptr,
-                          pad_l_ptr,
-                          pad_r_ptr);
+extern void nsc_specific_zero_pad(const float input[],
+                                  float *result,
+                                  NSC_Size input_size,
+                                  int paddingTop,
+                                  int paddingBottom,
+                                  int paddingLeft,
+                                  int paddingRight) {
   
   int inputRows = input_size.rows;
   int inputColumns = input_size.columns;
-  
-  int strideR = stride.rows;
-  int strideC = stride.columns;
-  
-  int filterRows = filter_size.rows;
-  int filterColumns = filter_size.columns;
   
   int padded_row_total = inputRows + paddingLeft + paddingRight;
   int padded_col_total = inputColumns + paddingTop + paddingBottom;
@@ -109,6 +87,39 @@ extern void nsc_zero_pad(const float input[],
   memmove(result, padded, length * sizeof(float));
   
   free(padded);
+}
+
+extern void nsc_zero_pad(const float input[],
+                         float *result,
+                         NSC_Size filter_size,
+                         NSC_Size input_size,
+                         NSC_Size stride) {
+  int paddingLeft;
+  int paddingRight;
+  int paddingBottom;
+  int paddingTop;
+  
+  int *pad_l_ptr = &paddingLeft;
+  int *pad_r_ptr = &paddingRight;
+  int *pad_b_ptr = &paddingBottom;
+  int *pad_t_ptr = &paddingTop;
+  
+  nsc_padding_calculation(stride,
+                          same,
+                          filter_size,
+                          input_size,
+                          pad_t_ptr,
+                          pad_b_ptr,
+                          pad_l_ptr,
+                          pad_r_ptr);
+  
+  nsc_specific_zero_pad(input,
+                        result,
+                        input_size,
+                        paddingTop,
+                        paddingBottom,
+                        paddingLeft,
+                        paddingRight);
 }
 
 extern void nsc_conv2d(const float signal[],

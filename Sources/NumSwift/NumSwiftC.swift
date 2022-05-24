@@ -10,6 +10,30 @@ import NumSwiftC
 
 public struct NumSwiftC {
   
+  public static func zeroPad(signal: [[Float]],
+                             padding: NumSwiftPadding) -> [[Float]] {
+    
+    let shape = signal.shape
+    let rows = shape[safe: 1, 0]
+    let columns = shape[safe: 0, 0]
+    
+    let expectedRows = rows + padding.top + padding.bottom
+    let expectedColumns = columns + padding.left + padding.right
+    var results: [Float] = [Float](repeating: 0, count: expectedRows * expectedColumns)
+
+    let flatSignal: [Float] = signal.flatten()
+    nsc_specific_zero_pad(flatSignal,
+                          &results,
+                          NSC_Size(rows: Int32(rows),
+                                   columns: Int32(columns)),
+                          Int32(padding.top),
+                          Int32(padding.bottom),
+                          Int32(padding.left),
+                          Int32(padding.right))
+    
+    return results.reshape(columns: expectedColumns)
+  }
+  
   public static func conv2d(signal: [Float],
                             filter: [Float],
                             strides: (Int, Int) = (1,1),

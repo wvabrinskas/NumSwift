@@ -1,6 +1,21 @@
 import Foundation
 import Accelerate
 
+//3D
+public extension Collection where Self.Element: Sequence, Element.Element: Sequence {
+  func flatten() -> [Self.Element.Element.Element] {
+    return self.flatMap { $0.flatMap { $0 } }
+  }
+}
+
+//2D
+public extension Collection where Self.Element: Sequence {
+  
+  func flatten() -> [Self.Element.Element] {
+    return self.flatMap { $0 }
+  }
+}
+
 public extension Collection {
   /// Returns the shape of an N-dimensional array, ex 3D array -> (Col, Row, Dep)
   var shape: [Int] {
@@ -21,7 +36,7 @@ public extension Collection {
     return results.reversed()
   }
   
-  func flatten<T>() -> [T] {
+  func fullFlatten<T>() -> [T] {
     var results: [Any] = self as? [Any] ?? []
     
     var iterator = results.makeIterator()
@@ -35,7 +50,7 @@ public extension Collection {
       
       iterator = results.makeIterator()
     }
-
+    
     return results as? [T] ?? []
   }
 }

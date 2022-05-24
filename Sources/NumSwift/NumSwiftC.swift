@@ -13,7 +13,7 @@ public struct NumSwiftC {
   public static func stridePad(signal: [[Float]],
                                strides: (rows: Int, columns: Int)) -> [[Float]] {
     
-    guard strides.rows > 0 || strides.columns > 0 else {
+    guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else {
       return signal
     }
     

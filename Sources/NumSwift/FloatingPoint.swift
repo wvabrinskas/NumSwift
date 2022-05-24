@@ -247,9 +247,8 @@ public extension Array where Element == [Float] {
   }
   
   func stridePad(strides: (rows: Int, columns: Int)) -> Self {
-    var copy: Self = []
-    copy.append(contentsOf: self)
-    return NumSwiftC.stridePad(signal: copy, strides: strides)
+    let result = NumSwiftC.stridePad(signal: self, strides: strides)
+    return result
 //    guard let firstCount = self.first?.count else {
 //      return self
 //    }

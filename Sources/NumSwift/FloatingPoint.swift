@@ -161,19 +161,16 @@ public extension Array where Element == [Float] {
   }
   
   func stridePad(strides: (rows: Int, columns: Int), shrink: Int = 0) -> Self {
-    var result = NumSwiftC.stridePad(signal: self, strides: strides)
+    var result = stridePad(strides: strides)
     result = result.shrink(by: shrink)
     return result
   }
   
   func stridePad(strides: (rows: Int, columns: Int), padding: Int = 0) -> Self {
-    var result = NumSwiftC.stridePad(signal: self, strides: strides)
-
+    var result = stridePad(strides: strides)
+    
     for _ in 0..<padding {
-      result = NumSwiftC.zeroPad(signal: result, padding: NumSwiftPadding(top: 1,
-                                                                          left: 1,
-                                                                          right: 1,
-                                                                          bottom: 1))
+      result = result.zeroPad()
     }
     
     return result
@@ -250,7 +247,31 @@ public extension Array where Element == [Float] {
   }
   
   func stridePad(strides: (rows: Int, columns: Int)) -> Self {
-    NumSwiftC.stridePad(signal: self, strides: strides)
+    guard let firstCount = self.first?.count else {
+      return self
+    }
+    
+    let numToPad = (strides.rows - 1, strides.columns - 1)
+        
+    let newRows = count + ((strides.rows - 1) * (count - 1))
+    let newColumns = firstCount + ((strides.columns - 1) * (count - 1))
+    
+    var result: [[Float]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
+    
+    var mutableSelf: [Float] = self.flatten()
+    if numToPad.0 > 0 || numToPad.1 > 0 {
+      
+      for r in stride(from: 0, to: newRows, by: strides.rows) {
+        for c in stride(from: 0, to: newColumns, by: strides.columns) {
+          result[r][c] = mutableSelf.removeFirst()
+        }
+      }
+      
+    } else {
+      return self
+    }
+      
+    return result
   }
   
   func transConv2d(_ filter: [[Float]],

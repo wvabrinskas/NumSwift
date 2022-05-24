@@ -10,6 +10,29 @@ import NumSwiftC
 
 public struct NumSwiftC {
   
+  public static func stridePad(signal: [[Float]],
+                               strides: (rows: Int, columns: Int)) -> [[Float]] {
+    
+    let shape = signal.shape
+    let rows = shape[safe: 1, 0]
+    let columns = shape[safe: 0, 0]
+    
+    let newRows = rows + ((strides.rows - 1) * (rows - 1))
+    let newColumns = columns + ((strides.columns - 1) * (columns - 1))
+    
+    var results: [Float] = [Float](repeating: 0, count: newRows * newColumns)
+    
+    let flatSignal: [Float] = signal.flatten()
+    
+    nsc_stride_pad(flatSignal,
+                   &results, NSC_Size(rows: Int32(rows),
+                                      columns: Int32(columns)),
+                   NSC_Size(rows: Int32(strides.rows),
+                            columns: Int32(strides.columns)))
+    
+    return results.reshape(columns: newColumns)
+  }
+  
   public static func zeroPad(signal: [[Float]],
                              padding: NumSwiftPadding) -> [[Float]] {
     

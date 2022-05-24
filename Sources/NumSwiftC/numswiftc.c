@@ -1,6 +1,41 @@
 
 #include "include/numswiftc.h"
 
+extern void nsc_stride_pad(const float input[],
+                           float *result,
+                           NSC_Size input_size,
+                           NSC_Size stride_size) {
+  
+  int numToPadRows = stride_size.rows - 1;
+  int numToPadCols = stride_size.columns - 1;
+  
+  int newRows = input_size.rows + ((stride_size.rows - 1) * (input_size.rows - 1));
+  int newColumns = input_size.columns + ((stride_size.columns - 1) * (input_size.columns - 1));
+
+  int length = newRows * newColumns;
+  float *padded = malloc(length * sizeof(float));
+  
+  for (int i = 0; i < newRows * newColumns; i++) {
+    padded[i] = 0;
+  }
+  
+  int i = 0;
+
+  if (numToPadCols > 0 && numToPadRows > 0) {
+    
+    for (int r = 0; r < newRows; r += stride_size.rows) {
+      for (int c = 0; c < newColumns; c += stride_size.columns) {
+        int index = (r * newRows) + c;
+        padded[index] = input[i];
+        i += 1;
+      }
+    }
+  }
+  
+  memmove(result, padded, length * sizeof(float));
+  free(padded);
+}
+
 extern void nsc_padding_calculation(NSC_Size stride,
                                     NSC_Padding padding,
                                     NSC_Size filter_size,

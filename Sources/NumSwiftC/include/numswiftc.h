@@ -13,6 +13,11 @@ typedef enum {
   same = 1
 } NSC_Padding;
 
+extern void nsc_stride_pad(const float input[],
+                           float *result,
+                           NSC_Size input_size,
+                           NSC_Size stride_size);
+
 extern void nsc_conv2d(const float signal[],
                        const float filter[],
                        float *result,

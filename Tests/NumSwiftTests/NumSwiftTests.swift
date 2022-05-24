@@ -203,6 +203,20 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(expected, padded)
   }
   
+  func testCStridePadding() {
+    let test: [[Float]] = [[1, 2],
+                           [3, 4]]
+
+    let padded = NumSwiftC.stridePad(signal: test,
+                                     strides: (2,2))
+        
+    let expected: [[Float]] = [[1.0, 0.0, 2.0],
+                               [0.0, 0.0, 0.0],
+                               [3.0, 0.0, 4.0]]
+
+    XCTAssertEqual(expected, padded)
+  }
+  
   func testStridePadding() {
     let test: [[Float]] = [[1, 2],
                            [3, 4]]

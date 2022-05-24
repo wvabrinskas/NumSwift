@@ -13,6 +13,10 @@ public struct NumSwiftC {
   public static func stridePad(signal: [[Float]],
                                strides: (rows: Int, columns: Int)) -> [[Float]] {
     
+    guard strides.rows > 0 || strides.columns > 0 else {
+      return signal
+    }
+    
     let shape = signal.shape
     let rows = shape[safe: 1, 0]
     let columns = shape[safe: 0, 0]
@@ -35,6 +39,10 @@ public struct NumSwiftC {
   
   public static func zeroPad(signal: [[Float]],
                              padding: NumSwiftPadding) -> [[Float]] {
+    
+    guard padding.right > 0 || padding.left > 0 || padding.top > 0 || padding.bottom > 0 else {
+      return signal
+    }
     
     let shape = signal.shape
     let rows = shape[safe: 1, 0]

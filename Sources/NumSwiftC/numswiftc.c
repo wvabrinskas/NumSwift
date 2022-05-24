@@ -113,13 +113,35 @@ extern void nsc_zero_pad(const float input[],
                           pad_l_ptr,
                           pad_r_ptr);
   
-  nsc_specific_zero_pad(input,
-                        result,
-                        input_size,
-                        paddingTop,
-                        paddingBottom,
-                        paddingLeft,
-                        paddingRight);
+  int inputRows = input_size.rows;
+  int inputColumns = input_size.columns;
+  
+  int padded_row_total = inputRows + paddingLeft + paddingRight;
+  int padded_col_total = inputColumns + paddingTop + paddingBottom;
+  
+  int length = padded_row_total * padded_col_total;
+  float *padded = malloc(length * sizeof(float));
+  
+  for (int i = 0; i < padded_row_total * padded_col_total; i++) {
+    padded[i] = 0;
+  }
+  
+  if (padded == NULL || input == NULL)
+    return;
+  
+  for (int r = 0; r < inputRows; r++) {
+    for (int c = 0; c < inputColumns; c++) {
+      int padded_c = c + paddingLeft;
+      int padded_r = r + paddingTop;
+      
+      int index = (padded_r  * padded_row_total) + padded_c;
+      padded[index] = input[(r * inputRows) + c];
+    }
+  }
+    
+  memmove(result, padded, length * sizeof(float));
+  
+  free(padded);
 }
 
 extern void nsc_conv2d(const float signal[],

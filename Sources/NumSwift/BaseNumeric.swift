@@ -1,6 +1,14 @@
 import Foundation
 import Accelerate
 
+//3D
+public extension Collection where Self.Element: Sequence, Element.Element: Sequence {
+  func flatten() -> [Self.Element.Element.Element] {
+    return Array(self.joined().joined())
+  }
+}
+
+//2D
 public extension Collection where Self.Element: Sequence {
   
   func flatten() -> [Self.Element.Element] {

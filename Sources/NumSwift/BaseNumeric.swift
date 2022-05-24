@@ -1,21 +1,6 @@
 import Foundation
 import Accelerate
 
-//3D
-public extension Collection where Self.Element: Sequence, Element.Element: Sequence {
-  func flatten() -> [Self.Element.Element.Element] {
-    return Array(self.joined().joined())
-  }
-}
-
-//2D
-public extension Collection where Self.Element: Sequence {
-  
-  func flatten() -> [Self.Element.Element] {
-    return Array(self.joined())
-  }
-}
-
 public extension Collection {
   /// Returns the shape of an N-dimensional array, ex 3D array -> (Col, Row, Dep)
   var shape: [Int] {
@@ -35,7 +20,24 @@ public extension Collection {
     
     return results.reversed()
   }
+  
+  func flatten<T>() -> [T] {
+    var results: [Any] = self as? [Any] ?? []
+    
+    var iterator = results.makeIterator()
+    
+    while results.first is Array<Any> {
+      results = []
+      
+      while let i = iterator.next() as? Array<Any> {
+        results.append(contentsOf: i)
+      }
+      
+      iterator = results.makeIterator()
+    }
 
+    return results as? [T] ?? []
+  }
 }
 
 public extension Collection where Self.Iterator.Element: RandomAccessCollection {

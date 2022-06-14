@@ -9,7 +9,7 @@ import Foundation
 
 //Courtesy of: https://github.com/palle-k/DL4S-WGAN-GP/blob/master/Sources/WGANGP/Util.swift
 extension DispatchQueue {
-  static func concurrentPerform(units: Int, workers: Int, task: @escaping (Int) -> ()) {
+  static func concurrentPerform(units: Int, workers: Int, priority: DispatchQoS.QoSClass = .default, task: @escaping (Int) -> ()) {
     let sema = DispatchSemaphore(value: 0)
     let tasksPerWorker = units / workers
         
@@ -21,7 +21,7 @@ extension DispatchQueue {
         taskRange = tasksPerWorker * workerID ..< tasksPerWorker * (workerID + 1)
       }
       
-      DispatchQueue.global().async {
+      DispatchQueue.global(qos: priority).async {
         for unitID in taskRange {
           task(unitID)
         }
@@ -35,7 +35,7 @@ extension DispatchQueue {
     }
   }
   
-  static func concurrentPerform<Result>(units: Int, workers: Int, task: @escaping (Int) -> Result) -> [Result] {
+  static func concurrentPerform<Result>(units: Int, workers: Int, priority: DispatchQoS.QoSClass = .default, task: @escaping (Int) -> Result) -> [Result] {
     let sema = DispatchSemaphore(value: 0)
     let tasksPerWorker = units / workers
     
@@ -49,7 +49,7 @@ extension DispatchQueue {
         taskRange = tasksPerWorker * workerID ..< tasksPerWorker * (workerID + 1)
       }
       
-      DispatchQueue.global().async {
+      DispatchQueue.global(qos: priority).async {
         for unitID in taskRange {
           results[unitID] = task(unitID)
         }

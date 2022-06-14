@@ -86,8 +86,8 @@ public extension Array {
     return nil
   }
 
-  func concurrentForEach(workers: Int, _ block: @escaping (_ element: Element, _ index: Int) -> ()) {
-    DispatchQueue.concurrentPerform(units: self.count, workers: workers) { i in
+  func concurrentForEach(workers: Int, priority: DispatchQoS.QoSClass = .default, _ block: @escaping (_ element: Element, _ index: Int) -> ()) {
+    DispatchQueue.concurrentPerform(units: self.count, workers: workers, priority: priority) { i in
       block(self[i], i)
     }
   }

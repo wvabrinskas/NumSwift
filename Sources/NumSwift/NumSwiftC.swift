@@ -8,6 +8,34 @@
 import Foundation
 import NumSwiftC
 
+public struct NoiseC {
+  public var octaves = 4
+  public var amplitude = 0.5
+  
+  private var size = 4095
+  
+  private lazy var perlin: [Double] = {
+    var p = [Double]()
+    for _ in 0..<size + 1 {
+      p.append(Double.random(in: 0...1))
+    }
+    return p
+  }()
+  
+  public init(size: Int = 4095,
+              octaves: Int = 4,
+              amplitude: Double = 0.5) {
+    self.size = size
+    self.octaves = octaves
+    self.amplitude = amplitude
+  }
+  
+  public mutating func nextPerlin(x: Double, y: Double, z: Double) -> Double {
+    nsc_perlin_noise(x, y, z, amplitude, Int32(octaves), Int32(size), &perlin)
+  }
+  
+}
+
 public struct NumSwiftC {
   public static func stridePad(signal: [[Float]],
                                strides: (rows: Int, columns: Int)) -> [[Float]] {

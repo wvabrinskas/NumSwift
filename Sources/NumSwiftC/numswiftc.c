@@ -1,5 +1,6 @@
 
 #include "include/numswiftc.h"
+#include "time.h"
 
 //extern void nsc_flatten2d(NSC_Size input_size,
 //                          float input[input_size.rows][input_size.columns],
@@ -23,6 +24,129 @@
 //  memmove(result, padded, length * sizeof(float));
 //  free(padded);
 //}
+
+/*
+ private func scaledCosine(_ i: Double) -> Double {
+     return 0.5 * (1.0 - cos(i * Double.pi))
+ }*/
+
+double scaled_cosine(const double i) {
+  return 0.5f * (1.0f - cos(i * M_PI));
+}
+
+double randfrom(const double min, const double max) {
+  double range = (max - min);
+  double div = RAND_MAX / range;
+  return min + (rand() / div);
+}
+
+extern void random_array(const int size, double *result) {
+  double *perlin = malloc(size * sizeof(double));
+  
+  srand( (unsigned)time( NULL ) );
+
+  for (int i = 0; i < size + 1; i++) {
+    double random = randfrom(0.0f, 1000.0f) / 1000.0f;
+    perlin[i] = random;
+  }
+  
+  memmove(result, perlin, size * sizeof(double));
+  free(perlin);
+}
+
+extern double nsc_perlin_noise(const double x,
+                               const double y,
+                               const double z,
+                               const double amplitude,
+                               const int octaves,
+                               const int size,
+                               const double* perlin_seed) {
+
+  const int yWrapB = 4;
+  const int yWrap = 1 << yWrapB;
+  const int zWrapB = 8;
+  const int zWrap = 1 << zWrapB;
+  
+  double mutable_x = x;
+  double mutable_y = y;
+  double mutable_z = z;
+  
+  if (x < 0.0f) {
+    mutable_x = -x;
+  }
+  if (y < 0.0f) {
+    mutable_y = -y;
+  }
+  if (z < 0.0f) {
+    mutable_z = -z;
+  }
+  
+  int xi = (int)floor(mutable_x);
+  int yi = (int)floor(mutable_y);
+  int zi = (int)floor(mutable_z);
+
+  double xf = mutable_x - (double)(xi);
+  double yf = mutable_y - (double)(yi);
+  double zf = mutable_y - (double)(zi);
+  
+  double rxf = 0.0f;
+  double ryf = 0.0f;
+  
+  double r = 0.0f;
+  double ampl = 0.5;
+  
+  double n1 = 0.0f;
+  double n2 = 0.0f;
+  double n3 = 0.0f;
+  
+  for (int i = 0; i < octaves; i++) {
+    int of = xi + (yi << yWrapB) + (zi << zWrapB);
+    
+    rxf = scaled_cosine(xf);
+    ryf = scaled_cosine(yf);
+    
+    n1 = perlin_seed[of & size];
+    n1 += rxf * (perlin_seed[(of + 1) & size] - 1);
+    n2 = perlin_seed[(of + yWrap) & size];
+    n2 += rxf * (perlin_seed[(of + yWrap + 1) & size] - n2);
+    n1 += ryf * (n2 - n1);
+    
+    of += zWrap;
+    n2 = perlin_seed[of & size];
+    n2 += rxf * (perlin_seed[(of + 1) & size] - n2);
+    n3 = perlin_seed[(of + yWrap) & size];
+    n3 += rxf * (perlin_seed[(of + yWrap + 1) & size] - n3);
+    n2 += ryf * (n3 - n2);
+    
+    n1 += scaled_cosine(zf) * (n2 - n1);
+
+    r += n1 * ampl;
+    ampl *= amplitude;
+    xi <<= 1;
+    xf *= 2;
+    yi <<= 1;
+    yf *= 2;
+    zi <<= 1;
+    zf *= 2;
+    
+    if (xf >= 1.0f) {
+      xi += 1;
+      xf -= 1;
+    }
+    
+    if (yf >= 1.0f) {
+      yi += 1;
+      yf -= 1;
+    }
+    
+    if (zf >= 1.0f) {
+      zi += 1;
+      zf -= 1;
+    }
+  }
+  
+  return r;
+}
 
 extern void nsc_stride_pad(const float input[],
                            float *result,

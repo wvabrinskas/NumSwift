@@ -17,6 +17,16 @@ typedef enum {
 //                          float input[input_size.rows][input_size.columns],
 //                          float *result);
 
+extern void random_array(const int size, double *result);
+
+extern double nsc_perlin_noise(const double x,
+                               const double y,
+                               const double z,
+                               const double amplitude,
+                               const int octaves,
+                               const int size,
+                               const double* perlin_seed);
+
 extern void nsc_stride_pad(const float input[],
                            float *result,
                            NSC_Size input_size,

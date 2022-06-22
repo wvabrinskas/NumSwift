@@ -13,9 +13,9 @@ typedef enum {
   same = 1
 } NSC_Padding;
 //
-//extern void nsc_flatten2d(NSC_Size input_size,
-//                          float input[input_size.rows][input_size.columns],
-//                          float *result);
+extern void nsc_flatten2d(NSC_Size input_size,
+                          float *const *input,
+                          float *result);
 
 extern void random_array(const int size, double *result);
 

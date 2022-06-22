@@ -88,22 +88,6 @@ public extension Array where Element == [Double] {
         
     return r
   }
-
-  func transConv2d(_ filter: [[Double]],
-                   strides: (rows: Int, columns: Int) = (1,1),
-                   padding: NumSwift.ConvPadding = .valid,
-                   filterSize: (rows: Int, columns: Int),
-                   inputSize: (rows: Int, columns: Int)) -> Element {
-    
-    let result: Element = NumSwift.transConv2D(signal: self,
-                                               filter: filter,
-                                               strides: strides,
-                                               padding: padding,
-                                               filterSize: filterSize,
-                                               inputSize: inputSize).flatten()
-      
-    return result
-  }
   
   func flip180() -> Self {
     self.reversed().map { $0.reverse() }
@@ -111,6 +95,9 @@ public extension Array where Element == [Double] {
 }
 
 public extension Array where Element == [Float] {
+  func flatten(inputSize: (rows: Int, columns: Int)? = nil) -> [Self.Element.Element] {
+    NumSwiftC.flatten(self, inputSize: inputSize)
+  }
 
   func zeroPad(padding: NumSwiftPadding) -> Self {
     guard let first = self.first else {
@@ -270,22 +257,6 @@ public extension Array where Element == [Float] {
     } else {
       return self
     }
-      
-    return result
-  }
-  
-  func transConv2d(_ filter: [[Float]],
-                   strides: (rows: Int, columns: Int) = (1,1),
-                   padding: NumSwift.ConvPadding = .valid,
-                   filterSize: (rows: Int, columns: Int),
-                   inputSize: (rows: Int, columns: Int)) -> Element {
-    
-    let result: Element = NumSwift.transConv2D(signal: self,
-                                               filter: filter,
-                                               strides: strides,
-                                               padding: padding,
-                                               filterSize: filterSize,
-                                               inputSize: inputSize).flatten()
       
     return result
   }

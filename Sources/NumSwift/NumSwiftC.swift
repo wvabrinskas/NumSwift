@@ -37,6 +37,29 @@ public struct NoiseC {
 }
 
 public struct NumSwiftC {
+  
+  public static func flatten(_ input: [[Float]], inputSize: (rows: Int, columns: Int)? = nil) -> [Float] {
+    
+    let shape = input.shape
+    var rows = shape[safe: 1, 0]
+    var columns = shape[safe: 0, 0]
+    
+    if let inputSize = inputSize {
+      rows = inputSize.rows
+      columns = inputSize.columns
+    }
+    
+    var results: [Float] = [Float](repeating: 0, count: rows * columns)
+
+    input.withUnsafeBufferPointer { (inputsBuffer) in
+      let inPuts: [UnsafeMutablePointer<Float>?] = inputsBuffer.map { UnsafeMutablePointer(mutating: $0) }
+      
+      nsc_flatten2d(NSC_Size(rows: Int32(rows), columns: Int32(columns)), inPuts, &results)
+    }
+    
+    return results
+  }
+  
   public static func stridePad(signal: [[Float]],
                                strides: (rows: Int, columns: Int)) -> [[Float]] {
     
@@ -78,7 +101,7 @@ public struct NumSwiftC {
     let expectedRows = rows + padding.top + padding.bottom
     let expectedColumns = columns + padding.left + padding.right
     var results: [Float] = [Float](repeating: 0, count: expectedRows * expectedColumns)
-
+    
     let flatSignal: [Float] = signal.flatten()
     nsc_specific_zero_pad(flatSignal,
                           &results,
@@ -113,7 +136,7 @@ public struct NumSwiftC {
     let expectedRows = rows + padding.top + padding.bottom
     let expectedColumns = columns + padding.left + padding.right
     var results: [Float] = [Float](repeating: 0, count: expectedRows * expectedColumns)
-
+    
     let flatSignal: [Float] = signal.flatten()
     nsc_specific_zero_pad(flatSignal,
                           &results,
@@ -164,14 +187,14 @@ public struct NumSwiftC {
     var padRight = 0
     var padTop = 0
     var padBottom = 0
-  
+    
     switch padding {
     case .same:
       padLeft = Int(floor(Double(filterSize.rows - strides.0) / Double(2)))
       padRight = filterSize.rows - strides.0 - padLeft
       padTop = Int(floor(Double(filterSize.columns - strides.1) / Double(2)))
       padBottom = filterSize.columns - strides.1 - padTop
-
+      
     case .valid:
       break
     }
@@ -196,7 +219,7 @@ public struct NumSwiftC {
                                         filterSize: (rows: Int, columns: Int),
                                         inputSize: (rows: Int, columns: Int)) -> (top: Int, bottom: Int, left: Int, right: Int) {
     let paddingInt: UInt32 = padding == .valid ? 0 : 1
-
+    
     var left: Int32 = 0
     var right: Int32 = 0
     var top: Int32 = 0
@@ -229,7 +252,7 @@ public struct NumSwiftC {
                                                inputSize: inputSize)
     
     let count = (inputSize.rows + padding.top + padding.bottom) * (inputSize.columns + padding.left + padding.right)
-
+    
     var results: [Float] = [Float](repeating: 0,
                                    count: count)
     

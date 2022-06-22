@@ -2,33 +2,28 @@
 #include "include/numswiftc.h"
 #include "time.h"
 
-//extern void nsc_flatten2d(NSC_Size input_size,
-//                          float input[input_size.rows][input_size.columns],
-//                          float *result) {
-//  
-//  int length = input_size.rows * input_size.columns;
-//  float *padded = malloc(length * sizeof(float));
-//  
-//  for (int i = 0; i < input_size.rows * input_size.columns; i++) {
-//    padded[i] = 0;
-//  }
-//
-//  for (int r = 0; r < input_size.rows; r++) {
-//    for (int c = 0; c < input_size.columns; c++) {
-////      printf("index %i ---> obj %ld \n", (input_size.columns * r) + c, input[r][c]);
-//      float value = input[r][c];
-//      padded[(input_size.columns * r) + c] = value;
-//    }
-//  }
-//  
-//  memmove(result, padded, length * sizeof(float));
-//  free(padded);
-//}
+extern void nsc_flatten2d(NSC_Size input_size,
+                          float *const *input,
+                          float *result) {
+  
+  int length = input_size.rows * input_size.columns;
+  float *padded = malloc(length * sizeof(float));
+  
+  for (int i = 0; i < input_size.rows * input_size.columns; i++) {
+    padded[i] = 0;
+  }
 
-/*
- private func scaledCosine(_ i: Double) -> Double {
-     return 0.5 * (1.0 - cos(i * Double.pi))
- }*/
+  for (int r = 0; r < input_size.rows; r++) {
+    for (int c = 0; c < input_size.columns; c++) {
+      float value = input[r][c];
+      padded[(input_size.columns * r) + c] = value;
+    }
+  }
+  
+  memmove(result, padded, length * sizeof(float));
+  free(padded);
+}
+
 
 double scaled_cosine(const double i) {
   return 0.5f * (1.0f - cos(i * M_PI));

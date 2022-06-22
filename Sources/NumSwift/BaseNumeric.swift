@@ -8,14 +8,6 @@ public extension Collection where Self.Element: Sequence, Element.Element: Seque
   }
 }
 
-//2D
-public extension Collection where Self.Element: Sequence {
-  
-  func flatten() -> [Self.Element.Element] {
-    return self.flatMap { $0 }
-  }
-}
-
 public extension Collection {
   /// Returns the shape of an N-dimensional array, ex 3D array -> (Col, Row, Dep)
   var shape: [Int] {

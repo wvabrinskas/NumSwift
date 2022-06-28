@@ -20,10 +20,9 @@ extern void nsc_flatten2d(NSC_Size input_size,
     }
   }
   
-  memmove(result, padded, length * sizeof(float));
+  memcpy(result, padded, length * sizeof(float));
   free(padded);
 }
-
 
 double scaled_cosine(const double i) {
   return 0.5f * (1.0f - cos(i * M_PI));
@@ -45,7 +44,7 @@ extern void random_array(const int size, double *result) {
     perlin[i] = random;
   }
   
-  memmove(result, perlin, size * sizeof(double));
+  memcpy(result, perlin, size * sizeof(double));
   free(perlin);
 }
 
@@ -174,7 +173,7 @@ extern void nsc_stride_pad(const float input[],
     }
   }
   
-  memmove(result, padded, length * sizeof(float));
+  memcpy(result, padded, length * sizeof(float));
   free(padded);
 }
 
@@ -261,7 +260,7 @@ extern void nsc_specific_zero_pad(const float input[],
     }
   }
     
-  memmove(result, padded, length * sizeof(float));
+  memcpy(result, padded, length * sizeof(float));
   
   free(padded);
 }
@@ -316,7 +315,7 @@ extern void nsc_zero_pad(const float input[],
     }
   }
     
-  memmove(result, padded, length * sizeof(float));
+  memcpy(result, padded, length * sizeof(float));
   
   free(padded);
 }
@@ -413,10 +412,7 @@ extern void nsc_conv2d(const float signal[],
     }
   }
   
-  memmove(result, mutable_result, expected_r * expected_c * sizeof(float));
-  
- // free(mutable_result);
-  //free(working_signal);
+  memcpy(result, mutable_result, expected_r * expected_c * sizeof(float));
 }
 
 extern void nsc_transConv2d(const float signal[],
@@ -441,12 +437,12 @@ extern void nsc_transConv2d(const float signal[],
   
   int length = rows * columns;
   
-  float working_result[length]; //= malloc(length * sizeof(float));
+  float working_result[length];
   
   for (int i = 0; i < length; i++) {
     working_result[i] = 0.0f;
   }
-//
+
   if (result == NULL)
     return;
   
@@ -499,12 +495,6 @@ extern void nsc_transConv2d(const float signal[],
       padded_index++;
     }
   }
-  
-//  if (padded == NULL)
-//    return;
-//
-  memmove(result, padded, padded_col_total * padded_row_total * sizeof(float));
-  
-  //free(padded);
- // free(working_result);
+
+  memcpy(result, padded, padded_col_total * padded_row_total * sizeof(float));
 }

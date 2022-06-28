@@ -305,8 +305,6 @@ final class NumSwiftTests: XCTestCase {
                                 padding: .same,
                                 filterSize: (4,4),
                                 inputSize: signalShape)
-
-    rows.forEach { print($0)}
     
     let expected: [[Float]] =  [[0.0, 3.0, 0.0, 0.0, 0.0],
                                 [0.0, 4.0, 0.0, 0.0, 0.0],
@@ -421,7 +419,7 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertFalse(r.isEmpty)
     XCTAssertEqual(r, expected)
   }
-  
+
   //this fails in the CI for some reason...probably some float logic
 //  func testNormalization() {
 //    var test: [Float] = [1,2,3,4]

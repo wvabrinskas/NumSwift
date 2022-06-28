@@ -175,6 +175,13 @@ public struct NumSwiftC {
     return results
   }
   
+  public static func arrayMod(length: Int) -> [[Float]] {
+    var results: [[Float]] = NumSwift.zerosLike((10,10))
+      
+
+    return results
+  }
+  
   public static func transConv2d(signal: [Float],
                                  filter: [Float],
                                  strides: (Int, Int) = (1,1),

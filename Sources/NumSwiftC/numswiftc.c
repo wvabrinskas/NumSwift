@@ -398,8 +398,8 @@ extern void nsc_conv2d(const float signal[],
           int current_data_row = r + fr;
           int current_data_col = c + fc;
           
-          int signal_index = (current_data_row * rd) + current_data_col;
-          int filter_index = (fr * rf) + fc;
+          int signal_index = (current_data_row * cd) + current_data_col;
+          int filter_index = (fr * cf) + fc;
           
           float s_data = padding == valid ? signal[signal_index] : working_signal[signal_index]; //do some checking of size here?
           float f_data = filter[filter_index]; //do some checking of size here?

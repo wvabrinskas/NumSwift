@@ -377,7 +377,7 @@ public extension Array where Element == Float {
     let N = vDSP_Length(columns)
     let K = vDSP_Length(rows)
     
-    var C: [Element] = [Element].init(repeating: 0, count: Int(N))
+    var C: [Element] = [Element].init(repeating: 0, count: Int(N * M))
     
     let aStride = vDSP_Stride(1)
     let bStride = vDSP_Stride(1)

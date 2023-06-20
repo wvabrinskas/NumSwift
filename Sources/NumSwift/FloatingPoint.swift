@@ -375,7 +375,7 @@ public extension Array where Element == Float {
   func multiply(B: [Element], columns: Int32, rows: Int32, dimensions: Int32 = 1) -> [Element] {
     let M = vDSP_Length(dimensions)
     let N = vDSP_Length(columns)
-    let K = vDSP_Length(rows)
+    let P = vDSP_Length(rows)
     
     var C: [Element] = [Element].init(repeating: 0, count: Int(N * M))
     
@@ -391,7 +391,7 @@ public extension Array where Element == Float {
               cStride,
               vDSP_Length(M),
               vDSP_Length(N),
-              vDSP_Length(K))
+              vDSP_Length(P))
     
     return C
   }

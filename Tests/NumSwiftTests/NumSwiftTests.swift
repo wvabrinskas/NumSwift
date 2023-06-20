@@ -146,6 +146,28 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(expected, a.dot(b))
   }
   
+  func testMultiDotProduct_MultDim() {
+    let n1: [Float] = [1, 1, 1]
+    let n2: [Float] = [2, 2, 2]
+    let n3: [Float] = [3, 3, 3]
+    
+    let layer = [n1, n2 , n3]
+    let A = layer.flatMap({ $0 })
+        
+    let B: [Float] = [[2,2],
+                      [2,2],
+                      [2,2]].flatMap({ $0 })
+    
+    let output = A.multiply(B: B,
+                            columns: Int32(2),
+                            rows: Int32(3),
+                            dimensions: Int32(3))
+    
+    let expected: [Float] = [6.0, 6.0, 12.0, 12.0, 18.0, 18.0]
+    
+    XCTAssertEqual(expected, output)
+  }
+  
   func testMultiDotProduct() {
     let n1: [Float] = [1, 1, 1]
     let n2: [Float] = [2, 2, 2]

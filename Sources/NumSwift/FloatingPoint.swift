@@ -826,6 +826,64 @@ public extension Array where Element == [[Float]] {
     return r
   }
   
+  func matmul(_ b: Self) -> Self {
+    let bShape = b.shape
+    let aShape = shape
+    
+    let bColumns = bShape[safe: 0] ?? 0
+    let bRows = bShape[safe: 1] ?? 0
+    let bDepth = bShape[safe: 2] ?? 0
+
+    let aColumns = aShape[safe: 0] ?? 0
+    let aRows = aShape[safe: 1] ?? 0
+    let aDepth = aShape[safe: 2] ?? 0
+    
+    precondition(aColumns == bRows, "A matrix columns does not match B matrix rows")
+    precondition(aDepth == bDepth, "A matrix depth does not match B matrix depth")
+
+    let M = aRows // also C rows
+    let N = bColumns // also C columns
+    let P = aColumns
+    
+    let cRows = M
+    let cColumns = N
+    
+    var result: Self = []
+    
+    for d in 0..<aDepth {
+      let mLength = vDSP_Length(M)
+      let nLength = vDSP_Length(N)
+      let pLength = vDSP_Length(P)
+      
+      let A = self[d].flatten()
+      let B = b[d].flatten()
+      
+      var C: [Float] = [Float].init(repeating: 0, count: Int(cRows * cColumns))
+      
+      let aStride = vDSP_Stride(1)
+      let bStride = vDSP_Stride(1)
+      let cStride = vDSP_Stride(1)
+      
+      vDSP_mmul(A,
+                aStride,
+                B,
+                bStride,
+                &C,
+                cStride,
+                vDSP_Length(mLength),
+                vDSP_Length(nLength),
+                vDSP_Length(pLength))
+      
+      let cResult = C.reshape(columns: cColumns)
+      
+      result.append(cResult)
+    }
+    
+    
+    return result
+  }
+  
+  
   static func *(lhs: Self, rhs: [Float]) -> Self {
     let left = lhs
             

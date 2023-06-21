@@ -146,6 +146,55 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(expected, a.dot(b))
   }
   
+  func test_matmul_SingleDim() {
+    let n1: [Float] = [1, 1, 1]
+    let n2: [Float] = [2, 2, 2]
+    let n3: [Float] = [3, 3, 3]
+    
+    let layer = [n1, n2 , n3]
+    let A = [layer]
+        
+    let B: [[[Float]]] = [[[2,2],
+                           [2,2],
+                           [2,2]]]
+    
+    let output = A.matmul(B)
+    
+    let expected: [[[Float]]] = [[[6.0, 6.0],
+                                  [12.0, 12.0],
+                                  [18.0, 18.0]]]
+    
+    XCTAssertEqual(expected, output)
+  }
+  
+  
+  func test_matmul_MultDim() {
+    let n1: [Float] = [1, 1, 1]
+    let n2: [Float] = [2, 2, 2]
+    let n3: [Float] = [3, 3, 3]
+    
+    let layer = [n1, n2 , n3]
+    let A = [layer, layer]
+        
+    let B: [[[Float]]] = [[[2,2],
+                           [2,2],
+                           [2,2]],
+                          [[2,2],
+                           [2,2],
+                           [2,2]]]
+    
+    let output = A.matmul(B)
+    
+    let expected: [[[Float]]] = [[[6.0, 6.0],
+                                  [12.0, 12.0],
+                                  [18.0, 18.0]],
+                                  [[6.0, 6.0],
+                                   [12.0, 12.0],
+                                   [18.0, 18.0]]]
+    
+    XCTAssertEqual(expected, output)
+  }
+  
   func testMultiDotProduct_MultDim() {
     let n1: [Float] = [1, 1, 1]
     let n2: [Float] = [2, 2, 2]

@@ -445,6 +445,10 @@ public extension Array where Element == Float {
     return vDSP.divide(lhs, rhs)
   }
   
+  static func /(lhs: Element, rhs: [Element]) -> [Element] {
+    return vDSP.divide(lhs, rhs)
+  }
+  
 }
 
 //use accelerate
@@ -883,7 +887,6 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
-  
   static func *(lhs: Self, rhs: [Float]) -> Self {
     let left = lhs
             
@@ -966,6 +969,18 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  static func /(lhs: Float, rhs: Self) -> Self {
+    let left = lhs
+            
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d: Element = rhs[d].map { left / $0 }
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
   static func +(lhs: Self, rhs: Float) -> Self {
     let left = lhs
             
@@ -988,6 +1003,17 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  static func -(lhs: Float, rhs: Self) -> Self {
+    let left = lhs
+            
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d: Element = rhs[d].map { left - $0 }
+      result.append(new2d)
+    }
+    
+    return result
+  }
   
   static func -(lhs: Self, rhs: Float) -> Self {
     let left = lhs
@@ -1351,6 +1377,18 @@ public extension Array where Element == [Float] {
     return result
   }
   
+  static func /(lhs: Float, rhs: Self) -> Self {
+    let left = lhs
+            
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d: Element = left / rhs[d]
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
   static func /(lhs: Self, rhs: Float) -> Self {
     let left = lhs
             
@@ -1385,6 +1423,17 @@ public extension Array where Element == [Float] {
     return result
   }
   
+  static func -(lhs: Float, rhs: Self) -> Self {
+    let left = lhs
+            
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d: Element = lhs - rhs[d]
+      result.append(new2d)
+    }
+    
+    return result
+  }
   
   static func -(lhs: Self, rhs: Float) -> Self {
     let left = lhs

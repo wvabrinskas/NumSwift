@@ -71,7 +71,8 @@ public extension Array {
   }
   
   subscript(safe safeIndex: Int) -> Element? {
-    if safeIndex < self.count {
+    if safeIndex >= 0,
+       safeIndex < self.count {
       return self[safeIndex]
     }
     

@@ -850,7 +850,7 @@ public extension Array where Element == [[Float]] {
     let P = aColumns
     
     let cRows = M
-    let cColumns = N
+    let cColumns = N 
     
     var result: Self = []
     
@@ -1031,18 +1031,10 @@ public extension Array where Element == [[Float]] {
     let left = lhs
     let right = rhs
     
-    let leftShape = left.shape
-    let rightShape = right.shape
-    
-    precondition(leftShape == rightShape)
-    
-    let depth = leftShape[safe: 2] ?? 0
-    let rows = leftShape[safe: 1] ?? 0
-    
     var result: Self = []
-    for d in 0..<depth {
+    for d in 0..<lhs.count {
       var new2d: Element = []
-      for r in 0..<rows {
+      for r in 0..<lhs[d].count {
         new2d.append(left[d][r] * right[d][r])
       }
       result.append(new2d)
@@ -1055,18 +1047,10 @@ public extension Array where Element == [[Float]] {
     let left = lhs
     let right = rhs
     
-    let leftShape = left.shape
-    let rightShape = right.shape
-    
-    precondition(leftShape == rightShape)
-    
-    let depth = leftShape[safe: 2] ?? 0
-    let rows = leftShape[safe: 1] ?? 0
-    
     var result: Self = []
-    for d in 0..<depth {
+    for d in 0..<lhs.count {
       var new2d: Element = []
-      for r in 0..<rows {
+      for r in 0..<lhs[d].count {
         new2d.append(left[d][r] / right[d][r])
       }
       result.append(new2d)
@@ -1078,19 +1062,11 @@ public extension Array where Element == [[Float]] {
   static func -(lhs: Self, rhs: Self) -> Self {
     let left = lhs
     let right = rhs
-    
-    let leftShape = left.shape
-    let rightShape = right.shape
-    
-    precondition(leftShape == rightShape)
-    
-    let depth = leftShape[safe: 2] ?? 0
-    let rows = leftShape[safe: 1] ?? 0
-    
+
     var result: Self = []
-    for d in 0..<depth {
+    for d in 0..<lhs.count {
       var new2d: Element = []
-      for r in 0..<rows {
+      for r in 0..<lhs[d].count {
         new2d.append(left[d][r] - right[d][r])
       }
       result.append(new2d)
@@ -1103,18 +1079,10 @@ public extension Array where Element == [[Float]] {
     let left = lhs
     let right = rhs
     
-    let leftShape = left.shape
-    let rightShape = right.shape
-    
-    precondition(leftShape == rightShape)
-    
-    let depth = leftShape[safe: 2] ?? 0
-    let rows = leftShape[safe: 1] ?? 0
-    
     var result: Self = []
-    for d in 0..<depth {
+    for d in 0..<lhs.count {
       var new2d: Element = []
-      for r in 0..<rows {
+      for r in 0..<lhs[d].count {
         new2d.append(left[d][r] + right[d][r])
       }
       result.append(new2d)

@@ -167,6 +167,28 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(expected, output)
   }
   
+  func test_uneven_matrix_math() {
+    
+    let expected: [[[Float]]] = [[[6.0, 6.0],
+                                  [12.0, 12.0],
+                                  [18.0, 18.0]],
+                                  [[6.0, 6.0],
+                                   [12.0, 12.0]]]
+  
+    
+    let expected2: [[[Float]]] = [[[6.0, 6.0],
+                                  [12.0, 12.0],
+                                  [18.0, 18.0]],
+                                  [[6.0, 6.0],
+                                   [12.0, 12.0]]]
+    
+    XCTAssertEqual(expected + expected2, [[[12.0, 12.0],
+                                           [24.0, 24.0],
+                                           [36.0, 36.0]],
+                                          [[12.0, 12.0],
+                                           [24.0, 24.0]]])
+  }
+  
   
   func test_matmul_MultDim() {
     let n1: [Float] = [1, 1, 1]

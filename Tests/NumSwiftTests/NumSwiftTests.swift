@@ -167,6 +167,63 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(expected, output)
   }
   
+  func test_2d_fast_transpose_double() {
+    let r: [[Double]] = [[6.0, 6.0],
+                           [12.0, 12.0],
+                           [18.0, 18.0]]
+    
+    let expected: [[Double]] = [[6.0, 12.0, 18.0],
+                                [6.0, 12.0, 18.0]]
+    
+    let transposed = r.transpose()
+    XCTAssertEqual(transposed, expected)
+  }
+  
+  func test_2d_fast_transpose_float() {
+    let r: [[Float]] = [[6.0, 6.0],
+                        [12.0, 12.0],
+                        [18.0, 18.0]]
+    
+    let expected: [[Float]] = [[6.0, 12.0, 18.0],
+                               [6.0, 12.0, 18.0]]
+    
+    let transposed = r.transpose()
+    XCTAssertEqual(transposed, expected)
+  }
+  
+  
+  func test_3d_fast_transpose_double() {
+    let r: [[[Double]]] = [[[6.0, 6.0],
+                           [12.0, 12.0],
+                           [18.0, 18.0]],
+                          [[6.0, 6.0],
+                           [12.0, 12.0]]]
+    
+    let expected: [[[Double]]] = [[[6.0, 12.0, 18.0],
+                                  [6.0, 12.0, 18.0]],
+                                 [[6.0, 12.0],
+                                  [6.0, 12.0]]]
+    
+    let transposed = r.transpose()
+    XCTAssertEqual(transposed, expected)
+  }
+  
+  func test_3d_fast_transpose_float() {
+    let r: [[[Float]]] = [[[6.0, 6.0],
+                           [12.0, 12.0],
+                           [18.0, 18.0]],
+                          [[6.0, 6.0],
+                           [12.0, 12.0]]]
+    
+    let expected: [[[Float]]] = [[[6.0, 12.0, 18.0],
+                                  [6.0, 12.0, 18.0]],
+                                 [[6.0, 12.0],
+                                  [6.0, 12.0]]]
+    
+    let transposed = r.transpose()
+    XCTAssertEqual(transposed, expected)
+  }
+  
   func test_uneven_matrix_math() {
     
     let expected: [[[Float]]] = [[[6.0, 6.0],

@@ -92,11 +92,54 @@ public extension Array where Element == [Double] {
   func flip180() -> Self {
     self.reversed().map { $0.reverse() }
   }
+  
+  /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
+  /// - Returns: The transposed array
+  func transpose() -> Self {
+    
+    let mShape = shape
+    let row = mShape[safe: 1] ?? 0
+    let col = mShape[safe: 0] ?? 0
+    
+    var d: [Double] = [Double](repeating: 0, count: row * col)
+    let flat = flatMap { $0 }
+    
+    vDSP_mtransD(flat,
+                vDSP_Stride(1),
+                &d,
+                vDSP_Stride(1),
+                vDSP_Length(col),
+                vDSP_Length(row))
+    
+    return d.reshape(columns: row) // because cols count will become rows count
+  }
+
 }
 
 public extension Array where Element == [Float] {
   func flatten(inputSize: (rows: Int, columns: Int)? = nil) -> [Self.Element.Element] {
     NumSwiftC.flatten(self, inputSize: inputSize)
+  }
+  
+  /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
+  /// - Returns: The transposed array
+  func transpose() -> Self {
+    
+    let mShape = shape
+    let row = mShape[safe: 1] ?? 0
+    let col = mShape[safe: 0] ?? 0
+    
+    var d: [Float] = [Float](repeating: 0, count: row * col)
+    let flat = flatten()
+    
+    vDSP_mtrans(flat,
+                vDSP_Stride(1),
+                &d,
+                vDSP_Stride(1),
+                vDSP_Length(col),
+                vDSP_Length(row))
+    
+    return d.reshape(columns: row) // because cols count will become rows count
   }
 
   func zeroPad(padding: NumSwiftPadding) -> Self {
@@ -687,6 +730,35 @@ public extension Array where Element: Equatable & Numeric & FloatingPoint {
 }
 
 public extension Array where Element == [[Double]] {
+  
+  /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
+  /// - Returns: The transposed array
+  func transpose() -> Self {
+    var result: Self = []
+    
+    forEach { m in
+      let mShape = m.shape
+      let row = mShape[safe: 1] ?? 0
+      let col = mShape[safe: 0] ?? 0
+      
+      var d: [Double] = [Double](repeating: 0, count: row * col)
+      let flat = m.flatMap { $0 }
+      
+      vDSP_mtransD(flat,
+                  vDSP_Stride(1),
+                  &d,
+                  vDSP_Stride(1),
+                  vDSP_Length(col),
+                  vDSP_Length(row))
+      
+      let dReshaped = d.reshape(columns: row) // because cols count will become rows count
+      result.append(dReshaped)
+    }
+
+    return result
+  }
+
+  
   static func *(lhs: Self, rhs: Self) -> Self {
     let left = lhs
     let right = rhs
@@ -828,6 +900,33 @@ public extension Array where Element == [[Float]] {
     }
     
     return r
+  }
+  
+  /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
+  /// - Returns: The transposed array
+  func transpose() -> Self {
+    var result: Self = []
+    
+    forEach { m in
+      let mShape = m.shape
+      let row = mShape[safe: 1] ?? 0
+      let col = mShape[safe: 0] ?? 0
+      
+      var d: [Float] = [Float](repeating: 0, count: row * col)
+      let flat = m.flatten()
+      
+      vDSP_mtrans(flat,
+                  vDSP_Stride(1),
+                  &d,
+                  vDSP_Stride(1),
+                  vDSP_Length(col),
+                  vDSP_Length(row))
+      
+      let dReshaped = d.reshape(columns: row) // because cols count will become rows count
+      result.append(dReshaped)
+    }
+
+    return result
   }
   
   func matmul(_ b: Self) -> Self {

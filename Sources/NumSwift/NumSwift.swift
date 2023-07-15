@@ -60,6 +60,25 @@ public class NumSwift {
     }
   }
   
+  public static func randomChoice<T: Equatable>(in array: [T], p: [Float] = []) -> (T, Int) {
+    guard p.isEmpty == false, p.count == array.count else {
+      let index = Int.random(in: 0..<array.count)
+      return (array[index], index)
+    }
+    
+    var distributionArray: [T] = []
+    
+    for i in 0..<p.count {
+      let prob = Int(ceil(p[i] * 100))
+      let a = array[i]
+      
+      distributionArray.append(contentsOf: [T](repeating: a, count: prob))
+    }
+    
+    let random = Int.random(in: 0..<distributionArray.count)
+    let arrayIndex = array.firstIndex(where: { distributionArray[random] == $0 })
+    return (distributionArray[random], arrayIndex ?? 0)
+  }
   
   public static func onesLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float]]] {
     let shape = [size.columns, size.rows, size.depth]

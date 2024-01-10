@@ -75,6 +75,11 @@ public class NumSwift {
       distributionArray.append(contentsOf: [T](repeating: a, count: prob))
     }
     
+    guard distributionArray.isEmpty == false else {
+      let index = Int.random(in: 0..<array.count)
+      return (array[index], index)
+    }
+    
     let random = Int.random(in: 0..<distributionArray.count)
     let arrayIndex = array.firstIndex(where: { distributionArray[random] == $0 })
     return (distributionArray[random], arrayIndex ?? 0)

@@ -246,6 +246,22 @@ final class NumSwiftTests: XCTestCase {
                                            [24.0, 24.0]]])
   }
   
+  func test_randomChoice_valid() {
+    let probabilityArray: [Float] = [0, 1.0, 0, 0, 0]
+    let array: [Float] = [1, 2, 3, 4, 5]
+    let result = NumSwift.randomChoice(in: array, p: probabilityArray)
+    
+    XCTAssertEqual(2.0, result.0)
+    XCTAssertEqual(1, result.1)
+  }
+  
+  func test_randomChoice_probArrayAllZeros() {
+    let probabilityArray: [Float] = [0, 0, 0, 0, 0]
+    let array: [Float] = [1, 2, 3, 4, 5]
+    let result = NumSwift.randomChoice(in: array, p: probabilityArray)
+    
+    XCTAssertTrue(result.0 > 0)
+  }
   
   func test_matmul_MultDim() {
     let n1: [Float] = [1, 1, 1]

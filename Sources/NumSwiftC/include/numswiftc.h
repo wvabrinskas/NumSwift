@@ -57,7 +57,15 @@ extern void nsc_conv1d(const float signal[],
 
 extern void nsc_array_mod(const int rows, const int columns, float result[][columns]);
 
-extern void nsc_transConv2d(const float signal[],
+extern void nsc_transConv2d(float *const *signal,
+                            float *const *filter,
+                            float **result,
+                            NSC_Size stride,
+                            NSC_Padding padding,
+                            NSC_Size filter_size,
+                            NSC_Size input_size);
+
+extern void nsc_transConv1d(const float signal[],
                             const float filter[],
                             float *result,
                             NSC_Size stride,

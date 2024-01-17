@@ -88,9 +88,9 @@ public class NumSwift {
   public static func onesLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float]]] {
     var result: [[[Float]]]  = []
     
-    for d in 0..<size.depth {
+    for _ in 0..<size.depth {
       var row: [[Float]] = []
-      for r in 0..<size.rows {
+      for _ in 0..<size.rows {
         row.append([Float](repeating: 1.0, count: size.columns))
       }
       result.append(row)

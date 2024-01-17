@@ -445,7 +445,6 @@ final class NumSwiftTests: XCTestCase {
     
     XCTAssert(result == expected)
   }
-
   
   func testCConv1D() {
     let signalShape = (5,5)
@@ -479,7 +478,36 @@ final class NumSwiftTests: XCTestCase {
     let filter: [[Float]] = [[Float]](repeating: [0,0,1,0], count: filterShape.0)
     let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
 
-    let result = NumSwiftC.transConv2d(signal: signal.flatten(),
+    let result = NumSwiftC.transConv2d(signal: signal,
+                                       filter: filter,
+                                       strides: (2,2),
+                                       padding: .same,
+                                       filterSize: filterShape,
+                                       inputSize: signalShape)
+    
+    let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]]
+    
+    XCTAssertEqual(result, expected)
+  }
+
+  
+  func testTransCConv1D() {
+    let signalShape = (5,5)
+    let filterShape = (4,4)
+
+    let filter: [[Float]] = [[Float]](repeating: [0,0,1,0], count: filterShape.0)
+    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
+
+    let result = NumSwiftC.transConv1d(signal: signal.flatten(),
                                        filter: filter.flatten(),
                                        strides: (2,2),
                                        padding: .same,

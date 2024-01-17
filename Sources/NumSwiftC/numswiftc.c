@@ -476,8 +476,35 @@ extern void nsc_conv2d(float *const *signal,
   int max_r = rd - rf + 1;
   int max_c = cd - cf + 1;
 
-  int expected_r = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
-  int expected_c = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
+  int rows = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
+  int columns = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
+  
+  // Dynamically allocate memory for the array of pointers (rows)
+  float **working_result = (float **)malloc(rows * sizeof(float *));
+  
+  // Check if allocation was successful
+  if (working_result == NULL) {
+    fprintf(stderr, "Memory allocation failed.\n");
+    return 1; // Exit with an error code
+  }
+  
+  // Dynamically allocate memory for each row (columns)
+  for (int i = 0; i < rows; ++i) {
+    working_result[i] = (float *)malloc(columns * sizeof(float));
+    
+    // Check if allocation was successful
+    if (working_result[i] == NULL) {
+      fprintf(stderr, "Memory allocation failed.\n");
+      return 1; // Exit with an error code
+    }
+  }
+  
+  for (int i = 0; i < rows; i++) {
+    for (int j = 0; j < columns; j++) {
+      working_result[i][j] = 0;
+    }
+  }
+  
 
   int result_index = 0;
   for (int r = 0; r < max_r; r += strideR) {
@@ -496,9 +523,12 @@ extern void nsc_conv2d(float *const *signal,
         }
       }
       
-      result[r][c] = sum;
+      working_result[r][c] = sum;
     }
   }
+  
+  memcpy(result, working_result, rows * columns * sizeof(float));
+  free(working_result);
 }
 
 extern void nsc_conv1d(const float signal[],

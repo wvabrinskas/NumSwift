@@ -183,32 +183,29 @@ public struct NumSwiftC {
                             padding: NumSwift.ConvPadding = .valid,
                             filterSize: (rows: Int, columns: Int),
                             inputSize: (rows: Int, columns: Int)) -> [[Float]] {
-    
+    let lock = NSLock()
+    defer {
+      lock.unlock()
+    }
+    lock.lock()
     let paddingResult = padding.extra(inputSize: inputSize, filterSize: filterSize, stride: strides)
     let expectedRows = ((inputSize.rows - filterSize.rows + paddingResult.top + paddingResult.bottom) / strides.0) + 1
     let expectedColumns = ((inputSize.columns - filterSize.columns + paddingResult.left + paddingResult.right) / strides.1) + 1
     
     let paddingInt: UInt32 = padding == .valid ? 0 : 1
     var results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
-    //var results: [Float] = [Float](repeating: 0, count: expectedRows * expectedColumns)
     
-    results.withUnsafeBufferPointer { rBuff in
-      var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
-
-      signal.withUnsafeBufferPointer { aBuff in
-        filter.withUnsafeBufferPointer { bBuff in
-          let signalPoint: [UnsafeMutablePointer<Float>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
-          let filterPoint: [UnsafeMutablePointer<Float>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
-          nsc_conv2d(signalPoint,
-                       filterPoint,
-                       &rPoint,
-                       NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
-                       NSC_Padding(rawValue: paddingInt),
-                       NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
-                       NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
-        }
-      }
-    }
+    var r = results.map { Optional(UnsafeMutablePointer(mutating: $0)) }
+    var s = signal.map { Optional(UnsafeMutablePointer(mutating: $0)) }
+    var f = filter.map { Optional(UnsafeMutablePointer(mutating: $0)) }
+  
+    nsc_conv2d(s,
+               f,
+               &r,
+               NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
+               NSC_Padding(rawValue: paddingInt),
+               NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
+               NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
   
     return results
   }

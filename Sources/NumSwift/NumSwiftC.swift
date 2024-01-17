@@ -183,11 +183,6 @@ public struct NumSwiftC {
                             padding: NumSwift.ConvPadding = .valid,
                             filterSize: (rows: Int, columns: Int),
                             inputSize: (rows: Int, columns: Int)) -> [[Float]] {
-    let lock = NSLock()
-    defer {
-      lock.unlock()
-    }
-    lock.lock()
     let paddingResult = padding.extra(inputSize: inputSize, filterSize: filterSize, stride: strides)
     let expectedRows = ((inputSize.rows - filterSize.rows + paddingResult.top + paddingResult.bottom) / strides.0) + 1
     let expectedColumns = ((inputSize.columns - filterSize.columns + paddingResult.left + paddingResult.right) / strides.1) + 1
@@ -198,7 +193,9 @@ public struct NumSwiftC {
     var r = results.map { Optional(UnsafeMutablePointer(mutating: $0)) }
     var s = signal.map { Optional(UnsafeMutablePointer(mutating: $0)) }
     var f = filter.map { Optional(UnsafeMutablePointer(mutating: $0)) }
-  
+//    let signalPoint: [UnsafeMutablePointer<Float>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+//    let filterPoint: [UnsafeMutablePointer<Float>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
+
     nsc_conv2d(s,
                f,
                &r,

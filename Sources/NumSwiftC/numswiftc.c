@@ -448,12 +448,51 @@ extern void nsc_conv2d(float *const *signal,
   }
   
   if (padding == same) {
-    // fills working_signal with 0s
-    nsc_zero_pad_2D(signal,
-                   working_signal,
-                   filter_size,
-                   input_size,
-                   stride);
+    int paddingLeft;
+    int paddingRight;
+    int paddingBottom;
+    int paddingTop;
+    
+    int *pad_l_ptr = &paddingLeft;
+    int *pad_r_ptr = &paddingRight;
+    int *pad_b_ptr = &paddingBottom;
+    int *pad_t_ptr = &paddingTop;
+    
+    nsc_padding_calculation(stride,
+                            same,
+                            filter_size,
+                            input_size,
+                            pad_t_ptr,
+                            pad_b_ptr,
+                            pad_l_ptr,
+                            pad_r_ptr);
+    
+    int inputRows = input_size.rows;
+    int inputColumns = input_size.columns;
+    
+    int padded_row_total = inputRows + paddingLeft + paddingRight;
+    int padded_col_total = inputColumns + paddingTop + paddingBottom;
+    
+    int length = padded_row_total * padded_col_total;
+    
+    for (int i = 0; i < padded_row_total; i++) {
+      for (int j = 0; j < padded_col_total; j++) {
+        working_signal[i][j] = 0;
+      }
+    }
+    
+    if (result == NULL || signal == NULL)
+      return;
+    
+    for (int r = 0; r < inputRows; r++) {
+      for (int c = 0; c < inputColumns; c++) {
+        int padded_c = c + paddingLeft;
+        int padded_r = r + paddingTop;
+        
+        int index = (padded_r  * padded_row_total) + padded_c;
+        working_signal[padded_r][padded_c] = signal[r][c];
+      }
+    }
   }
   
   int inputRows = input_size.rows;
@@ -479,33 +518,6 @@ extern void nsc_conv2d(float *const *signal,
   int rows = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
   int columns = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
   
-  // Dynamically allocate memory for the array of pointers (rows)
-  float **working_result = (float **)malloc(rows * sizeof(float *));
-  
-  // Check if allocation was successful
-  if (working_result == NULL) {
-    fprintf(stderr, "Memory allocation failed.\n");
-    return 1; // Exit with an error code
-  }
-  
-  // Dynamically allocate memory for each row (columns)
-  for (int i = 0; i < rows; ++i) {
-    working_result[i] = (float *)malloc(columns * sizeof(float));
-    
-    // Check if allocation was successful
-    if (working_result[i] == NULL) {
-      fprintf(stderr, "Memory allocation failed.\n");
-      return 1; // Exit with an error code
-    }
-  }
-  
-  for (int i = 0; i < rows; i++) {
-    for (int j = 0; j < columns; j++) {
-      working_result[i][j] = 0;
-    }
-  }
-  
-
   int result_index = 0;
   for (int r = 0; r < max_r; r += strideR) {
     for (int c = 0; c < max_c; c += strideC) {
@@ -523,12 +535,9 @@ extern void nsc_conv2d(float *const *signal,
         }
       }
       
-      working_result[r][c] = sum;
+      result[r][c] = sum;
     }
   }
-  
-  memcpy(result, working_result, rows * columns * sizeof(float));
-  free(working_result);
 }
 
 extern void nsc_conv1d(const float signal[],
@@ -719,7 +728,6 @@ extern void nsc_transConv2d(float *const *signal,
     padded_index_r++;
   }
 }
-
 
 extern void nsc_transConv1d(const float signal[],
                             const float filter[],

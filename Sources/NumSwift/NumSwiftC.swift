@@ -189,20 +189,24 @@ public struct NumSwiftC {
     
     let paddingInt: UInt32 = padding == .valid ? 0 : 1
     var results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
-    
-    var r = results.map { Optional(UnsafeMutablePointer(mutating: $0)) }
-    var s = signal.map { Optional(UnsafeMutablePointer(mutating: $0)) }
-    var f = filter.map { Optional(UnsafeMutablePointer(mutating: $0)) }
-//    let signalPoint: [UnsafeMutablePointer<Float>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
-//    let filterPoint: [UnsafeMutablePointer<Float>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
-
-    nsc_conv2d(s,
-               f,
-               &r,
-               NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
-               NSC_Padding(rawValue: paddingInt),
-               NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
-               NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
+  
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      signal.withUnsafeBufferPointer { sBuff in
+        filter.withUnsafeBufferPointer { fBuff in
+          var sPoint: [UnsafeMutablePointer<Float>?] = sBuff.map { UnsafeMutablePointer(mutating: $0) }
+          var fPoint: [UnsafeMutablePointer<Float>?] = fBuff.map { UnsafeMutablePointer(mutating: $0) }
+          nsc_conv2d(sPoint,
+                     fPoint,
+                     &rPoint,
+                     NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
+                     NSC_Padding(rawValue: paddingInt),
+                     NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
+                     NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
+        }
+      }
+    }
   
     return results
   }

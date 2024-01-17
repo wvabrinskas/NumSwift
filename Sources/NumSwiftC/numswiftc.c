@@ -538,6 +538,11 @@ extern void nsc_conv2d(float *const *signal,
       result[r][c] = sum;
     }
   }
+  
+  for (int i = 0; i < padded_row_total; ++i) {
+    free(working_signal[i]);
+  }
+  free(working_signal);
 }
 
 extern void nsc_conv1d(const float signal[],
@@ -633,6 +638,7 @@ extern void nsc_conv1d(const float signal[],
   }
   
   memcpy(result, mutable_result, expected_r * expected_c * sizeof(float));
+  free(mutable_result);
 }
 
 extern void nsc_transConv2d(float *const *signal,
@@ -727,6 +733,11 @@ extern void nsc_transConv2d(float *const *signal,
     }
     padded_index_r++;
   }
+  
+  for (int i = 0; i < rows; ++i) {
+    free(working_result[i]);
+  }
+  free(working_result);
 }
 
 extern void nsc_transConv1d(const float signal[],

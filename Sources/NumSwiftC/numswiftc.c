@@ -2,6 +2,32 @@
 #include "include/numswiftc.h"
 #include "time.h"
 
+extern void nsc_matmul(NSC_Size a_size,
+                       NSC_Size b_size,
+                       float *const *a,
+                       float *const *b,
+                       float **result) {
+  
+  int rowFirst = a_size.rows;
+  int columnFirst = a_size.columns;
+  int columnSecond = b_size.columns;
+  // Initializing elements of matrix mult to 0.
+  for(int i = 0; i < rowFirst; ++i) {
+    for(int j = 0; j < columnSecond; ++j) {
+      result[i][j] = 0;
+    }
+  }
+  
+  // Multiplying firstMatrix and secondMatrix and storing in result.
+  for(int i = 0; i < rowFirst; ++i) {
+    for(int j = 0; j < columnSecond; ++j) {
+      for(int k = 0; k < columnFirst; ++k) {
+        result[i][j] += a[i][k] * b[k][j];
+      }
+    }
+  }
+}
+
 extern void nsc_flatten2d(NSC_Size input_size,
                           float *const *input,
                           float *result) {
@@ -265,6 +291,58 @@ extern void nsc_specific_zero_pad(const float input[],
   free(padded);
 }
 
+extern void nsc_zero_pad_2D(float *const *input,
+                           float **result,
+                           NSC_Size filter_size,
+                           NSC_Size input_size,
+                           NSC_Size stride) {
+  int paddingLeft;
+  int paddingRight;
+  int paddingBottom;
+  int paddingTop;
+  
+  int *pad_l_ptr = &paddingLeft;
+  int *pad_r_ptr = &paddingRight;
+  int *pad_b_ptr = &paddingBottom;
+  int *pad_t_ptr = &paddingTop;
+  
+  nsc_padding_calculation(stride,
+                          same,
+                          filter_size,
+                          input_size,
+                          pad_t_ptr,
+                          pad_b_ptr,
+                          pad_l_ptr,
+                          pad_r_ptr);
+  
+  int inputRows = input_size.rows;
+  int inputColumns = input_size.columns;
+  
+  int padded_row_total = inputRows + paddingLeft + paddingRight;
+  int padded_col_total = inputColumns + paddingTop + paddingBottom;
+  
+  int length = padded_row_total * padded_col_total;
+  
+  for (int i = 0; i < padded_row_total; i++) {
+    for (int j = 0; j < padded_col_total; j++) {
+      result[i][j] = 0;
+    }
+  }
+  
+  if (result == NULL || input == NULL)
+    return;
+  
+  for (int r = 0; r < inputRows; r++) {
+    for (int c = 0; c < inputColumns; c++) {
+      int padded_c = c + paddingLeft;
+      int padded_r = r + paddingTop;
+      
+      int index = (padded_r  * padded_row_total) + padded_c;
+      result[padded_r][padded_c] = input[r][c];
+    }
+  }
+}
+
 extern void nsc_zero_pad(const float input[],
                          float *result,
                          NSC_Size filter_size,
@@ -320,7 +398,110 @@ extern void nsc_zero_pad(const float input[],
   free(padded);
 }
 
-extern void nsc_conv2d(const float signal[],
+extern void nsc_conv2d(float *const *signal,
+                         float *const *filter,
+                         float **result,
+                         NSC_Size stride,
+                         NSC_Padding padding,
+                         NSC_Size filter_size,
+                         NSC_Size input_size) {
+  int paddingLeft;
+  int paddingRight;
+  int paddingBottom;
+  int paddingTop;
+  
+  int *pad_l_ptr = &paddingLeft;
+  int *pad_r_ptr = &paddingRight;
+  int *pad_b_ptr = &paddingBottom;
+  int *pad_t_ptr = &paddingTop;
+  
+  nsc_padding_calculation(stride,
+                          padding,
+                          filter_size,
+                          input_size,
+                          pad_t_ptr,
+                          pad_b_ptr,
+                          pad_l_ptr,
+                          pad_r_ptr);
+  
+  int padded_row_total = input_size.rows + paddingLeft + paddingRight;
+  int padded_col_total = input_size.columns + paddingTop + paddingBottom;
+    
+  // Dynamically allocate memory for the array of pointers (rows)
+  float **working_signal = (float **)malloc(padded_row_total * sizeof(float *));
+  
+  // Check if allocation was successful
+  if (working_signal == NULL) {
+      fprintf(stderr, "Memory allocation failed.\n");
+      return 1; // Exit with an error code
+  }
+
+  // Dynamically allocate memory for each row (columns)
+  for (int i = 0; i < padded_row_total; ++i) {
+    working_signal[i] = (float *)malloc(padded_col_total * sizeof(float));
+
+      // Check if allocation was successful
+      if (working_signal[i] == NULL) {
+          fprintf(stderr, "Memory allocation failed.\n");
+          return 1; // Exit with an error code
+      }
+  }
+  
+  if (padding == same) {
+    // fills working_signal with 0s
+    nsc_zero_pad_2D(signal,
+                   working_signal,
+                   filter_size,
+                   input_size,
+                   stride);
+  }
+  
+  int inputRows = input_size.rows;
+  int inputColumns = input_size.columns;
+  
+  int strideR = stride.rows;
+  int strideC = stride.columns;
+  
+  int filterRows = filter_size.rows;
+  int filterColumns = filter_size.columns;
+  
+  if (result == NULL)
+    return;
+  
+  int rf = filterRows;
+  int cf = filterColumns;
+  int rd = inputRows + paddingTop + paddingBottom; //havnt dealt with padding yet
+  int cd = inputColumns + paddingLeft + paddingRight;
+  
+  int max_r = rd - rf + 1;
+  int max_c = cd - cf + 1;
+
+  int expected_r = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
+  int expected_c = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
+
+  int result_index = 0;
+  for (int r = 0; r < max_r; r += strideR) {
+    for (int c = 0; c < max_c; c += strideC) {
+      float sum = 0;
+      
+      for (int fr = 0; fr < filterRows; fr++) {
+        
+        for (int fc = 0; fc < filterColumns; fc++) {
+          int current_data_row = r + fr;
+          int current_data_col = c + fc;
+          
+          float s_data = padding == valid ? signal[current_data_row][current_data_col] : working_signal[current_data_row][current_data_col]; //do some checking of size here?
+          float f_data = filter[fr][fc]; //do some checking of size here?
+          sum += s_data * f_data;
+        }
+      }
+      
+      result[r][c] = sum;
+    }
+  }
+}
+
+extern void nsc_conv1d(const float signal[],
                        const float filter[],
                        float *result,
                        NSC_Size stride,

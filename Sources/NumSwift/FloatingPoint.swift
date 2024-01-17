@@ -10,6 +10,12 @@ import Accelerate
 
 public extension Array where Element == [Double] {
   
+  var shape: [Int] {
+    let rows = self.count
+    let cols = self[safe: 0]?.count ?? 0
+    return [cols, rows]
+  }
+
   func zeroPad(filterSize: (Int, Int), stride: (Int, Int) = (1,1)) -> Self {
     guard let first = self.first else {
       return self
@@ -117,6 +123,12 @@ public extension Array where Element == [Double] {
 }
 
 public extension Array where Element == [Float] {
+  var shape: [Int] {
+    let rows = self.count
+    let cols = self[safe: 0]?.count ?? 0
+    return [cols, rows]
+  }
+  
   func flatten(inputSize: (rows: Int, columns: Int)? = nil) -> [Self.Element.Element] {
     NumSwiftC.flatten(self, inputSize: inputSize)
   }
@@ -731,6 +743,15 @@ public extension Array where Element: Equatable & Numeric & FloatingPoint {
 
 public extension Array where Element == [[Double]] {
   
+  var shape: [Int] {
+    let depth = self.count
+    
+    let rows = self[safe: 0]?.count ?? 0
+    let cols = self[safe: 0]?[safe: 0]?.count ?? 0
+    
+    return [cols, rows, depth]
+  }
+  
   /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
   /// - Returns: The transposed array
   func transpose() -> Self {
@@ -857,6 +878,15 @@ public extension Array where Element == [[Double]] {
 
 
 public extension Array where Element == [[Float]] {
+  var shape: [Int] {
+    let depth = self.count
+    
+    let rows = self[safe: 0]?.count ?? 0
+    let cols = self[safe: 0]?[safe: 0]?.count ?? 0
+    
+    return [cols, rows, depth]
+  }
+  
   var sumOfSquares: Float {
     var result: Float = 0
     self.forEach { a in
@@ -944,44 +974,16 @@ public extension Array where Element == [[Float]] {
     precondition(aColumns == bRows, "A matrix columns does not match B matrix rows")
     precondition(aDepth == bDepth, "A matrix depth does not match B matrix depth")
 
-    let M = aRows // also C rows
-    let N = bColumns // also C columns
-    let P = aColumns
-    
-    let cRows = M
-    let cColumns = N 
-    
     var result: Self = []
     
     for d in 0..<aDepth {
-      let mLength = vDSP_Length(M)
-      let nLength = vDSP_Length(N)
-      let pLength = vDSP_Length(P)
-      
-      let A = self[d].flatten()
-      let B = b[d].flatten()
-      
-      var C: [Float] = [Float].init(repeating: 0, count: Int(cRows * cColumns))
-      
-      let aStride = vDSP_Stride(1)
-      let bStride = vDSP_Stride(1)
-      let cStride = vDSP_Stride(1)
-      
-      vDSP_mmul(A,
-                aStride,
-                B,
-                bStride,
-                &C,
-                cStride,
-                vDSP_Length(mLength),
-                vDSP_Length(nLength),
-                vDSP_Length(pLength))
-      
-      let cResult = C.reshape(columns: cColumns)
+      let cResult = NumSwiftC.matmul(self[d],
+                                     b: b[d],
+                                     aSize: (rows: aRows, columns: aColumns),
+                                     bSize: (rows: bRows, columns: bColumns))
       
       result.append(cResult)
     }
-    
     
     return result
   }
@@ -1491,8 +1493,6 @@ public extension Array where Element == [Float] {
   }
   
   static func -(lhs: Float, rhs: Self) -> Self {
-    let left = lhs
-            
     var result: Self = []
     for d in 0..<rhs.count {
       let new2d: Element = lhs - rhs[d]

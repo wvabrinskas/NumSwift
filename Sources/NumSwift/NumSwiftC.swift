@@ -38,6 +38,33 @@ public struct NoiseC {
 
 public struct NumSwiftC {
   
+  public static func matmul(_ a: [[Float]], 
+                            b: [[Float]],
+                            aSize: (rows: Int, columns: Int),
+                            bSize: (rows: Int, columns: Int)) -> [[Float]] {
+    
+    let results: [[Float]] = NumSwift.zerosLike((rows: aSize.rows,
+                                                 columns: bSize.columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+
+      a.withUnsafeBufferPointer { aBuff in
+        b.withUnsafeBufferPointer { bBuff in
+          let aPoint: [UnsafeMutablePointer<Float>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+          let bPoint: [UnsafeMutablePointer<Float>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
+          nsc_matmul(NSC_Size(rows: Int32(aSize.rows), columns: Int32(aSize.columns)),
+                     NSC_Size(rows: Int32(bSize.rows), columns: Int32(bSize.columns)),
+                     aPoint,
+                     bPoint,
+                     &rPoint)
+        }
+      }
+    }
+    
+    return results
+  }
+  
   public static func flatten(_ input: [[Float]], inputSize: (rows: Int, columns: Int)? = nil) -> [Float] {
     
     let shape = input.shape
@@ -150,7 +177,43 @@ public struct NumSwiftC {
     return results.reshape(columns: expectedColumns)
   }
   
-  public static func conv2d(signal: [Float],
+  public static func conv2d(signal: [[Float]],
+                            filter: [[Float]],
+                            strides: (Int, Int) = (1,1),
+                            padding: NumSwift.ConvPadding = .valid,
+                            filterSize: (rows: Int, columns: Int),
+                            inputSize: (rows: Int, columns: Int)) -> [[Float]] {
+    
+    let paddingResult = padding.extra(inputSize: inputSize, filterSize: filterSize, stride: strides)
+    let expectedRows = ((inputSize.rows - filterSize.rows + paddingResult.top + paddingResult.bottom) / strides.0) + 1
+    let expectedColumns = ((inputSize.columns - filterSize.columns + paddingResult.left + paddingResult.right) / strides.1) + 1
+    
+    let paddingInt: UInt32 = padding == .valid ? 0 : 1
+    var results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
+    //var results: [Float] = [Float](repeating: 0, count: expectedRows * expectedColumns)
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+
+      signal.withUnsafeBufferPointer { aBuff in
+        filter.withUnsafeBufferPointer { bBuff in
+          let signalPoint: [UnsafeMutablePointer<Float>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+          let filterPoint: [UnsafeMutablePointer<Float>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
+          nsc_conv2d(signalPoint,
+                       filterPoint,
+                       &rPoint,
+                       NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
+                       NSC_Padding(rawValue: paddingInt),
+                       NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
+                       NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
+        }
+      }
+    }
+  
+    return results
+  }
+  
+  public static func conv1d(signal: [Float],
                             filter: [Float],
                             strides: (Int, Int) = (1,1),
                             padding: NumSwift.ConvPadding = .valid,
@@ -164,7 +227,7 @@ public struct NumSwiftC {
     let paddingInt: UInt32 = padding == .valid ? 0 : 1
     var results: [Float] = [Float](repeating: 0, count: expectedRows * expectedColumns)
     
-    nsc_conv2d(signal,
+    nsc_conv1d(signal,
                filter,
                &results,
                NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
@@ -172,13 +235,6 @@ public struct NumSwiftC {
                NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
                NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
     
-    return results
-  }
-  
-  public static func arrayMod(length: Int) -> [[Float]] {
-    var results: [[Float]] = NumSwift.zerosLike((10,10))
-      
-
     return results
   }
   

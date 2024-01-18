@@ -190,9 +190,7 @@ public struct NumSwiftC {
     
     let paddingInt: UInt32 = padding == .valid ? 0 : 1
     var results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
-    
-//    return conv1d(signal: signal.flatten(), filter: filter.flatten(), strides: strides, padding: padding, filterSize: filterSize, inputSize: inputSize).reshape(columns: expectedColumns)
-  
+      
     results.withUnsafeBufferPointer { rBuff in
       signal.withUnsafeBufferPointer { sBuff in
         filter.withUnsafeBufferPointer { fBuff in

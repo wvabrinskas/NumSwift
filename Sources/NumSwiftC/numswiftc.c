@@ -426,25 +426,25 @@ extern void nsc_conv2d(float *const *signal,
   
   int padded_row_total = input_size.rows + paddingLeft + paddingRight;
   int padded_col_total = input_size.columns + paddingTop + paddingBottom;
-    
+  
   // Dynamically allocate memory for the array of pointers (rows)
   float **working_signal = (float **)malloc(padded_row_total * sizeof(float *));
   
   // Check if allocation was successful
   if (working_signal == NULL) {
-      fprintf(stderr, "Memory allocation failed.\n");
-      return; // Exit with an error code
+    fprintf(stderr, "Memory allocation failed.\n");
+    return; // Exit with an error code
   }
-
+  
   // Dynamically allocate memory for each row (columns)
   for (int i = 0; i < padded_row_total; ++i) {
     working_signal[i] = (float *)malloc(padded_col_total * sizeof(float));
-
-      // Check if allocation was successful
-      if (working_signal[i] == NULL) {
-          fprintf(stderr, "Memory allocation failed.\n");
-          return; // Exit with an error code
-      }
+    
+    // Check if allocation was successful
+    if (working_signal[i] == NULL) {
+      fprintf(stderr, "Memory allocation failed.\n");
+      return; // Exit with an error code
+    }
   }
   
   if (padding == same) {
@@ -514,19 +514,25 @@ extern void nsc_conv2d(float *const *signal,
   
   int max_r = rd - rf + 1;
   int max_c = cd - cf + 1;
-
+  
   int rows = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
   int columns = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
   
   int expected_r = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
   int expected_c = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
   
+  float mutable_result[expected_r * expected_c]; //= malloc(expected_r * expected_c * sizeof(float));
+  
+  for (int i = 0; i < expected_r * expected_c; i++) {
+    mutable_result[i] = 0.0f;
+  }
+  
+  int result_index = 0;
   for (int r = 0; r < max_r; r += strideR) {
     for (int c = 0; c < max_c; c += strideC) {
       float sum = 0;
       
       for (int fr = 0; fr < filterRows; fr++) {
-        
         for (int fc = 0; fc < filterColumns; fc++) {
           int current_data_row = r + fr;
           int current_data_col = c + fc;
@@ -536,9 +542,16 @@ extern void nsc_conv2d(float *const *signal,
           sum += s_data * f_data;
         }
       }
-      if (r < expected_r && c < expected_c) {
-        result[r][c] = sum;
-      }
+      mutable_result[result_index] = sum;
+      result_index += 1;
+    }
+  }
+  
+  for (int r = 0; r < expected_r; r++) {
+    for (int c = 0; c < expected_c; c++) {
+      int index = (r * expected_c) + c;
+      float value = mutable_result[index];
+      result[r][c] = value;
     }
   }
   

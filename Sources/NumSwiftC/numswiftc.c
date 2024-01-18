@@ -433,7 +433,7 @@ extern void nsc_conv2d(float *const *signal,
   // Check if allocation was successful
   if (working_signal == NULL) {
       fprintf(stderr, "Memory allocation failed.\n");
-      return 1; // Exit with an error code
+      return; // Exit with an error code
   }
 
   // Dynamically allocate memory for each row (columns)
@@ -443,7 +443,7 @@ extern void nsc_conv2d(float *const *signal,
       // Check if allocation was successful
       if (working_signal[i] == NULL) {
           fprintf(stderr, "Memory allocation failed.\n");
-          return 1; // Exit with an error code
+          return; // Exit with an error code
       }
   }
   
@@ -668,7 +668,7 @@ extern void nsc_transConv2d(float *const *signal,
   // Check if allocation was successful
   if (working_result == NULL) {
     fprintf(stderr, "Memory allocation failed.\n");
-    return 1; // Exit with an error code
+    return; // Exit with an error code
   }
   
   // Dynamically allocate memory for each row (columns)
@@ -678,7 +678,7 @@ extern void nsc_transConv2d(float *const *signal,
     // Check if allocation was successful
     if (working_result[i] == NULL) {
       fprintf(stderr, "Memory allocation failed.\n");
-      return 1; // Exit with an error code
+      return; // Exit with an error code
     }
   }
   

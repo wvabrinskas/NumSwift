@@ -544,6 +544,9 @@ extern void nsc_conv2d(float *const *signal,
     }
   }
   
+  int expected_r = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
+  int expected_c = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
+  
   for (int r = 0; r < max_r; r += strideR) {
     for (int c = 0; c < max_c; c += strideC) {
       float sum = 0;
@@ -559,7 +562,9 @@ extern void nsc_conv2d(float *const *signal,
           sum += s_data * f_data;
         }
       }
-      result[r][c] = sum;
+      if (r < expected_r && c < expected_c) {
+        result[r][c] = sum;
+      }
     }
   }
   

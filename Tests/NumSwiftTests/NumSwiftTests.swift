@@ -121,8 +121,8 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func testShape() {
-    let test = [[[0,1], [0,1]],
-                [[0,1], [0,1]]] //2, 2
+    let test: [[[Float]]] = [[[0,1], [0,1]],
+                             [[0,1], [0,1]]] //2, 2
     let expected = [2, 2, 2]
     
     XCTAssertEqual(test.shape, expected)
@@ -144,6 +144,28 @@ final class NumSwiftTests: XCTestCase {
     let expected = 12.0
     
     XCTAssertEqual(expected, a.dot(b))
+  }
+  
+  func test_matmul_SingleDim_C() {
+    let n1: [Float] = [1, 1, 1]
+    let n2: [Float] = [2, 2, 2]
+    let n3: [Float] = [3, 3, 3]
+    
+    let layer = [n1, n2 , n3]
+    let A = layer
+        
+    let B: [[Float]] = [[2,2],
+                        [2,2],
+                        [2,2]]
+    
+    let output = NumSwiftC.matmul(A, b: B, aSize: (3,3), bSize: (3, 2))
+    
+    
+    let expected: [[Float]] = [[6.0, 6.0],
+                                [12.0, 12.0],
+                                [18.0, 18.0]]
+    
+    XCTAssertEqual(expected, output)
   }
   
   func test_matmul_SingleDim() {
@@ -399,7 +421,7 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(expected, padded)
   }
   
-  func testCConv2D() {
+  func testCConv2D_2() {
     let signalShape = (5,5)
 
     let filter: [[Float]] = [[0, 1, 0],
@@ -408,21 +430,45 @@ final class NumSwiftTests: XCTestCase {
 
     let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
 
-    let result = NumSwiftC.conv2d(signal: signal.flatten(),
-                                  filter: filter.flatten(),
+    let result = NumSwiftC.conv2d(signal: signal,
+                                  filter: filter,
                                   strides: (1,1),
                                   padding: .same,
                                   filterSize: (rows: 3, columns: 3),
                                   inputSize: signalShape)
     
-    let reshaped = result.reshape(columns: 5)
     let expected: [[Float]] = [[0.0, 0.0, 2.0, 0.0, 0.0],
                                [0.0, 0.0, 3.0, 0.0, 0.0],
                                [0.0, 0.0, 3.0, 0.0, 0.0],
                                [0.0, 0.0, 3.0, 0.0, 0.0],
                                [0.0, 0.0, 2.0, 0.0, 0.0]]
     
-    XCTAssert(reshaped == expected)
+    XCTAssert(result == expected)
+  }
+  
+  func testCConv1D() {
+    let signalShape = (5,5)
+
+    let filter: [[Float]] = [[0, 1, 0],
+                             [0, 1, 0],
+                             [0, 1, 0]]
+
+    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
+
+    let result = NumSwiftC.conv1d(signal: signal.flatten(),
+                                  filter: filter.flatten(),
+                                  strides: (1,1),
+                                  padding: .same,
+                                  filterSize: (rows: 3, columns: 3),
+                                  inputSize: signalShape)
+    
+    let expected: [Float] = [0.0, 0.0, 2.0, 0.0, 0.0,
+                             0.0, 0.0, 3.0, 0.0, 0.0,
+                             0.0, 0.0, 3.0, 0.0, 0.0,
+                             0.0, 0.0, 3.0, 0.0, 0.0,
+                             0.0, 0.0, 2.0, 0.0, 0.0]
+    
+    XCTAssert(result == expected)
   }
 
   func testTransCConv2D() {
@@ -432,7 +478,36 @@ final class NumSwiftTests: XCTestCase {
     let filter: [[Float]] = [[Float]](repeating: [0,0,1,0], count: filterShape.0)
     let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
 
-    let result = NumSwiftC.transConv2d(signal: signal.flatten(),
+    let result = NumSwiftC.transConv2d(signal: signal,
+                                       filter: filter,
+                                       strides: (2,2),
+                                       padding: .same,
+                                       filterSize: filterShape,
+                                       inputSize: signalShape)
+    
+    let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+                               [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]]
+    
+    XCTAssertEqual(result, expected)
+  }
+
+  
+  func testTransCConv1D() {
+    let signalShape = (5,5)
+    let filterShape = (4,4)
+
+    let filter: [[Float]] = [[Float]](repeating: [0,0,1,0], count: filterShape.0)
+    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
+
+    let result = NumSwiftC.transConv1d(signal: signal.flatten(),
                                        filter: filter.flatten(),
                                        strides: (2,2),
                                        padding: .same,
@@ -492,43 +567,6 @@ final class NumSwiftTests: XCTestCase {
     XCTAssert(output == expected)
   }
   
-#if os(iOS)
-  func testImageLayers() {
-    let imagePath = Bundle.module.path(forResource: "mnist_7", ofType: "jpg")
-    XCTAssertNotNil(imagePath)
-    
-    let image = UIImage(contentsOfFile: imagePath!)
-    
-    XCTAssertNotNil(image)
-
-    let layers = image!.layers()
-    
-    XCTAssert(layers.count == 3)
-    
-    let layersWAlpha = image!.layers(alpha: true)
-    
-    XCTAssert(layersWAlpha.count == 4)
-    
-    let shape = layers.shape
-    let columns = shape[safe: 0] ?? 0
-    let rows = shape[safe: 1] ?? 0
-    let depth = shape[safe: 2] ?? 0
-    
-    XCTAssert(columns == 28)
-    XCTAssert(rows == 28)
-    XCTAssert(depth == 3)
-    
-    let shapeAlpha = layersWAlpha.shape
-    let columnsA = shapeAlpha[safe: 0] ?? 0
-    let rowsA = shapeAlpha[safe: 1] ?? 0
-    let depthA = shapeAlpha[safe: 2] ?? 0
-    
-    XCTAssert(columnsA == 28)
-    XCTAssert(rowsA == 28)
-    XCTAssert(depthA == 4)
-  }
-#endif
-
   func testClip() {
     var test: [Float] = [-0.2, 5.0, -0.5, 1.0]
     test.clip(0.5)

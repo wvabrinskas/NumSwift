@@ -2,6 +2,7 @@ import Foundation
 import Accelerate
 
 //3D
+
 public extension Collection where Self.Element: Sequence, Element.Element: Sequence {
   func flatten() -> [Self.Element.Element.Element] {
     return self.flatMap { $0.flatMap { $0 } }
@@ -10,7 +11,8 @@ public extension Collection where Self.Element: Sequence, Element.Element: Seque
 
 public extension Collection {
   /// Returns the shape of an N-dimensional array, ex 3D array -> (Col, Row, Dep)
-  var shape: [Int] {
+  /// Slow as it does comparisons to protocol
+  var shapeOf: [Int] {
     var results: [Int] = []
     
     var currentElement: Any = self
@@ -64,6 +66,10 @@ public extension Collection where Self.Iterator.Element: RandomAccessCollection 
 
 public extension Array {
   
+  var shape: [Int] {
+    return shapeOf
+  }
+  
   func batched(into size: Int) -> [[Element]] {
     return stride(from: 0, to: count, by: size).map {
       Array(self[$0 ..< Swift.min($0 + size, count)])
@@ -102,14 +108,13 @@ public extension Array {
           
     for c in stride(from: 0, through: self.count, by: columns) {
       if c + columns <= self.count {
-        let row = Array(self[c..<c + columns])
+        let row = Array(self[c..<c + columns]) // copying to array is slow
         twoDResult.append(row)
       }
     }
     
     return twoDResult
   }
-  
 }
 
 public extension Array where Element: Equatable & Numeric {

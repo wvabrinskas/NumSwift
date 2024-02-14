@@ -116,7 +116,7 @@ public class NumSwift {
   public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Float]] {
     var result: [[Float]]  = []
     
-    for r in 0..<size.rows {
+    for _ in 0..<size.rows {
       result.append([Float](repeating: 1.0, count: size.columns))
     }
     
@@ -140,9 +140,9 @@ public class NumSwift {
   public static func zerosLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float]]] {
     var result: [[[Float]]]  = []
     
-    for d in 0..<size.depth {
+    for _ in 0..<size.depth {
       var row: [[Float]] = []
-      for r in 0..<size.rows {
+      for _ in 0..<size.rows {
         row.append([Float](repeating: 0, count: size.columns))
       }
       result.append(row)
@@ -152,23 +152,19 @@ public class NumSwift {
   }
   
   public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Double]] {
-    let shape = [size.columns, size.rows]
+    var result: [[Double]]  = []
     
-    var result: [Any]  = []
-    var previous: Any = Double.zero
-    
-    shape.forEach { s in
-      result = Array(repeatElement(previous, count: s))
-      previous = result
+    for _ in 0..<size.rows {
+      result.append([Double](repeating: 0, count: size.columns))
     }
     
-    return result as? [[Double]] ?? []
+    return result
   }
   
   public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Float]] {
     var result: [[Float]]  = []
     
-    for r in 0..<size.rows {
+    for _ in 0..<size.rows {
       result.append([Float](repeating: 0, count: size.columns))
     }
     
@@ -189,6 +185,7 @@ public class NumSwift {
     return result
   }
   
+  @available(*, deprecated, renamed: "NumSwiftC.conv2d", message: "This function is slow. Use the NumSwiftC equivalent")
   public static func conv2d(signal: [[Float]],
                             filter: [[Float]],
                             strides: (Int, Int) = (1,1),
@@ -231,6 +228,7 @@ public class NumSwift {
     return results
   }
   
+  @available(*, deprecated, renamed: "NumSwiftC.transConv2D", message: "This function is slow. Use the NumSwiftC equivalent")
   public static func transConv2D(signal: [[Double]],
                                  filter: [[Double]],
                                  strides: (Int, Int) = (1,1),
@@ -284,6 +282,7 @@ public class NumSwift {
     return padded
   }
   
+  @available(*, deprecated, renamed: "NumSwiftC.transConv2D", message: "This function is slow. Use the NumSwiftC equivalent")
   public static func transConv2D(signal: [[Float]],
                                  filter: [[Float]],
                                  strides: (Int, Int) = (1,1),

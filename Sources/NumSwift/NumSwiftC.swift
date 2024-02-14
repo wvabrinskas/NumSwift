@@ -128,13 +128,13 @@ public struct NumSwiftC {
     let expectedRows = rows + padding.top + padding.bottom
     let expectedColumns = columns + padding.left + padding.right
     
-    var results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
-      
+    let results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
+    
     results.withUnsafeBufferPointer { rBuff in
       signal.withUnsafeBufferPointer { sBuff in
-          var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
-          var sPoint: [UnsafeMutablePointer<Float>?] = sBuff.map { UnsafeMutablePointer(mutating: $0) }
-          
+        var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+        let sPoint: [UnsafeMutablePointer<Float>?] = sBuff.map { UnsafeMutablePointer(mutating: $0) }
+        
         nsc_specific_zero_pad_2d(sPoint,
                                  &rPoint,
                                  NSC_Size(rows: Int32(rows),
@@ -170,13 +170,13 @@ public struct NumSwiftC {
     let expectedRows = rows + padding.top + padding.bottom
     let expectedColumns = columns + padding.left + padding.right
     
-    var results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
-      
+    let results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
+    
     results.withUnsafeBufferPointer { rBuff in
       signal.withUnsafeBufferPointer { sBuff in
-          var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
-          var sPoint: [UnsafeMutablePointer<Float>?] = sBuff.map { UnsafeMutablePointer(mutating: $0) }
-          
+        var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+        let sPoint: [UnsafeMutablePointer<Float>?] = sBuff.map { UnsafeMutablePointer(mutating: $0) }
+        
         nsc_specific_zero_pad_2d(sPoint,
                                  &rPoint,
                                  NSC_Size(rows: Int32(rows),
@@ -277,7 +277,7 @@ public struct NumSwiftC {
     let rows = (inputSize.rows - 1) * strides.0 + filterSize.rows
     let columns = (inputSize.columns - 1) * strides.1 + filterSize.columns
     
-    var results: [[Float]] = NumSwift.zerosLike((rows: (rows - (padTop + padBottom)), columns: (columns - (padLeft + padRight))))
+    let results: [[Float]] = NumSwift.zerosLike((rows: (rows - (padTop + padBottom)), columns: (columns - (padLeft + padRight))))
     
     results.withUnsafeBufferPointer { rBuff in
       var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }

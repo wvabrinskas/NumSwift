@@ -41,34 +41,8 @@ extern void nsc_specific_zero_pad_2d(float *const *input,
   
   int padded_row_total = inputRows + paddingLeft + paddingRight;
   int padded_col_total = inputColumns + paddingTop + paddingBottom;
-  
-  // Dynamically allocate memory for the array of pointers (rows)
-  float **padded = (float **)malloc(padded_row_total * sizeof(float *));
-  
-  // Check if allocation was successful
-  if (padded == NULL) {
-    fprintf(stderr, "Memory allocation failed.\n");
-    return; // Exit with an error code
-  }
-  
-  // Dynamically allocate memory for each row (columns)
-  for (int i = 0; i < padded_row_total; ++i) {
-    padded[i] = (float *)malloc(padded_col_total * sizeof(float));
-    
-    // Check if allocation was successful
-    if (padded[i] == NULL) {
-      fprintf(stderr, "Memory allocation failed.\n");
-      return; // Exit with an error code
-    }
-  }
-  
-  for (int r = 0; r < padded_row_total; r++) {
-    for (int c = 0; c < padded_col_total; c++) {
-      padded[r][c] = 0;
-    }
-  }
-  
-  if (padded == NULL || input == NULL)
+
+  if (result == NULL || input == NULL)
     return;
   
   for (int r = 0; r < inputRows; r++) {
@@ -76,20 +50,9 @@ extern void nsc_specific_zero_pad_2d(float *const *input,
       int padded_c = c + paddingLeft;
       int padded_r = r + paddingTop;
       
-      padded[padded_r][padded_c] = input[r][c];
+      result[padded_r][padded_c] = input[r][c];
     }
   }
-    
-  for (int r = 0; r < padded_row_total; r++) {
-    for (int c = 0; c < padded_col_total; c++) {
-      result[r][c] = padded[r][c];
-    }
-  }
-  
-  for (int i = 0; i < padded_row_total; ++i) {
-    free(padded[i]);
-  }
-  free(padded);
 }
 
 

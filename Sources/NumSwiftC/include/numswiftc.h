@@ -14,6 +14,14 @@ typedef enum {
 } NSC_Padding;
 //
 
+extern void nsc_specific_zero_pad_2d(float *const *input,
+                                     float **result,
+                                     NSC_Size input_size,
+                                     int paddingTop,
+                                     int paddingBottom,
+                                     int paddingLeft,
+                                     int paddingRight);
+
 extern void nsc_conv2d(float *const *signal,
                        float *const *filter,
                        float **result,

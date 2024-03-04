@@ -120,8 +120,8 @@ public struct NumSwiftC {
     return results
   }
   
-  public static func stridePad1D(signal: [[Float]],
-                               strides: (rows: Int, columns: Int)) -> [[Float]] {
+  public static func stridePad1D(signal: [Float],
+                               strides: (rows: Int, columns: Int)) -> [Float] {
     
     guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else {
       return signal
@@ -136,7 +136,7 @@ public struct NumSwiftC {
     
     var results: [Float] = [Float](repeating: 0, count: newRows * newColumns)
     
-    let flatSignal: [Float] = signal.flatten()
+    let flatSignal: [Float] = signal
     
     nsc_stride_pad(flatSignal,
                    &results, NSC_Size(rows: Int32(rows),
@@ -144,7 +144,7 @@ public struct NumSwiftC {
                    NSC_Size(rows: Int32(strides.rows),
                             columns: Int32(strides.columns)))
     
-    return results.reshape(columns: newColumns)
+    return results
   }
   
   public static func zeroPad(signal: [[Float]],

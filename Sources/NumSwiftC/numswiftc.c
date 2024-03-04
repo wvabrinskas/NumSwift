@@ -206,16 +206,7 @@ extern void nsc_stride_pad_2D(float *const *input,
   
   int newRows = input_size.rows + ((stride_size.rows - 1) * (input_size.rows - 1));
   int newColumns = input_size.columns + ((stride_size.columns - 1) * (input_size.columns - 1));
-  
-  int length = newRows * newColumns;
-//  float *padded = malloc(length * sizeof(float));
-//  
-//  for (int i = 0; i < newRows * newColumns; i++) {
-//    padded[i] = 0;
-//  }
-//  
-  int i = 0;
-  
+    
   if (numToPadCols > 0 && numToPadRows > 0) {
     
     int custom_r = 0;
@@ -228,9 +219,6 @@ extern void nsc_stride_pad_2D(float *const *input,
       custom_r += 1;
     }
   }
-//  
-//  memcpy(result, padded, length * sizeof(float));
-//  free(padded);
 }
 
 extern void nsc_stride_pad(const float input[],

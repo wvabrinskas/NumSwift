@@ -101,6 +101,39 @@ public struct NumSwiftC {
     let newRows = rows + ((strides.rows - 1) * (rows - 1))
     let newColumns = columns + ((strides.columns - 1) * (columns - 1))
     
+    var results: [[Float]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
+        
+    results.withUnsafeBufferPointer { rBuff in
+      signal.withUnsafeBufferPointer { sBuff in
+        var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+        let sPoint: [UnsafeMutablePointer<Float>?] = sBuff.map { UnsafeMutablePointer(mutating: $0) }
+        nsc_stride_pad_2D(sPoint,
+                          &rPoint,
+                          NSC_Size(rows: Int32(rows),
+                                   columns: Int32(columns)),
+                          NSC_Size(rows: Int32(strides.rows),
+                                   columns: Int32(strides.columns)))
+      }
+    }
+
+    
+    return results
+  }
+  
+  public static func stridePad1D(signal: [[Float]],
+                               strides: (rows: Int, columns: Int)) -> [[Float]] {
+    
+    guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else {
+      return signal
+    }
+    
+    let shape = signal.shape
+    let rows = shape[safe: 1, 0]
+    let columns = shape[safe: 0, 0]
+    
+    let newRows = rows + ((strides.rows - 1) * (rows - 1))
+    let newColumns = columns + ((strides.columns - 1) * (columns - 1))
+    
     var results: [Float] = [Float](repeating: 0, count: newRows * newColumns)
     
     let flatSignal: [Float] = signal.flatten()

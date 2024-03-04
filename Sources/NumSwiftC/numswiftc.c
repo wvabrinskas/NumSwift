@@ -196,6 +196,43 @@ extern double nsc_perlin_noise(const double x,
   return r;
 }
 
+extern void nsc_stride_pad_2D(float *const *input,
+                              float **result,
+                              NSC_Size input_size,
+                              NSC_Size stride_size) {
+  
+  int numToPadRows = stride_size.rows - 1;
+  int numToPadCols = stride_size.columns - 1;
+  
+  int newRows = input_size.rows + ((stride_size.rows - 1) * (input_size.rows - 1));
+  int newColumns = input_size.columns + ((stride_size.columns - 1) * (input_size.columns - 1));
+  
+  int length = newRows * newColumns;
+//  float *padded = malloc(length * sizeof(float));
+//  
+//  for (int i = 0; i < newRows * newColumns; i++) {
+//    padded[i] = 0;
+//  }
+//  
+  int i = 0;
+  
+  if (numToPadCols > 0 && numToPadRows > 0) {
+    
+    int custom_r = 0;
+    for (int r = 0; r < newRows; r += stride_size.rows) {
+      int custom_c = 0;
+      for (int c = 0; c < newColumns; c += stride_size.columns) {
+        result[r][c] = input[custom_r][custom_c];
+        custom_c += 1;
+      }
+      custom_r += 1;
+    }
+  }
+//  
+//  memcpy(result, padded, length * sizeof(float));
+//  free(padded);
+}
+
 extern void nsc_stride_pad(const float input[],
                            float *result,
                            NSC_Size input_size,

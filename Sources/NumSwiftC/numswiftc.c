@@ -475,26 +475,28 @@ extern void nsc_conv2d(float *const *signal,
   int padded_col_total = input_size.columns + paddingTop + paddingBottom;
   
   // Dynamically allocate memory for the array of pointers (rows)
-  float **working_signal = (float **)malloc(padded_row_total * sizeof(float *));
+  float **working_signal;
   
-  // Check if allocation was successful
-  if (working_signal == NULL) {
-    fprintf(stderr, "Memory allocation failed.\n");
-    return; // Exit with an error code
-  }
-  
-  // Dynamically allocate memory for each row (columns)
-  for (int i = 0; i < padded_row_total; ++i) {
-    working_signal[i] = (float *)malloc(padded_col_total * sizeof(float));
+  if (padding == same) {
+    working_signal = (float **)malloc(padded_row_total * sizeof(float *));
     
     // Check if allocation was successful
-    if (working_signal[i] == NULL) {
+    if (working_signal == NULL) {
       fprintf(stderr, "Memory allocation failed.\n");
       return; // Exit with an error code
     }
-  }
-  
-  if (padding == same) {
+    
+    // Dynamically allocate memory for each row (columns)
+    for (int i = 0; i < padded_row_total; ++i) {
+      working_signal[i] = (float *)malloc(padded_col_total * sizeof(float));
+      
+      // Check if allocation was successful
+      if (working_signal[i] == NULL) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        return; // Exit with an error code
+      }
+    }
+    
     int paddingLeft;
     int paddingRight;
     int paddingBottom;
@@ -591,10 +593,12 @@ extern void nsc_conv2d(float *const *signal,
     result_index_r++;
   }
 
-  for (int i = 0; i < padded_row_total; ++i) {
-    free(working_signal[i]);
+  if (padding == same) {
+    for (int i = 0; i < padded_row_total; ++i) {
+      free(working_signal[i]);
+    }
+    free(working_signal);
   }
-  free(working_signal);
 }
 
 extern void nsc_conv1d(const float signal[],

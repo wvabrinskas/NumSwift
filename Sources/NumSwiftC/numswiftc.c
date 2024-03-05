@@ -11,12 +11,6 @@ extern void nsc_matmul(NSC_Size a_size,
   int rowFirst = a_size.rows;
   int columnFirst = a_size.columns;
   int columnSecond = b_size.columns;
-  // Initializing elements of matrix mult to 0.
-  for(int i = 0; i < rowFirst; ++i) {
-    for(int j = 0; j < columnSecond; ++j) {
-      result[i][j] = 0;
-    }
-  }
   
   // Multiplying firstMatrix and secondMatrix and storing in result.
   for(int i = 0; i < rowFirst; ++i) {

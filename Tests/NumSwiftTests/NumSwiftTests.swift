@@ -540,7 +540,7 @@ final class NumSwiftTests: XCTestCase {
     
     let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
     
-    let rows = NumSwift.conv2d(signal: signal,
+    let rows = NumSwiftC.conv2d(signal: signal,
                                 filter: filter,
                                 strides: (1,1),
                                 padding: .same,

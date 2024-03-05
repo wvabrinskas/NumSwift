@@ -568,14 +568,9 @@ extern void nsc_conv2d(float *const *signal,
   int expected_r = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
   int expected_c = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
   
-  float mutable_result[expected_r * expected_c]; //= malloc(expected_r * expected_c * sizeof(float));
-  
-  for (int i = 0; i < expected_r * expected_c; i++) {
-    mutable_result[i] = 0.0f;
-  }
-  
-  int result_index = 0;
+  int result_index_r = 0;
   for (int r = 0; r < max_r; r += strideR) {
+    int result_index_c = 0;
     for (int c = 0; c < max_c; c += strideC) {
       float sum = 0;
       
@@ -589,19 +584,13 @@ extern void nsc_conv2d(float *const *signal,
           sum += s_data * f_data;
         }
       }
-      mutable_result[result_index] = sum;
-      result_index += 1;
+      
+      result[result_index_r][result_index_c] = sum;
+      result_index_c++;
     }
+    result_index_r++;
   }
-  
-  for (int r = 0; r < expected_r; r++) {
-    for (int c = 0; c < expected_c; c++) {
-      int index = (r * expected_c) + c;
-      float value = mutable_result[index];
-      result[r][c] = value;
-    }
-  }
-  
+
   for (int i = 0; i < padded_row_total; ++i) {
     free(working_signal[i]);
   }

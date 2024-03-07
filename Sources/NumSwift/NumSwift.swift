@@ -100,27 +100,11 @@ public class NumSwift {
   }
   
   public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Double]] {
-    let shape = [size.columns, size.rows]
-    
-    var result: [Any]  = []
-    var previous: Any = 1.0
-    
-    shape.forEach { s in
-      result = Array(repeatElement(previous, count: s))
-      previous = result
-    }
-    
-    return result as? [[Double]] ?? []
+    Array(0..<size.rows).map { _ in [Double](repeating: 1.0, count: size.columns) }
   }
   
   public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Float]] {
-    var result: [[Float]]  = []
-    
-    for _ in 0..<size.rows {
-      result.append([Float](repeating: 1.0, count: size.columns))
-    }
-    
-    return result
+    Array(0..<size.rows).map { _ in [Float](repeating: 1.0, count: size.columns) }
   }
   
   public static func onesLike<T: Collection>(_ array: T) -> Array<AnyHashable> {
@@ -152,23 +136,11 @@ public class NumSwift {
   }
   
   public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Double]] {
-    var result: [[Double]]  = []
-    
-    for _ in 0..<size.rows {
-      result.append([Double](repeating: 0, count: size.columns))
-    }
-    
-    return result
+    Array(0..<size.rows).map { _ in [Double](repeating: 0.0, count: size.columns) }
   }
   
   public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Float]] {
-    var result: [[Float]]  = []
-    
-    for _ in 0..<size.rows {
-      result.append([Float](repeating: 0, count: size.columns))
-    }
-    
-    return result
+    Array(0..<size.rows).map { _ in [Float](repeating: 0.0, count: size.columns) }
   }
   
   public static func zerosLike<T: Collection>(_ array: T) -> Array<AnyHashable> {

@@ -268,7 +268,7 @@ extern void nsc_padding_calculation(NSC_Size stride,
   int filterRows = filter_size.rows;
   int filterColumns = filter_size.columns;
   
-  if (padding == 1) {
+  if (padding == same) {
     double height = (double)inputRows;
     double width = (double)inputColumns;
     
@@ -478,25 +478,6 @@ extern void nsc_conv2d(float *const *signal,
   float **working_signal;
   
   if (padding == same) {
-    working_signal = (float **)malloc(padded_row_total * sizeof(float *));
-    
-    // Check if allocation was successful
-    if (working_signal == NULL) {
-      fprintf(stderr, "Memory allocation failed.\n");
-      return; // Exit with an error code
-    }
-    
-    // Dynamically allocate memory for each row (columns)
-    for (int i = 0; i < padded_row_total; ++i) {
-      working_signal[i] = (float *)malloc(padded_col_total * sizeof(float));
-      
-      // Check if allocation was successful
-      if (working_signal[i] == NULL) {
-        fprintf(stderr, "Memory allocation failed.\n");
-        return; // Exit with an error code
-      }
-    }
-    
     int paddingLeft;
     int paddingRight;
     int paddingBottom;
@@ -521,6 +502,25 @@ extern void nsc_conv2d(float *const *signal,
     
     int padded_row_total = inputRows + paddingLeft + paddingRight;
     int padded_col_total = inputColumns + paddingTop + paddingBottom;
+    
+    working_signal = (float **)malloc(padded_row_total * sizeof(float *));
+    
+    // Check if allocation was successful
+    if (working_signal == NULL) {
+      fprintf(stderr, "Memory allocation failed.\n");
+      return; // Exit with an error code
+    }
+    
+    // Dynamically allocate memory for each row (columns)
+    for (int i = 0; i < padded_row_total; ++i) {
+      working_signal[i] = (float *)malloc(padded_col_total * sizeof(float));
+      
+      // Check if allocation was successful
+      if (working_signal[i] == NULL) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        return; // Exit with an error code
+      }
+    }
     
     int length = padded_row_total * padded_col_total;
     

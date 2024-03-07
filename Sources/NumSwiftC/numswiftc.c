@@ -22,6 +22,20 @@ extern void nsc_matmul(NSC_Size a_size,
   }
 }
 
+extern void nsc_transpose_2d(float *const *input,
+                             float **result,
+                             NSC_Size input_size) {
+  int rows = input_size.rows;
+  int cols = input_size.columns;
+  
+  // Perform the transpose operation
+  for (int i = 0; i < rows; i++) {
+    for (int j = 0; j < cols; j++) {
+      result[j][i] = input[i][j];
+    }
+  }
+}
+
 extern void nsc_specific_zero_pad_2d(float *const *input,
                                      float **result,
                                      NSC_Size input_size,

@@ -14,6 +14,10 @@ typedef enum {
 } NSC_Padding;
 //
 
+extern void nsc_transpose_2d(float *const *input,
+                             float **result,
+                             NSC_Size input_size);
+
 extern void nsc_stride_pad_2D(float *const *input,
                               float **result,
                               NSC_Size input_size,

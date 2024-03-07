@@ -133,6 +133,14 @@ public extension Array where Element == [Float] {
     NumSwiftC.flatten(self, inputSize: inputSize)
   }
   
+  func transpose2d() -> Self {
+    let mShape = shape
+    let row = mShape[safe: 1] ?? 0
+    let col = mShape[safe: 0] ?? 0
+    
+    return NumSwiftC.tranpose(self, size: (row, col))
+  }
+  
   /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
   /// - Returns: The transposed array
   func transpose() -> Self {

@@ -38,6 +38,25 @@ public struct NoiseC {
 
 public struct NumSwiftC {
   
+  public static func tranpose(_ a: [[Float]], size: (rows: Int, columns: Int)) -> [[Float]] {
+    let result: [[Float]] = NumSwift.zerosLike((rows: size.columns, columns: size.rows))
+    
+    result.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        let aPoint: [UnsafeMutablePointer<Float>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+        nsc_transpose_2d(aPoint,
+                         &rPoint,
+                         .init(rows: Int32(size.rows),
+                               columns: Int32(size.columns)))
+      }
+      
+    }
+    
+    return result
+  }
+  
   public static func matmul(_ a: [[Float]], 
                             b: [[Float]],
                             aSize: (rows: Int, columns: Int),

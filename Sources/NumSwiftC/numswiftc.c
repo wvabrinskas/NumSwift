@@ -581,7 +581,14 @@ extern void nsc_conv2d(float *const *signal,
           int current_data_row = r + fr;
           int current_data_col = c + fc;
           
-          float s_data = padding == valid ? signal[current_data_row][current_data_col] : working_signal[current_data_row][current_data_col]; //do some checking of size here?
+          float s_data = 0; // some checking of size here?
+          
+          if (padding == same) {
+            s_data = working_signal[current_data_row][current_data_col];
+          } else {
+            s_data = signal[current_data_row][current_data_col];
+          }
+          
           float f_data = filter[fr][fc]; //do some checking of size here?
           sum += s_data * f_data;
         }

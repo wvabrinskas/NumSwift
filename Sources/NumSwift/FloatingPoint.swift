@@ -942,6 +942,19 @@ public extension Array where Element == [[Float]] {
   
   /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
   /// - Returns: The transposed array
+  func transpose2d() -> Self {
+    map {
+      let mShape = $0.shape
+      let row = mShape[safe: 1] ?? 0
+      let col = mShape[safe: 0] ?? 0
+      
+      let dReshaped = NumSwiftC.tranpose($0, size: (row, col))
+      return dReshaped
+    }
+  }
+  
+  /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
+  /// - Returns: The transposed array
   func transpose() -> Self {
     var result: Self = []
     

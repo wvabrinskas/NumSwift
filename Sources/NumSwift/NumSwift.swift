@@ -15,10 +15,10 @@ import UIKit
 #endif
 
 public struct NumSwiftPadding {
-  var top: Int
-  var left: Int
-  var right: Int
-  var bottom: Int
+  public var top: Int
+  public var left: Int
+  public var right: Int
+  public var bottom: Int
   
   public init(top: Int, left: Int, right: Int, bottom: Int) {
     self.top = top

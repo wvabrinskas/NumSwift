@@ -255,7 +255,7 @@ public struct NumSwiftC {
     let expectedColumns = ((inputSize.columns - filterSize.columns + paddingResult.left + paddingResult.right) / strides.1) + 1
     
     let paddingInt: UInt32 = padding == .valid ? 0 : 1
-    var results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
+    let results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
       
     results.withUnsafeBufferPointer { rBuff in
       signal.withUnsafeBufferPointer { sBuff in

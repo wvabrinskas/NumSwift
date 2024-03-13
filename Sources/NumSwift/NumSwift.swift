@@ -100,11 +100,11 @@ public class NumSwift {
   }
   
   public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Double]] {
-    Array(0..<size.rows).map { _ in [Double](repeating: 1.0, count: size.columns) }
+    Array((0..<size.rows).map { _ in [Double](repeating: 1.0, count: size.columns) })
   }
   
   public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Float]] {
-    Array(0..<size.rows).map { _ in [Float](repeating: 1.0, count: size.columns) }
+    Array((0..<size.rows).map { _ in [Float](repeating: 1.0, count: size.columns) })
   }
   
   public static func onesLike<T: Collection>(_ array: T) -> Array<AnyHashable> {
@@ -136,11 +136,11 @@ public class NumSwift {
   }
   
   public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Double]] {
-    Array(0..<size.rows).map { _ in [Double](repeating: 0.0, count: size.columns) }
+    Array((0..<size.rows).map { _ in [Double](repeating: 0.0, count: size.columns) })
   }
   
   public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Float]] {
-    Array(0..<size.rows).map { _ in [Float](repeating: 0.0, count: size.columns) }
+    Array((0..<size.rows).map { _ in [Float](repeating: 0.0, count: size.columns) })
   }
   
   public static func zerosLike<T: Collection>(_ array: T) -> Array<AnyHashable> {
@@ -473,3 +473,4 @@ public extension NumSwift {
   }
   
 }
+

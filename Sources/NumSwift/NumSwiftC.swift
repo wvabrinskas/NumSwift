@@ -38,6 +38,25 @@ public struct NoiseC {
 
 public struct NumSwiftC {
   
+  public static func tranpose(_ a: [[Float]], size: (rows: Int, columns: Int)) -> [[Float]] {
+    let result: [[Float]] = NumSwift.zerosLike((rows: size.columns, columns: size.rows))
+    
+    result.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        let aPoint: [UnsafeMutablePointer<Float>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+        nsc_transpose_2d(aPoint,
+                         &rPoint,
+                         .init(rows: Int32(size.rows),
+                               columns: Int32(size.columns)))
+      }
+      
+    }
+    
+    return result
+  }
+  
   public static func matmul(_ a: [[Float]], 
                             b: [[Float]],
                             aSize: (rows: Int, columns: Int),
@@ -101,9 +120,42 @@ public struct NumSwiftC {
     let newRows = rows + ((strides.rows - 1) * (rows - 1))
     let newColumns = columns + ((strides.columns - 1) * (columns - 1))
     
+    var results: [[Float]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
+        
+    results.withUnsafeBufferPointer { rBuff in
+      signal.withUnsafeBufferPointer { sBuff in
+        var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+        let sPoint: [UnsafeMutablePointer<Float>?] = sBuff.map { UnsafeMutablePointer(mutating: $0) }
+        nsc_stride_pad_2D(sPoint,
+                          &rPoint,
+                          NSC_Size(rows: Int32(rows),
+                                   columns: Int32(columns)),
+                          NSC_Size(rows: Int32(strides.rows),
+                                   columns: Int32(strides.columns)))
+      }
+    }
+
+    
+    return results
+  }
+  
+  public static func stridePad1D(signal: [Float],
+                               strides: (rows: Int, columns: Int)) -> [Float] {
+    
+    guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else {
+      return signal
+    }
+    
+    let shape = signal.shape
+    let rows = shape[safe: 1, 0]
+    let columns = shape[safe: 0, 0]
+    
+    let newRows = rows + ((strides.rows - 1) * (rows - 1))
+    let newColumns = columns + ((strides.columns - 1) * (columns - 1))
+    
     var results: [Float] = [Float](repeating: 0, count: newRows * newColumns)
     
-    let flatSignal: [Float] = signal.flatten()
+    let flatSignal: [Float] = signal
     
     nsc_stride_pad(flatSignal,
                    &results, NSC_Size(rows: Int32(rows),
@@ -111,7 +163,7 @@ public struct NumSwiftC {
                    NSC_Size(rows: Int32(strides.rows),
                             columns: Int32(strides.columns)))
     
-    return results.reshape(columns: newColumns)
+    return results
   }
   
   public static func zeroPad(signal: [[Float]],
@@ -127,19 +179,26 @@ public struct NumSwiftC {
     
     let expectedRows = rows + padding.top + padding.bottom
     let expectedColumns = columns + padding.left + padding.right
-    var results: [Float] = [Float](repeating: 0, count: expectedRows * expectedColumns)
     
-    let flatSignal: [Float] = signal.flatten()
-    nsc_specific_zero_pad(flatSignal,
-                          &results,
-                          NSC_Size(rows: Int32(rows),
-                                   columns: Int32(columns)),
-                          Int32(padding.top),
-                          Int32(padding.bottom),
-                          Int32(padding.left),
-                          Int32(padding.right))
+    let results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
     
-    return results.reshape(columns: expectedColumns)
+    results.withUnsafeBufferPointer { rBuff in
+      signal.withUnsafeBufferPointer { sBuff in
+        var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+        let sPoint: [UnsafeMutablePointer<Float>?] = sBuff.map { UnsafeMutablePointer(mutating: $0) }
+        
+        nsc_specific_zero_pad_2d(sPoint,
+                                 &rPoint,
+                                 NSC_Size(rows: Int32(rows),
+                                          columns: Int32(columns)),
+                                 Int32(padding.top),
+                                 Int32(padding.bottom),
+                                 Int32(padding.left),
+                                 Int32(padding.right))
+      }
+    }
+    
+    return results
   }
   
   public static func zeroPad(signal: [[Float]],
@@ -162,19 +221,26 @@ public struct NumSwiftC {
     
     let expectedRows = rows + padding.top + padding.bottom
     let expectedColumns = columns + padding.left + padding.right
-    var results: [Float] = [Float](repeating: 0, count: expectedRows * expectedColumns)
     
-    let flatSignal: [Float] = signal.flatten()
-    nsc_specific_zero_pad(flatSignal,
-                          &results,
-                          NSC_Size(rows: Int32(rows),
-                                   columns: Int32(columns)),
-                          Int32(padding.top),
-                          Int32(padding.bottom),
-                          Int32(padding.left),
-                          Int32(padding.right))
+    let results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
     
-    return results.reshape(columns: expectedColumns)
+    results.withUnsafeBufferPointer { rBuff in
+      signal.withUnsafeBufferPointer { sBuff in
+        var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+        let sPoint: [UnsafeMutablePointer<Float>?] = sBuff.map { UnsafeMutablePointer(mutating: $0) }
+        
+        nsc_specific_zero_pad_2d(sPoint,
+                                 &rPoint,
+                                 NSC_Size(rows: Int32(rows),
+                                          columns: Int32(columns)),
+                                 Int32(padding.top),
+                                 Int32(padding.bottom),
+                                 Int32(padding.left),
+                                 Int32(padding.right))
+      }
+    }
+    
+    return results
   }
   
   public static func conv2d(signal: [[Float]],
@@ -189,7 +255,7 @@ public struct NumSwiftC {
     let expectedColumns = ((inputSize.columns - filterSize.columns + paddingResult.left + paddingResult.right) / strides.1) + 1
     
     let paddingInt: UInt32 = padding == .valid ? 0 : 1
-    var results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
+    let results: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
       
     results.withUnsafeBufferPointer { rBuff in
       signal.withUnsafeBufferPointer { sBuff in
@@ -263,7 +329,7 @@ public struct NumSwiftC {
     let rows = (inputSize.rows - 1) * strides.0 + filterSize.rows
     let columns = (inputSize.columns - 1) * strides.1 + filterSize.columns
     
-    var results: [[Float]] = NumSwift.zerosLike((rows: (rows - (padTop + padBottom)), columns: (columns - (padLeft + padRight))))
+    let results: [[Float]] = NumSwift.zerosLike((rows: (rows - (padTop + padBottom)), columns: (columns - (padLeft + padRight))))
     
     results.withUnsafeBufferPointer { rBuff in
       var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }

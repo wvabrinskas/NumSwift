@@ -15,10 +15,10 @@ import UIKit
 #endif
 
 public struct NumSwiftPadding {
-  var top: Int
-  var left: Int
-  var right: Int
-  var bottom: Int
+  public var top: Int
+  public var left: Int
+  public var right: Int
+  public var bottom: Int
   
   public init(top: Int, left: Int, right: Int, bottom: Int) {
     self.top = top
@@ -100,27 +100,11 @@ public class NumSwift {
   }
   
   public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Double]] {
-    let shape = [size.columns, size.rows]
-    
-    var result: [Any]  = []
-    var previous: Any = 1.0
-    
-    shape.forEach { s in
-      result = Array(repeatElement(previous, count: s))
-      previous = result
-    }
-    
-    return result as? [[Double]] ?? []
+    Array((0..<size.rows).map { _ in [Double](repeating: 1.0, count: size.columns) })
   }
   
   public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Float]] {
-    var result: [[Float]]  = []
-    
-    for r in 0..<size.rows {
-      result.append([Float](repeating: 1.0, count: size.columns))
-    }
-    
-    return result
+    Array((0..<size.rows).map { _ in [Float](repeating: 1.0, count: size.columns) })
   }
   
   public static func onesLike<T: Collection>(_ array: T) -> Array<AnyHashable> {
@@ -140,9 +124,9 @@ public class NumSwift {
   public static func zerosLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float]]] {
     var result: [[[Float]]]  = []
     
-    for d in 0..<size.depth {
+    for _ in 0..<size.depth {
       var row: [[Float]] = []
-      for r in 0..<size.rows {
+      for _ in 0..<size.rows {
         row.append([Float](repeating: 0, count: size.columns))
       }
       result.append(row)
@@ -152,27 +136,11 @@ public class NumSwift {
   }
   
   public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Double]] {
-    let shape = [size.columns, size.rows]
-    
-    var result: [Any]  = []
-    var previous: Any = Double.zero
-    
-    shape.forEach { s in
-      result = Array(repeatElement(previous, count: s))
-      previous = result
-    }
-    
-    return result as? [[Double]] ?? []
+    Array((0..<size.rows).map { _ in [Double](repeating: 0.0, count: size.columns) })
   }
   
   public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Float]] {
-    var result: [[Float]]  = []
-    
-    for r in 0..<size.rows {
-      result.append([Float](repeating: 0, count: size.columns))
-    }
-    
-    return result
+    Array((0..<size.rows).map { _ in [Float](repeating: 0.0, count: size.columns) })
   }
   
   public static func zerosLike<T: Collection>(_ array: T) -> Array<AnyHashable> {
@@ -189,6 +157,7 @@ public class NumSwift {
     return result
   }
   
+  @available(*, deprecated, renamed: "NumSwiftC.conv2d", message: "This function is slow. Use the NumSwiftC equivalent")
   public static func conv2d(signal: [[Float]],
                             filter: [[Float]],
                             strides: (Int, Int) = (1,1),
@@ -231,6 +200,7 @@ public class NumSwift {
     return results
   }
   
+  @available(*, deprecated, renamed: "NumSwiftC.transConv2D", message: "This function is slow. Use the NumSwiftC equivalent")
   public static func transConv2D(signal: [[Double]],
                                  filter: [[Double]],
                                  strides: (Int, Int) = (1,1),
@@ -284,6 +254,7 @@ public class NumSwift {
     return padded
   }
   
+  @available(*, deprecated, renamed: "NumSwiftC.transConv2D", message: "This function is slow. Use the NumSwiftC equivalent")
   public static func transConv2D(signal: [[Float]],
                                  filter: [[Float]],
                                  strides: (Int, Int) = (1,1),
@@ -502,3 +473,4 @@ public extension NumSwift {
   }
   
 }
+

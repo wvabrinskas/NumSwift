@@ -133,6 +133,14 @@ public extension Array where Element == [Float] {
     NumSwiftC.flatten(self, inputSize: inputSize)
   }
   
+  func transpose2d() -> Self {
+    let mShape = shape
+    let row = mShape[safe: 1] ?? 0
+    let col = mShape[safe: 0] ?? 0
+    
+    return NumSwiftC.tranpose(self, size: (row, col))
+  }
+  
   /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
   /// - Returns: The transposed array
   func transpose() -> Self {
@@ -934,6 +942,19 @@ public extension Array where Element == [[Float]] {
   
   /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
   /// - Returns: The transposed array
+  func transpose2d() -> Self {
+    map {
+      let mShape = $0.shape
+      let row = mShape[safe: 1] ?? 0
+      let col = mShape[safe: 0] ?? 0
+      
+      let dReshaped = NumSwiftC.tranpose($0, size: (row, col))
+      return dReshaped
+    }
+  }
+  
+  /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
+  /// - Returns: The transposed array
   func transpose() -> Self {
     var result: Self = []
     
@@ -966,14 +987,14 @@ public extension Array where Element == [[Float]] {
     let bColumns = bShape[safe: 0] ?? 0
     let bRows = bShape[safe: 1] ?? 0
     let bDepth = bShape[safe: 2] ?? 0
-
+    
     let aColumns = aShape[safe: 0] ?? 0
     let aRows = aShape[safe: 1] ?? 0
     let aDepth = aShape[safe: 2] ?? 0
     
     precondition(aColumns == bRows, "A matrix columns does not match B matrix rows")
     precondition(aDepth == bDepth, "A matrix depth does not match B matrix depth")
-
+    
     var result: Self = []
     
     for d in 0..<aDepth {
@@ -981,7 +1002,6 @@ public extension Array where Element == [[Float]] {
                                      b: b[d],
                                      aSize: (rows: aRows, columns: aColumns),
                                      bSize: (rows: bRows, columns: bColumns))
-      
       result.append(cResult)
     }
     

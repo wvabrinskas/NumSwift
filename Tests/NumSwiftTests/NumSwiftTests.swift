@@ -5,6 +5,19 @@ import UIKit
 #endif
 
 final class NumSwiftTests: XCTestCase {
+  // we want unique pointers because generally these arrays are passed into C and the memory is accessed directly.
+  func test_zerosUniquePointers() {
+    let size = (500, 500)
+    let zeros: [[Float]] = NumSwift.zerosLike(size)
+    
+    var lastPtr: UnsafeBufferPointer<Float>?
+    zeros.forEach { f in
+      f.withUnsafeBufferPointer { ptr in
+        XCTAssertNotEqual(ptr.baseAddress, lastPtr?.baseAddress)
+        lastPtr = ptr
+      }
+    }
+  }
   
   func testArraySubtract() {
     let test = 10.0
@@ -187,6 +200,35 @@ final class NumSwiftTests: XCTestCase {
                                   [18.0, 18.0]]]
     
     XCTAssertEqual(expected, output)
+  }
+  
+  func test_3d_fast_C_transpose_float() {
+    let r: [[[Float]]] = [[[6.0, 6.0],
+                           [12.0, 12.0],
+                           [18.0, 18.0]],
+                          [[6.0, 6.0],
+                           [12.0, 12.0]]]
+    
+    let expected: [[[Float]]] = [[[6.0, 12.0, 18.0],
+                                  [6.0, 12.0, 18.0]],
+                                 [[6.0, 12.0],
+                                  [6.0, 12.0]]]
+    
+    let transposed = r.transpose2d()
+    XCTAssertEqual(transposed, expected)
+  }
+  
+  
+  func test_2d_fast_C_transpose_float() {
+    let r: [[Float]] = [[6.0, 6.0],
+                        [12.0, 12.0],
+                        [18.0, 18.0]]
+    
+    let expected: [[Float]] = [[6.0, 12.0, 18.0],
+                               [6.0, 12.0, 18.0]]
+    
+    let transposed = r.transpose2d()
+    XCTAssertEqual(transposed, expected)
   }
   
   func test_2d_fast_transpose_double() {
@@ -421,7 +463,7 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(expected, padded)
   }
   
-  func testCConv2D_2() {
+  func testCConv2D() {
     let signalShape = (5,5)
 
     let filter: [[Float]] = [[0, 1, 0],
@@ -443,7 +485,7 @@ final class NumSwiftTests: XCTestCase {
                                [0.0, 0.0, 3.0, 0.0, 0.0],
                                [0.0, 0.0, 2.0, 0.0, 0.0]]
     
-    XCTAssert(result == expected)
+    XCTAssertEqual(result, expected)
   }
   
   func testCConv1D() {
@@ -540,7 +582,7 @@ final class NumSwiftTests: XCTestCase {
     
     let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
     
-    let rows = NumSwift.conv2d(signal: signal,
+    let rows = NumSwiftC.conv2d(signal: signal,
                                 filter: filter,
                                 strides: (1,1),
                                 padding: .same,

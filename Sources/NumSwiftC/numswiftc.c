@@ -2,6 +2,27 @@
 #include "include/numswiftc.h"
 #include "time.h"
 
+extern void nsc_matmul_16(NSC_Size a_size,
+                          NSC_Size b_size,
+                          __fp16 *const *a,
+                          __fp16 *const *b,
+                          __fp16 **result) {
+  
+  int rowFirst = a_size.rows;
+  int columnFirst = a_size.columns;
+  int columnSecond = b_size.columns;
+  
+  // Multiplying firstMatrix and secondMatrix and storing in result.
+  for(int i = 0; i < rowFirst; ++i) {
+    for(int j = 0; j < columnSecond; ++j) {
+      for(int k = 0; k < columnFirst; ++k) {
+        result[i][j] += a[i][k] * b[k][j];
+      }
+    }
+  }
+}
+
+
 extern void nsc_matmul(NSC_Size a_size,
                        NSC_Size b_size,
                        float *const *a,
@@ -18,6 +39,20 @@ extern void nsc_matmul(NSC_Size a_size,
       for(int k = 0; k < columnFirst; ++k) {
         result[i][j] += a[i][k] * b[k][j];
       }
+    }
+  }
+}
+
+extern void nsc_transpose_2d_16(__fp16 *const *input,
+                                __fp16 **result,
+                                NSC_Size input_size) {
+  int rows = input_size.rows;
+  int cols = input_size.columns;
+  
+  // Perform the transpose operation
+  for (int i = 0; i < rows; i++) {
+    for (int j = 0; j < cols; j++) {
+      result[j][i] = input[i][j];
     }
   }
 }
@@ -63,6 +98,27 @@ extern void nsc_specific_zero_pad_2d(float *const *input,
   }
 }
 
+extern void nsc_flatten2d_16(NSC_Size input_size,
+                             __fp16 *const *input,
+                             __fp16 *result) {
+  
+  int length = input_size.rows * input_size.columns;
+  float *padded = malloc(length * sizeof(float));
+  
+  for (int i = 0; i < input_size.rows * input_size.columns; i++) {
+    padded[i] = 0;
+  }
+
+  for (int r = 0; r < input_size.rows; r++) {
+    for (int c = 0; c < input_size.columns; c++) {
+      float value = input[r][c];
+      padded[(input_size.columns * r) + c] = value;
+    }
+  }
+  
+  memcpy(result, padded, length * sizeof(float));
+  free(padded);
+}
 
 extern void nsc_flatten2d(NSC_Size input_size,
                           float *const *input,

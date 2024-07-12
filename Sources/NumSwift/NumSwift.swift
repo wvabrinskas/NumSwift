@@ -143,6 +143,10 @@ public class NumSwift {
     Array((0..<size.rows).map { _ in [Float](repeating: 0.0, count: size.columns) })
   }
   
+  public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Float16]] {
+    Array((0..<size.rows).map { _ in [Float16](repeating: 0.0, count: size.columns) })
+  }
+  
   public static func zerosLike<T: Collection>(_ array: T) -> Array<AnyHashable> {
     let shape = array.shapeOf
     

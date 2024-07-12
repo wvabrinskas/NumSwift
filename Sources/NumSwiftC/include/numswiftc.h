@@ -18,6 +18,10 @@ extern void nsc_transpose_2d(float *const *input,
                              float **result,
                              NSC_Size input_size);
 
+extern void nsc_transpose_2d_16(__fp16 *const *input,
+                                __fp16 **result,
+                                NSC_Size input_size);
+
 extern void nsc_stride_pad_2D(float *const *input,
                               float **result,
                               NSC_Size input_size,
@@ -45,9 +49,19 @@ extern void nsc_matmul(NSC_Size a_size,
                        float *const *b,
                        float **result);
 
+extern void nsc_matmul_16(NSC_Size a_size,
+                          NSC_Size b_size,
+                          __fp16 *const *a,
+                          __fp16 *const *b,
+                          __fp16 **result);
+
 extern void nsc_flatten2d(NSC_Size input_size,
                           float *const *input,
                           float *result);
+
+extern void nsc_flatten2d_16(NSC_Size input_size,
+                          __fp16 *const *input,
+                          __fp16 *result);
 
 extern void random_array(const int size, double *result);
 

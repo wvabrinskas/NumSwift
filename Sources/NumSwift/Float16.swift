@@ -26,27 +26,6 @@ public extension Array where Element == [Float16] {
     
     return NumSwiftC.tranpose(self, size: (row, col))
   }
-  
-  /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
-  /// - Returns: The transposed array
-  func transpose() -> Self {
-    
-    let mShape = shape
-    let row = mShape[safe: 1] ?? 0
-    let col = mShape[safe: 0] ?? 0
-    
-    var d: [Float16] = [Float16](repeating: 0, count: row * col)
-    let flat = flatten()
-    
-    vDSP_mtrans(flat,
-                vDSP_Stride(1),
-                &d,
-                vDSP_Stride(1),
-                vDSP_Length(col),
-                vDSP_Length(row))
-    
-    return d.reshape(columns: row) // because cols count will become rows count
-  }
 
   func zeroPad(padding: NumSwiftPadding) -> Self {
     guard let first = self.first else {
@@ -211,7 +190,7 @@ public extension Array where Element == [Float16] {
   }
 
   func flip180() -> Self {
-    self.reversed().map { $0.reverse() }
+    self.reversed().map { $0.reversed() }
   }
 }
 
@@ -426,33 +405,6 @@ public extension Array where Element == [[Float16]] {
       let dReshaped = NumSwiftC.tranpose($0, size: (row, col))
       return dReshaped
     }
-  }
-  
-  /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
-  /// - Returns: The transposed array
-  func transpose() -> Self {
-    var result: Self = []
-    
-    forEach { m in
-      let mShape = m.shape
-      let row = mShape[safe: 1] ?? 0
-      let col = mShape[safe: 0] ?? 0
-      
-      var d: [Float16] = [Float16](repeating: 0, count: row * col)
-      let flat = m.flatten()
-      
-      vDSP_mtrans(flat,
-                  vDSP_Stride(1),
-                  &d,
-                  vDSP_Stride(1),
-                  vDSP_Length(col),
-                  vDSP_Length(row))
-      
-      let dReshaped = d.reshape(columns: row) // because cols count will become rows count
-      result.append(dReshaped)
-    }
-
-    return result
   }
   
   func matmul(_ b: Self) -> Self {

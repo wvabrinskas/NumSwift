@@ -468,33 +468,6 @@ public extension Array where Element == [[Float]] {
     }
   }
   
-  /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
-  /// - Returns: The transposed array
-  func transpose() -> Self {
-    var result: Self = []
-    
-    forEach { m in
-      let mShape = m.shape
-      let row = mShape[safe: 1] ?? 0
-      let col = mShape[safe: 0] ?? 0
-      
-      var d: [Float] = [Float](repeating: 0, count: row * col)
-      let flat = m.flatten()
-      
-      vDSP_mtrans(flat,
-                  vDSP_Stride(1),
-                  &d,
-                  vDSP_Stride(1),
-                  vDSP_Length(col),
-                  vDSP_Length(row))
-      
-      let dReshaped = d.reshape(columns: row) // because cols count will become rows count
-      result.append(dReshaped)
-    }
-
-    return result
-  }
-  
   func matmul(_ b: Self) -> Self {
     let bShape = b.shape
     let aShape = shape

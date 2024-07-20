@@ -254,10 +254,6 @@ public extension Array where Element == Float {
     vDSP.mean(self)
   }
   
-  mutating func fillZeros() {
-    vDSP.fill(&self, with: .zero)
-  }
-  
   @inlinable mutating func clip(_ to: Element) {
     self = self.map { Swift.max(-to, Swift.min(to, $0)) }
   }
@@ -320,44 +316,7 @@ public extension Array where Element == Float {
     
     return C
   }
-  
-  func multiply(B: [Element], columns: Int32, rows: Int32, dimensions: Int32 = 1) -> [Element] {
-    let M = vDSP_Length(dimensions)
-    let N = vDSP_Length(columns)
-    let P = vDSP_Length(rows)
-    
-    var C: [Element] = [Element].init(repeating: 0, count: Int(N * M))
-    
-    let aStride = vDSP_Stride(1)
-    let bStride = vDSP_Stride(1)
-    let cStride = vDSP_Stride(1)
-    
-    vDSP_mmul(self,
-              aStride,
-              B,
-              bStride,
-              &C,
-              cStride,
-              vDSP_Length(M),
-              vDSP_Length(N),
-              vDSP_Length(P))
-    
-    return C
-  }
-  
-  func transpose(columns: Int, rows: Int) -> [Element] {
-    var result: [Element] = [Element].init(repeating: 0, count: columns * rows)
-    
-    vDSP_mtrans(self,
-                vDSP_Stride(1),
-                &result,
-                vDSP_Stride(1),
-                vDSP_Length(columns),
-                vDSP_Length(rows))
-    
-    return result
-  }
-  
+
   static func +(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.add(rhs, lhs)
   }

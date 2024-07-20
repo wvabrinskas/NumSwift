@@ -37,24 +37,6 @@ public struct NoiseC {
 }
 
 public struct NumSwiftC {
-  public static func tranpose(_ a: [[Float16]], size: (rows: Int, columns: Int)) -> [[Float16]] {
-    let result: [[Float16]] = NumSwift.zerosLike((rows: size.columns, columns: size.rows))
-    
-    result.withUnsafeBufferPointer { rBuff in
-      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
-      
-      a.withUnsafeBufferPointer { aBuff in
-        let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
-        nsc_transpose_2d_16(aPoint,
-                         &rPoint,
-                         .init(rows: Int32(size.rows),
-                               columns: Int32(size.columns)))
-      }
-      
-    }
-    
-    return result
-  }
   
   public static func tranpose(_ a: [[Float]], size: (rows: Int, columns: Int)) -> [[Float]] {
     let result: [[Float]] = NumSwift.zerosLike((rows: size.columns, columns: size.rows))
@@ -74,34 +56,7 @@ public struct NumSwiftC {
     
     return result
   }
-  
-  public static func matmul(_ a: [[Float16]],
-                            b: [[Float16]],
-                            aSize: (rows: Int, columns: Int),
-                            bSize: (rows: Int, columns: Int)) -> [[Float16]] {
-    
-    let results: [[Float16]] = NumSwift.zerosLike((rows: aSize.rows,
-                                                   columns: bSize.columns))
-    
-    results.withUnsafeBufferPointer { rBuff in
-      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
-      
-      a.withUnsafeBufferPointer { aBuff in
-        b.withUnsafeBufferPointer { bBuff in
-          let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
-          let bPoint: [UnsafeMutablePointer<Float16>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
-          nsc_matmul_16(NSC_Size(rows: Int32(aSize.rows), columns: Int32(aSize.columns)),
-                        NSC_Size(rows: Int32(bSize.rows), columns: Int32(bSize.columns)),
-                        aPoint,
-                        bPoint,
-                        &rPoint)
-        }
-      }
-    }
-    
-    return results
-  }
-  
+
   public static func matmul(_ a: [[Float]],
                             b: [[Float]],
                             aSize: (rows: Int, columns: Int),
@@ -124,28 +79,6 @@ public struct NumSwiftC {
                      &rPoint)
         }
       }
-    }
-    
-    return results
-  }
-  
-  public static func flatten(_ input: [[Float16]], inputSize: (rows: Int, columns: Int)? = nil) -> [Float16] {
-    
-    let shape = input.shape
-    var rows = shape[safe: 1, 0]
-    var columns = shape[safe: 0, 0]
-    
-    if let inputSize = inputSize {
-      rows = inputSize.rows
-      columns = inputSize.columns
-    }
-    
-    var results: [Float16] = [Float16](repeating: 0, count: rows * columns)
-
-    input.withUnsafeBufferPointer { (inputsBuffer) in
-      let inPuts: [UnsafeMutablePointer<Float16>?] = inputsBuffer.map { UnsafeMutablePointer(mutating: $0) }
-      
-      nsc_flatten2d_16(NSC_Size(rows: Int32(rows), columns: Int32(columns)), inPuts, &results)
     }
     
     return results

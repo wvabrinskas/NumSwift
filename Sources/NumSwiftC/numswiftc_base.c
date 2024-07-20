@@ -2,10 +2,10 @@
 #include "time.h"
 
 // MARK: - Sum
-extern __fp16 nsc_sum(__fp16 *array) {
+extern __fp16 nsc_sum(const __fp16 array[]) {
   __fp16 sum = 0;
 
-  int size = sizeof(array) / sizeof(array[0]);
+  int size = sizeof(*array);
   
   for (int i = 0; i < size; i++) {
     sum += array[i];
@@ -14,9 +14,9 @@ extern __fp16 nsc_sum(__fp16 *array) {
 }
 
 // MARK: - Sum of Squares
-extern __fp16 nsc_sum_of_squares(__fp16 *array) {
+extern __fp16 nsc_sum_of_squares(const __fp16 array[]) {
 
-  int size = sizeof(array) / sizeof(array[0]);
+  int size = sizeof(*array);
   __fp16 sum = 0;
   for (int i = 0; i < size; i++) {
     sum += array[i] * array[i];
@@ -25,8 +25,8 @@ extern __fp16 nsc_sum_of_squares(__fp16 *array) {
 }
 
 // MARK: - Index of Min
-extern NSC_IndexedValue nsc_index_of_min(__fp16 *array) {
-  int size = sizeof(array) / sizeof(array[0]);
+extern NSC_IndexedValue nsc_index_of_min(const __fp16 array[]) {
+  int size = sizeof(*array);
   __fp16 min = array[0];
   int index = 0;
   for (int i = 1; i < size; i++) {
@@ -45,8 +45,8 @@ extern NSC_IndexedValue nsc_index_of_min(__fp16 *array) {
 }
 
 // MARK: - Index of Max
-extern NSC_IndexedValue nsc_index_of_max(__fp16 *array) {
-  int size = sizeof(array) / sizeof(array[0]);
+extern NSC_IndexedValue nsc_index_of_max(const __fp16 array[]) {
+  int size = sizeof(*array);
   __fp16 max = array[0];
   int index = 0;
   for (int i = 1; i < size; i++) {
@@ -64,8 +64,8 @@ extern NSC_IndexedValue nsc_index_of_max(__fp16 *array) {
 }
 
 // MARK: - Max
-extern __fp16 nsc_max(__fp16 *array) {
-  int size = sizeof(array) / sizeof(array[0]);
+extern __fp16 nsc_max(const __fp16 array[]) {
+  int size = sizeof(*array);
   __fp16 max = array[0];
   for (int i = 1; i < size; i++) {
     if (array[i] > max) {
@@ -76,8 +76,8 @@ extern __fp16 nsc_max(__fp16 *array) {
 }
 
 // MARK: - Min
-extern __fp16 nsc_min(__fp16 *array) {
-  int size = sizeof(array) / sizeof(array[0]);
+extern __fp16 nsc_min(const __fp16 array[]) {
+  int size = sizeof(*array);
   __fp16 min = array[0];
   for (int i = 1; i < size; i++) {
     if (array[i] < min) {
@@ -88,22 +88,22 @@ extern __fp16 nsc_min(__fp16 *array) {
 }
 
 // MARK: - Mean
-extern __fp16 nsc_mean(__fp16 *array) {
-  int size = sizeof(array) / sizeof(array[0]);
+extern __fp16 nsc_mean(const __fp16 array[]) {
+  int size = sizeof(*array);
   return nsc_sum(array) / size;
 }
 
 // MARK: - Add
 
-extern void nsc_add_scalar(__fp16 *lhs, __fp16 *rhs, __fp16 *result) {
-  int size = sizeof(lhs) / sizeof(lhs[0]);
+extern void nsc_add_scalar(const __fp16 lhs, const __fp16 rhs[], __fp16 *result) {
+  int size = sizeof(*rhs);
   for (int i = 0; i < size; i++) {
-    result[i] = lhs[i] + rhs[0];
+    result[i] = rhs[i] + lhs;
   }
 }
 
-extern void nsc_add(__fp16 *lhs, __fp16 *rhs, __fp16 *result) {
-  int size = sizeof(lhs) / sizeof(lhs[0]);
+extern void nsc_add(const __fp16 lhs[], const __fp16 rhs[], __fp16 *result) {
+  int size = sizeof(*lhs);
   for (int i = 0; i < size; i++) {
     result[i] = lhs[i] + rhs[i];
   }
@@ -111,8 +111,8 @@ extern void nsc_add(__fp16 *lhs, __fp16 *rhs, __fp16 *result) {
 
 // MARK: - Sub
 
-extern void nsc_sub(__fp16 *lhs, __fp16 *rhs, __fp16 *result) {
-  int size = sizeof(lhs) / sizeof(lhs[0]);
+extern void nsc_sub(const __fp16 lhs[], const __fp16 rhs[], __fp16 *result) {
+  int size = sizeof(*lhs);
   for (int i = 0; i < size; i++) {
     result[i] = lhs[i] - rhs[i];
   }
@@ -120,15 +120,15 @@ extern void nsc_sub(__fp16 *lhs, __fp16 *rhs, __fp16 *result) {
 
 // MARK: - Mult
 
-extern void nsc_mult_scalar(__fp16 *lhs, __fp16 *rhs, __fp16 *result) {
-  int size = sizeof(lhs) / sizeof(lhs[0]);
+extern void nsc_mult_scalar(const __fp16 lhs, const __fp16 rhs[], __fp16 *result) {
+  int size = sizeof(*rhs);
   for (int i = 0; i < size; i++) {
-    result[i] = lhs[i] * rhs[0];
+    result[i] = lhs * rhs[i];
   }
 }
 
-extern void nsc_mult(__fp16 *lhs, __fp16 *rhs, __fp16 *result) {
-  int size = sizeof(lhs) / sizeof(lhs[0]);
+extern void nsc_mult(const __fp16 lhs[], const __fp16 rhs[], __fp16 *result) {
+  int size = sizeof(*lhs);
   for (int i = 0; i < size; i++) {
     result[i] = lhs[i] * rhs[i];
   }
@@ -136,16 +136,23 @@ extern void nsc_mult(__fp16 *lhs, __fp16 *rhs, __fp16 *result) {
 
 // MARK: - Div
 
-extern void nsc_div(__fp16 *lhs, __fp16 *rhs, __fp16 *result) {
-  int size = sizeof(lhs) / sizeof(lhs[0]);
+extern void nsc_div(const __fp16 lhs[], const __fp16 rhs[], __fp16 *result) {
+  int size = sizeof(*lhs);
   for (int i = 0; i < size; i++) {
     result[i] = lhs[i] / rhs[i];
   }
 }
 
-extern void nsc_div_scalar(__fp16 *lhs, __fp16 *rhs, __fp16 *result) {
-  int size = sizeof(lhs) / sizeof(lhs[0]);
+extern void nsc_div_scalar_array(const __fp16 lhs, const __fp16 rhs[], __fp16 *result) {
+  int size = sizeof(*rhs);
   for (int i = 0; i < size; i++) {
-    result[i] = lhs[i] / rhs[0];
+    result[i] = lhs / rhs[i];
+  }
+}
+
+extern void nsc_div_array_scalar(const __fp16 lhs[], const __fp16 rhs, __fp16 *result) {
+  int size = sizeof(*lhs);
+  for (int i = 0; i < size; i++) {
+    result[i] = lhs[i] / rhs;
   }
 }

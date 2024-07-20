@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <numswiftc_base.h>
 
 typedef struct {
   int rows;

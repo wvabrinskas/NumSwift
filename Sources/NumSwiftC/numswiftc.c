@@ -130,7 +130,7 @@ extern void nsc_flatten2d_16(NSC_Size input_size,
                              __fp16 *result) {
   
   int length = input_size.rows * input_size.columns;
-  float *padded = malloc(length * sizeof(float));
+  __fp16 *padded = malloc(length * sizeof(__fp16));
   
   for (int i = 0; i < input_size.rows * input_size.columns; i++) {
     padded[i] = 0;
@@ -138,12 +138,12 @@ extern void nsc_flatten2d_16(NSC_Size input_size,
 
   for (int r = 0; r < input_size.rows; r++) {
     for (int c = 0; c < input_size.columns; c++) {
-      float value = input[r][c];
+      __fp16 value = input[r][c];
       padded[(input_size.columns * r) + c] = value;
     }
   }
   
-  memcpy(result, padded, length * sizeof(float));
+  memcpy(result, padded, length * sizeof(__fp16));
   free(padded);
 }
 
@@ -350,7 +350,7 @@ extern void nsc_stride_pad_f16(const __fp16 input[],
   int newColumns = input_size.columns + ((stride_size.columns - 1) * (input_size.columns - 1));
 
   int length = newRows * newColumns;
-  float *padded = malloc(length * sizeof(float));
+  __fp16 *padded = malloc(length * sizeof(__fp16));
   
   for (int i = 0; i < newRows * newColumns; i++) {
     padded[i] = 0;
@@ -369,7 +369,7 @@ extern void nsc_stride_pad_f16(const __fp16 input[],
     }
   }
   
-  memcpy(result, padded, length * sizeof(float));
+  memcpy(result, padded, length * sizeof(__fp16));
   free(padded);
 }
 
@@ -579,7 +579,7 @@ extern void nsc_zero_pad_f16(const __fp16 input[],
   int padded_col_total = inputColumns + paddingTop + paddingBottom;
   
   int length = padded_row_total * padded_col_total;
-  float *padded = malloc(length * sizeof(float));
+  __fp16 *padded = malloc(length * sizeof(__fp16));
   
   for (int i = 0; i < padded_row_total * padded_col_total; i++) {
     padded[i] = 0;
@@ -598,7 +598,7 @@ extern void nsc_zero_pad_f16(const __fp16 input[],
     }
   }
     
-  memcpy(result, padded, length * sizeof(float));
+  memcpy(result, padded, length * sizeof(__fp16));
   
   free(padded);
 }
@@ -688,7 +688,7 @@ extern void nsc_conv2d_f16(__fp16 *const *signal,
   int padded_col_total = input_size.columns + paddingTop + paddingBottom;
   
   // Dynamically allocate memory for the array of pointers (rows)
-  float **working_signal;
+  __fp16 **working_signal;
   
   if (padding == same) {
     int paddingLeft;
@@ -716,7 +716,7 @@ extern void nsc_conv2d_f16(__fp16 *const *signal,
     int padded_row_total = inputRows + paddingLeft + paddingRight;
     int padded_col_total = inputColumns + paddingTop + paddingBottom;
     
-    working_signal = (float **)malloc(padded_row_total * sizeof(float *));
+    working_signal = (__fp16 **)malloc(padded_row_total * sizeof(__fp16 *));
     
     // Check if allocation was successful
     if (working_signal == NULL) {
@@ -726,7 +726,7 @@ extern void nsc_conv2d_f16(__fp16 *const *signal,
     
     // Dynamically allocate memory for each row (columns)
     for (int i = 0; i < padded_row_total; ++i) {
-      working_signal[i] = (float *)malloc(padded_col_total * sizeof(float));
+      working_signal[i] = (__fp16 *)malloc(padded_col_total * sizeof(__fp16));
       
       // Check if allocation was successful
       if (working_signal[i] == NULL) {
@@ -787,14 +787,14 @@ extern void nsc_conv2d_f16(__fp16 *const *signal,
   for (int r = 0; r < max_r; r += strideR) {
     int result_index_c = 0;
     for (int c = 0; c < max_c; c += strideC) {
-      float sum = 0;
+      __fp16 sum = 0;
       
       for (int fr = 0; fr < filterRows; fr++) {
         for (int fc = 0; fc < filterColumns; fc++) {
           int current_data_row = r + fr;
           int current_data_col = c + fc;
           
-          float s_data = 0; // some checking of size here?
+          __fp16 s_data = 0; // some checking of size here?
           
           if (padding == same) {
             s_data = working_signal[current_data_row][current_data_col];
@@ -802,7 +802,7 @@ extern void nsc_conv2d_f16(__fp16 *const *signal,
             s_data = signal[current_data_row][current_data_col];
           }
           
-          float f_data = filter[fr][fc]; //do some checking of size here?
+          __fp16 f_data = filter[fr][fc]; //do some checking of size here?
           sum += s_data * f_data;
         }
       }
@@ -1013,13 +1013,13 @@ extern void nsc_conv1d_f16(const __fp16 signal[],
   int padded_row_total = input_size.rows + paddingLeft + paddingRight;
   int padded_col_total = input_size.columns + paddingTop + paddingBottom;
   
-  float working_signal[padded_row_total * padded_col_total];// = malloc(padded_row_total * padded_col_total * sizeof(float));
+  __fp16 working_signal[padded_row_total * padded_col_total];
   if (padding == same) {
-    nsc_zero_pad(signal,
-                 working_signal,
-                 filter_size,
-                 input_size,
-                 stride);
+    nsc_zero_pad_f16(signal,
+                     working_signal,
+                     filter_size,
+                     input_size,
+                     stride);
   }
   
   int inputRows = input_size.rows;
@@ -1045,7 +1045,7 @@ extern void nsc_conv1d_f16(const __fp16 signal[],
   int expected_r = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
   int expected_c = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
 
-  float mutable_result[expected_r * expected_c]; //= malloc(expected_r * expected_c * sizeof(float));
+  __fp16 mutable_result[expected_r * expected_c]; //= malloc(expected_r * expected_c * sizeof(float));
 
   for (int i = 0; i < expected_r * expected_c; i++) {
     mutable_result[i] = 0.0f;
@@ -1054,7 +1054,7 @@ extern void nsc_conv1d_f16(const __fp16 signal[],
   int result_index = 0;
   for (int r = 0; r < max_r; r += strideR) {
     for (int c = 0; c < max_c; c += strideC) {
-      float sum = 0;
+      __fp16 sum = 0;
       
       for (int fr = 0; fr < filterRows; fr++) {
         
@@ -1065,8 +1065,8 @@ extern void nsc_conv1d_f16(const __fp16 signal[],
           int signal_index = (current_data_row * cd) + current_data_col;
           int filter_index = (fr * cf) + fc;
           
-          float s_data = padding == valid ? signal[signal_index] : working_signal[signal_index]; //do some checking of size here?
-          float f_data = filter[filter_index]; //do some checking of size here?
+          __fp16 s_data = padding == valid ? signal[signal_index] : working_signal[signal_index]; //do some checking of size here?
+          __fp16 f_data = filter[filter_index]; //do some checking of size here?
           sum += s_data * f_data;
         }
       }
@@ -1076,7 +1076,7 @@ extern void nsc_conv1d_f16(const __fp16 signal[],
     }
   }
   
-  memcpy(result, mutable_result, expected_r * expected_c * sizeof(float));
+  memcpy(result, mutable_result, expected_r * expected_c * sizeof(__fp16));
 }
 
 extern void nsc_conv1d(const float signal[],
@@ -1194,7 +1194,7 @@ extern void nsc_transConv2d_f16(__fp16 *const *signal,
   int rows = (inputRows - 1) * strideR + filterRows;
   int columns = (inputColumns - 1) * strideC + filterColumns;
   // Dynamically allocate memory for the array of pointers (rows)
-  float **working_result = (float **)malloc(rows * sizeof(float *));
+  __fp16 **working_result = (__fp16 **)malloc(rows * sizeof(__fp16 *));
   
   // Check if allocation was successful
   if (working_result == NULL) {
@@ -1204,7 +1204,7 @@ extern void nsc_transConv2d_f16(__fp16 *const *signal,
   
   // Dynamically allocate memory for each row (columns)
   for (int i = 0; i < rows; ++i) {
-    working_result[i] = (float *)malloc(columns * sizeof(float));
+    working_result[i] = (__fp16 *)malloc(columns * sizeof(__fp16));
     
     // Check if allocation was successful
     if (working_result[i] == NULL) {
@@ -1260,7 +1260,7 @@ extern void nsc_transConv2d_f16(__fp16 *const *signal,
   for (int r = pad_top; r < rows - pad_bottom; r++) {
     padded_index_c = 0;
     for (int c = pad_left; c < columns - pad_right; c++) {
-      float w_r = working_result[r][c];
+      __fp16 w_r = working_result[r][c];
       result[padded_index_r][padded_index_c] = w_r;
       padded_index_c++;
     }
@@ -1295,7 +1295,7 @@ extern void nsc_transConv1d_f16(const __fp16 signal[],
   
   int length = rows * columns;
   
-  float working_result[length];
+  __fp16 working_result[length];
   
   for (int i = 0; i < length; i++) {
     working_result[i] = 0.0f;
@@ -1338,7 +1338,7 @@ extern void nsc_transConv1d_f16(const __fp16 signal[],
   int padded_row_total = rows - (pad_bottom + pad_top);
   int padded_col_total = columns - (pad_left + pad_right);
   
-  float padded[padded_col_total * padded_row_total];
+  __fp16 padded[padded_col_total * padded_row_total];
   
   for (int i = 0; i < padded_col_total * padded_row_total; i++) {
     padded[i] = 0.0f;
@@ -1348,13 +1348,13 @@ extern void nsc_transConv1d_f16(const __fp16 signal[],
   for (int r = pad_top; r < rows - pad_bottom; r++) {
     for (int c = pad_left; c < columns - pad_right; c++) {
       int index = (r  * rows) + c;
-      float w_r = working_result[index];
+      __fp16 w_r = working_result[index];
       padded[padded_index] = w_r;
       padded_index++;
     }
   }
 
-  memcpy(result, padded, padded_col_total * padded_row_total * sizeof(float));
+  memcpy(result, padded, padded_col_total * padded_row_total * sizeof(__fp16));
 }
 
 

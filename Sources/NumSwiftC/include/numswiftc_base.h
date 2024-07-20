@@ -31,24 +31,30 @@ typedef struct {
   int index;
 } NSC_IndexedValue;
 
-extern NSC_IndexedValue nsc_index_of_min(__fp16 *array);
-extern NSC_IndexedValue nsc_index_of_max(__fp16 *array);
-extern __fp16 nsc_max(__fp16 *array);
-extern __fp16 nsc_min(__fp16 *array);
-extern __fp16 nsc_mean(__fp16 *array);
-extern __fp16 nsc_sum(__fp16 *array);
-extern __fp16 nsc_sum_of_squares(__fp16 *array);
+extern NSC_IndexedValue nsc_index_of_min(const __fp16 array[]);
+extern NSC_IndexedValue nsc_index_of_max(const __fp16 array[]);
+extern __fp16 nsc_max(const __fp16 array[]);
+extern __fp16 nsc_min(const __fp16 array[]);
+extern __fp16 nsc_mean(const __fp16 array[]);
+extern __fp16 nsc_sum(const __fp16 array[]);
+extern __fp16 nsc_sum_of_squares(const __fp16 array[]);
 
-extern void nsc_add_scalar(__fp16 *lhs, __fp16 *rhs, __fp16 *result);
-extern void nsc_add(__fp16 *lhs, __fp16 *rhs, __fp16 *result);
+extern void nsc_add_scalar(const __fp16 lhs, const __fp16 rhs[], __fp16 *result);
+extern void nsc_add(const __fp16 lhs[], const __fp16 rhs[], __fp16 *result);
 
-extern void nsc_sub(__fp16 *lhs, __fp16 *rhs, __fp16 *result);
 
-extern void nsc_mult_scalar(__fp16 *lhs, __fp16 *rhs, __fp16 *result);
-extern void nsc_mult(__fp16 *lhs, __fp16 *rhs, __fp16 *result);
+extern void nsc_sub(const __fp16 lhs[], const __fp16 rhs[], __fp16 *result);
 
-extern void nsc_div_scalar(__fp16 *lhs, __fp16 *rhs, __fp16 *result);
-extern void nsc_div(__fp16 *lhs, __fp16 *rhs, __fp16 *result);
+
+extern void nsc_mult_scalar(const __fp16 lhs, const __fp16 rhs[], __fp16 *result);
+extern void nsc_mult(const __fp16 lhs[], const __fp16 rhs[], __fp16 *result);
+
+
+extern void nsc_div_scalar_array(const __fp16 lhs, const __fp16 rhs[], __fp16 *result);
+
+extern void nsc_div_array_scalar(const __fp16 lhs[], const __fp16 rhs, __fp16 *result);
+
+extern void nsc_div(const __fp16 lhs[], const __fp16 rhs[], __fp16 *result);
 
 
 

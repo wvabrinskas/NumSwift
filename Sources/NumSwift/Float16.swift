@@ -197,40 +197,31 @@ public extension Array where Element == [Float16] {
 //use accelerate
 public extension Array where Element == Float16 {
   var sum: Element {
-    vDSP.sum(self)
+    Float16Arithmetic.sum(self)
   }
   
   var sumOfSquares: Element {
-    let stride = vDSP_Stride(1)
-    let n = vDSP_Length(self.count)
-    
-    var c: Element = .nan
-    
-    vDSP_svesq(self,
-               stride,
-               &c,
-               n)
-    return c
+    Float16Arithmetic.sumOfSquares(self)
   }
   
   var indexOfMin: (UInt, Element) {
-    vDSP.indexOfMinimum(self)
+    Float16Arithmetic.indexOfMin(self)
   }
   
   var indexOfMax: (UInt, Element) {
-    vDSP.indexOfMaximum(self)
+    Float16Arithmetic.indexOfMax(self)
   }
   
   var max: Element {
-    vDSP.maximum(self)
+    Float16Arithmetic.max(self)
   }
   
   var min: Element {
-    vDSP.minimum(self)
+    Float16Arithmetic.min(self)
   }
   
   var mean: Element {
-    vDSP.mean(self)
+    Float16Arithmetic.mean(self)
   }
   
   @inlinable mutating func clip(_ to: Element) {
@@ -257,43 +248,43 @@ public extension Array where Element == Float16 {
   }
 
   static func +(lhs: [Element], rhs: Element) -> [Element] {
-    return vDSP.add(rhs, lhs)
+    Float16Arithmetic.add(lhs: rhs, rhs: lhs)
   }
   
   static func +(lhs: Element, rhs: [Element]) -> [Element] {
-    return vDSP.add(lhs, rhs)
+    Float16Arithmetic.add(lhs: lhs, rhs: rhs)
   }
   
   static func +(lhs: [Element], rhs: [Element]) -> [Element] {
-    return vDSP.add(rhs, lhs)
+    Float16Arithmetic.add(lhs: lhs, rhs: rhs)
   }
   
   static func -(lhs: [Element], rhs: [Element]) -> [Element] {
-    return vDSP.subtract(lhs, rhs)
+    Float16Arithmetic.sub(lhs: lhs, rhs: rhs)
   }
   
   static func *(lhs: [Element], rhs: Element) -> [Element] {
-    return vDSP.multiply(rhs, lhs)
+    Float16Arithmetic.mult(lhs: lhs, rhs: rhs)
   }
   
   static func *(lhs: Element, rhs: [Element]) -> [Element] {
-    return vDSP.multiply(lhs, rhs)
+    Float16Arithmetic.mult(lhs: lhs, rhs: rhs)
   }
   
   static func *(lhs: [Element], rhs: [Element]) -> [Element] {
-    return vDSP.multiply(lhs, rhs)
+    Float16Arithmetic.mult(lhs: lhs, rhs: rhs)
   }
   
   static func /(lhs: [Element], rhs: [Element]) -> [Element] {
-    return vDSP.divide(lhs, rhs)
+    Float16Arithmetic.div(lhs: lhs, rhs: rhs)
   }
   
   static func /(lhs: [Element], rhs: Element) -> [Element] {
-    return vDSP.divide(lhs, rhs)
+    Float16Arithmetic.div(lhs: lhs, rhs: rhs)
   }
   
   static func /(lhs: Element, rhs: [Element]) -> [Element] {
-    return vDSP.divide(lhs, rhs)
+    Float16Arithmetic.div(lhs: lhs, rhs: rhs)
   }
   
 }
@@ -312,17 +303,7 @@ public extension Array where Element == [[Float16]] {
     var result: Float16 = 0
     self.forEach { a in
       a.forEach { b in
-        let stride = vDSP_Stride(1)
-        let n = vDSP_Length(b.count)
-        
-        var c: Float16 = .nan
-        
-        vDSP_svesq(b,
-                   stride,
-                   &c,
-                   n)
-        
-        result += c
+        result += Float16Arithmetic.sumOfSquares(b)
       }
     }
 
@@ -694,17 +675,7 @@ public extension Array where Element == [Float16] {
   var sumOfSquares: Float16 {
     var result: Float16 = 0
     self.forEach { a in
-      let stride = vDSP_Stride(1)
-      let n = vDSP_Length(a.count)
-      
-      var c: Float16 = .nan
-      
-      vDSP_svesq(a,
-                 stride,
-                 &c,
-                 n)
-      
-      result += c
+      result += Float16Arithmetic.sum(a)
     }
 
     return result

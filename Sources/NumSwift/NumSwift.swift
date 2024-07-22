@@ -125,6 +125,20 @@ public class NumSwift {
     return result
   }
   
+  public static func onesLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float16]]] {
+    var result: [[[Float16]]]  = []
+    
+    for _ in 0..<size.depth {
+      var row: [[Float16]] = []
+      for _ in 0..<size.rows {
+        row.append([Float16](repeating: 1.0, count: size.columns))
+      }
+      result.append(row)
+    }
+
+    return result
+  }
+  
   public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Double]] {
     Array((0..<size.rows).map { _ in [Double](repeating: 1.0, count: size.columns) })
   }
@@ -144,6 +158,20 @@ public class NumSwift {
       previous = result
     }
     
+    return result
+  }
+  
+  public static func zerosLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float16]]] {
+    var result: [[[Float16]]]  = []
+    
+    for _ in 0..<size.depth {
+      var row: [[Float16]] = []
+      for _ in 0..<size.rows {
+        row.append([Float16](repeating: 0, count: size.columns))
+      }
+      result.append(row)
+    }
+
     return result
   }
   

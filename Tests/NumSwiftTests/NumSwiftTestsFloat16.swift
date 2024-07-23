@@ -4,13 +4,13 @@ import XCTest
 import UIKit
 #endif
 
-final class NumSwiftTests: XCTestCase {
+final class NumSwiftTestsFloat1616: XCTestCase {
   // we want unique pointers because generally these arrays are passed into C and the memory is accessed directly.
   func test_zerosUniquePointers() {
     let size = (500, 500)
-    let zeros: [[Float]] = NumSwift.zerosLike(size)
+    let zeros: [[Float16]] = NumSwift.zerosLike(size)
     
-    var lastPtr: UnsafeBufferPointer<Float>?
+    var lastPtr: UnsafeBufferPointer<Float16>?
     zeros.forEach { f in
       f.withUnsafeBufferPointer { ptr in
         XCTAssertNotEqual(ptr.baseAddress, lastPtr?.baseAddress)
@@ -112,13 +112,13 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func testFlip() {
-    let v: [[Float]] = [[1,2,3],
+    let v: [[Float16]] = [[1,2,3],
                         [4,5,6],
                         [7,8,9]]
     
     let r = v.flip180()
     
-    let expected: [[Float]] = [[9, 8, 7],
+    let expected: [[Float16]] = [[9, 8, 7],
                                [6, 5, 4],
                                [3, 2, 1]]
     
@@ -134,13 +134,13 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func testShape() {
-    let test: [[[Float]]] = [[[0,1], [0,1]],
+    let test: [[[Float16]]] = [[[0,1], [0,1]],
                              [[0,1], [0,1]]] //2, 2
     let expected = [2, 2, 2]
     
     XCTAssertEqual(test.shape, expected)
     
-    let data: [[[Float]]] = [[[1, 1, 1, 0, 0, 0, 1],
+    let data: [[[Float16]]] = [[[1, 1, 1, 0, 0, 0, 1],
                               [1, 1, 1, 0, 0, 0, 1],
                               [1, 1, 1, 0, 0, 0, 1],
                               [0, 0, 0, 0, 0, 0, 1],
@@ -160,21 +160,21 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func test_matmul_SingleDim_C() {
-    let n1: [Float] = [1, 1, 1]
-    let n2: [Float] = [2, 2, 2]
-    let n3: [Float] = [3, 3, 3]
+    let n1: [Float16] = [1, 1, 1]
+    let n2: [Float16] = [2, 2, 2]
+    let n3: [Float16] = [3, 3, 3]
     
     let layer = [n1, n2 , n3]
     let A = layer
         
-    let B: [[Float]] = [[2,2],
+    let B: [[Float16]] = [[2,2],
                         [2,2],
                         [2,2]]
     
     let output = NumSwiftC.matmul(A, b: B, aSize: (3,3), bSize: (3, 2))
     
     
-    let expected: [[Float]] = [[6.0, 6.0],
+    let expected: [[Float16]] = [[6.0, 6.0],
                                 [12.0, 12.0],
                                 [18.0, 18.0]]
     
@@ -182,34 +182,34 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func test_matmul_SingleDim() {
-    let n1: [Float] = [1, 1, 1]
-    let n2: [Float] = [2, 2, 2]
-    let n3: [Float] = [3, 3, 3]
+    let n1: [Float16] = [1, 1, 1]
+    let n2: [Float16] = [2, 2, 2]
+    let n3: [Float16] = [3, 3, 3]
     
     let layer = [n1, n2 , n3]
     let A = [layer]
         
-    let B: [[[Float]]] = [[[2,2],
+    let B: [[[Float16]]] = [[[2,2],
                            [2,2],
                            [2,2]]]
     
     let output = A.matmul(B)
     
-    let expected: [[[Float]]] = [[[6.0, 6.0],
+    let expected: [[[Float16]]] = [[[6.0, 6.0],
                                   [12.0, 12.0],
                                   [18.0, 18.0]]]
     
     XCTAssertEqual(expected, output)
   }
   
-  func test_3d_fast_C_transpose_float() {
-    let r: [[[Float]]] = [[[6.0, 6.0],
+  func test_3d_fast_C_transpose_Float16() {
+    let r: [[[Float16]]] = [[[6.0, 6.0],
                            [12.0, 12.0],
                            [18.0, 18.0]],
                           [[6.0, 6.0],
                            [12.0, 12.0]]]
     
-    let expected: [[[Float]]] = [[[6.0, 12.0, 18.0],
+    let expected: [[[Float16]]] = [[[6.0, 12.0, 18.0],
                                   [6.0, 12.0, 18.0]],
                                  [[6.0, 12.0],
                                   [6.0, 12.0]]]
@@ -219,69 +219,28 @@ final class NumSwiftTests: XCTestCase {
   }
   
   
-  func test_2d_fast_C_transpose_float() {
-    let r: [[Float]] = [[6.0, 6.0],
+  func test_2d_fast_C_transpose_Float16() {
+    let r: [[Float16]] = [[6.0, 6.0],
                         [12.0, 12.0],
                         [18.0, 18.0]]
     
-    let expected: [[Float]] = [[6.0, 12.0, 18.0],
+    let expected: [[Float16]] = [[6.0, 12.0, 18.0],
                                [6.0, 12.0, 18.0]]
     
     let transposed = r.transpose2d()
     XCTAssertEqual(transposed, expected)
   }
-  
-  func test_2d_fast_transpose_double() {
-    let r: [[Double]] = [[6.0, 6.0],
-                           [12.0, 12.0],
-                           [18.0, 18.0]]
-    
-    let expected: [[Double]] = [[6.0, 12.0, 18.0],
-                                [6.0, 12.0, 18.0]]
-    
-    let transposed = r.transpose()
-    XCTAssertEqual(transposed, expected)
-  }
-  
-  func test_2d_fast_transpose_float() {
-    let r: [[Float]] = [[6.0, 6.0],
-                        [12.0, 12.0],
-                        [18.0, 18.0]]
-    
-    let expected: [[Float]] = [[6.0, 12.0, 18.0],
-                               [6.0, 12.0, 18.0]]
-    
-    let transposed = r.transpose()
-    XCTAssertEqual(transposed, expected)
-  }
-  
-  
-  func test_3d_fast_transpose_double() {
-    let r: [[[Double]]] = [[[6.0, 6.0],
-                           [12.0, 12.0],
-                           [18.0, 18.0]],
-                          [[6.0, 6.0],
-                           [12.0, 12.0]]]
-    
-    let expected: [[[Double]]] = [[[6.0, 12.0, 18.0],
-                                  [6.0, 12.0, 18.0]],
-                                 [[6.0, 12.0],
-                                  [6.0, 12.0]]]
-    
-    let transposed = r.transpose()
-    XCTAssertEqual(transposed, expected)
-  }
-  
+
   func test_uneven_matrix_math() {
     
-    let expected: [[[Float]]] = [[[6.0, 6.0],
+    let expected: [[[Float16]]] = [[[6.0, 6.0],
                                   [12.0, 12.0],
                                   [18.0, 18.0]],
                                   [[6.0, 6.0],
                                    [12.0, 12.0]]]
   
     
-    let expected2: [[[Float]]] = [[[6.0, 6.0],
+    let expected2: [[[Float16]]] = [[[6.0, 6.0],
                                   [12.0, 12.0],
                                   [18.0, 18.0]],
                                   [[6.0, 6.0],
@@ -295,8 +254,8 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func test_randomChoice_valid() {
-    let probabilityArray: [Float] = [0, 1.0, 0, 0, 0]
-    let array: [Float] = [1, 2, 3, 4, 5]
+    let probabilityArray: [Float16] = [0, 1.0, 0, 0, 0]
+    let array: [Float16] = [1, 2, 3, 4, 5]
     let result = NumSwift.randomChoice(in: array, p: probabilityArray)
     
     XCTAssertEqual(2.0, result.0)
@@ -304,22 +263,22 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func test_randomChoice_probArrayAllZeros() {
-    let probabilityArray: [Float] = [0, 0, 0, 0, 0]
-    let array: [Float] = [1, 2, 3, 4, 5]
+    let probabilityArray: [Float16] = [0, 0, 0, 0, 0]
+    let array: [Float16] = [1, 2, 3, 4, 5]
     let result = NumSwift.randomChoice(in: array, p: probabilityArray)
     
     XCTAssertTrue(result.0 > 0)
   }
   
   func test_matmul_MultDim() {
-    let n1: [Float] = [1, 1, 1]
-    let n2: [Float] = [2, 2, 2]
-    let n3: [Float] = [3, 3, 3]
+    let n1: [Float16] = [1, 1, 1]
+    let n2: [Float16] = [2, 2, 2]
+    let n3: [Float16] = [3, 3, 3]
     
     let layer = [n1, n2 , n3]
     let A = [layer, layer]
         
-    let B: [[[Float]]] = [[[2,2],
+    let B: [[[Float16]]] = [[[2,2],
                            [2,2],
                            [2,2]],
                           [[2,2],
@@ -328,7 +287,7 @@ final class NumSwiftTests: XCTestCase {
     
     let output = A.matmul(B)
     
-    let expected: [[[Float]]] = [[[6.0, 6.0],
+    let expected: [[[Float16]]] = [[[6.0, 6.0],
                                   [12.0, 12.0],
                                   [18.0, 18.0]],
                                   [[6.0, 6.0],
@@ -339,11 +298,11 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func testCPadding() {
-    let test: [[Float]] = [[1, 2],
+    let test: [[Float16]] = [[1, 2],
                            [3, 4]]
 
         
-    let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0],
+    let expected: [[Float16]] = [[0.0, 0.0, 0.0, 0.0],
                                [0.0, 1.0, 2.0, 0.0],
                                [0.0, 3.0, 4.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0]]
@@ -358,13 +317,13 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func testCStridePadding() {
-    let test: [[Float]] = [[1, 2],
+    let test: [[Float16]] = [[1, 2],
                            [3, 4]]
 
     let padded = NumSwiftC.stridePad(signal: test,
                                      strides: (2,2))
         
-    let expected: [[Float]] = [[1.0, 0.0, 2.0],
+    let expected: [[Float16]] = [[1.0, 0.0, 2.0],
                                [0.0, 0.0, 0.0],
                                [3.0, 0.0, 4.0]]
 
@@ -372,12 +331,12 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func testStridePadding() {
-    let test: [[Float]] = [[1, 2],
+    let test: [[Float16]] = [[1, 2],
                            [3, 4]]
 
     let padded = test.stridePad(strides: (2,2), padding: 1)
         
-    let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 0.0],
+    let expected: [[Float16]] = [[0.0, 0.0, 0.0, 0.0, 0.0],
                                [0.0, 1.0, 0.0, 2.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0, 0.0],
                                [0.0, 3.0, 0.0, 4.0, 0.0],
@@ -390,11 +349,11 @@ final class NumSwiftTests: XCTestCase {
   func testCConv2D() {
     let signalShape = (5,5)
 
-    let filter: [[Float]] = [[0, 1, 0],
+    let filter: [[Float16]] = [[0, 1, 0],
                              [0, 1, 0],
                              [0, 1, 0]]
 
-    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
+    let signal: [[Float16]] = [[Float16]](repeating: [0,0,1,0,0], count: signalShape.0)
 
     let result = NumSwiftC.conv2d(signal: signal,
                                   filter: filter,
@@ -403,7 +362,7 @@ final class NumSwiftTests: XCTestCase {
                                   filterSize: (rows: 3, columns: 3),
                                   inputSize: signalShape)
     
-    let expected: [[Float]] = [[0.0, 0.0, 2.0, 0.0, 0.0],
+    let expected: [[Float16]] = [[0.0, 0.0, 2.0, 0.0, 0.0],
                                [0.0, 0.0, 3.0, 0.0, 0.0],
                                [0.0, 0.0, 3.0, 0.0, 0.0],
                                [0.0, 0.0, 3.0, 0.0, 0.0],
@@ -415,11 +374,11 @@ final class NumSwiftTests: XCTestCase {
   func testCConv1D() {
     let signalShape = (5,5)
 
-    let filter: [[Float]] = [[0, 1, 0],
+    let filter: [[Float16]] = [[0, 1, 0],
                              [0, 1, 0],
                              [0, 1, 0]]
 
-    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
+    let signal: [[Float16]] = [[Float16]](repeating: [0,0,1,0,0], count: signalShape.0)
 
     let result = NumSwiftC.conv1d(signal: signal.flatten(),
                                   filter: filter.flatten(),
@@ -428,7 +387,7 @@ final class NumSwiftTests: XCTestCase {
                                   filterSize: (rows: 3, columns: 3),
                                   inputSize: signalShape)
     
-    let expected: [Float] = [0.0, 0.0, 2.0, 0.0, 0.0,
+    let expected: [Float16] = [0.0, 0.0, 2.0, 0.0, 0.0,
                              0.0, 0.0, 3.0, 0.0, 0.0,
                              0.0, 0.0, 3.0, 0.0, 0.0,
                              0.0, 0.0, 3.0, 0.0, 0.0,
@@ -441,8 +400,8 @@ final class NumSwiftTests: XCTestCase {
     let signalShape = (5,5)
     let filterShape = (4,4)
 
-    let filter: [[Float]] = [[Float]](repeating: [0,0,1,0], count: filterShape.0)
-    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
+    let filter: [[Float16]] = [[Float16]](repeating: [0,0,1,0], count: filterShape.0)
+    let signal: [[Float16]] = [[Float16]](repeating: [0,0,1,0,0], count: signalShape.0)
 
     let result = NumSwiftC.transConv2d(signal: signal,
                                        filter: filter,
@@ -451,7 +410,7 @@ final class NumSwiftTests: XCTestCase {
                                        filterSize: filterShape,
                                        inputSize: signalShape)
     
-    let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+    let expected: [[Float16]] = [[0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
@@ -470,8 +429,8 @@ final class NumSwiftTests: XCTestCase {
     let signalShape = (5,5)
     let filterShape = (4,4)
 
-    let filter: [[Float]] = [[Float]](repeating: [0,0,1,0], count: filterShape.0)
-    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
+    let filter: [[Float16]] = [[Float16]](repeating: [0,0,1,0], count: filterShape.0)
+    let signal: [[Float16]] = [[Float16]](repeating: [0,0,1,0,0], count: signalShape.0)
 
     let result = NumSwiftC.transConv1d(signal: signal.flatten(),
                                        filter: filter.flatten(),
@@ -482,7 +441,7 @@ final class NumSwiftTests: XCTestCase {
 
     let reshaped = result.reshape(columns: 10)
     
-    let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+    let expected: [[Float16]] = [[0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
@@ -499,12 +458,12 @@ final class NumSwiftTests: XCTestCase {
   func test2DConv() {
     let signalShape = (5,5)
 
-    let filter: [[Float]] = [[0, 0, 1, 0],
+    let filter: [[Float16]] = [[0, 0, 1, 0],
                              [0, 0, 1, 0],
                              [0, 0, 1, 0],
                              [0, 0, 1, 0]]
     
-    let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
+    let signal: [[Float16]] = [[Float16]](repeating: [0,0,1,0,0], count: signalShape.0)
     
     let rows = NumSwiftC.conv2d(signal: signal,
                                 filter: filter,
@@ -513,7 +472,7 @@ final class NumSwiftTests: XCTestCase {
                                 filterSize: (4,4),
                                 inputSize: signalShape)
     
-    let expected: [[Float]] =  [[0.0, 3.0, 0.0, 0.0, 0.0],
+    let expected: [[Float16]] =  [[0.0, 3.0, 0.0, 0.0, 0.0],
                                 [0.0, 4.0, 0.0, 0.0, 0.0],
                                 [0.0, 4.0, 0.0, 0.0, 0.0],
                                 [0.0, 3.0, 0.0, 0.0, 0.0],
@@ -523,9 +482,9 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func testReshape() {
-    let input: [Float] = [1, 1, 1, 2, 2, 2]
+    let input: [Float16] = [1, 1, 1, 2, 2, 2]
     
-    let expected: [[Float]] = [[1, 1, 1],
+    let expected: [[Float16]] = [[1, 1, 1],
                                [2, 2, 2]]
     
     let output = input.reshape(columns: 3)
@@ -534,14 +493,14 @@ final class NumSwiftTests: XCTestCase {
   }
   
   func testClip() {
-    var test: [Float] = [-0.2, 5.0, -0.5, 1.0]
+    var test: [Float16] = [-0.2, 5.0, -0.5, 1.0]
     test.clip(0.5)
     XCTAssert(test == [-0.2, 0.5, -0.5, 0.5])
   }
   
   func testL2Normalize() {
-    var test: [Float] = [1,2,3,4]
-    let expected: Float = 1.0
+    var test: [Float16] = [1,2,3,4]
+    let expected: Float16 = 1.0
     
     XCTAssertNotEqual(test.sumOfSquares, expected)
     
@@ -551,33 +510,33 @@ final class NumSwiftTests: XCTestCase {
   }
 
   func testFlatten() {
-    let data: [[[Float]]] = [[[0, 0, 1, 0, 0],
+    let data: [[[Float16]]] = [[[0, 0, 1, 0, 0],
                               [0, 0, 1, 0, 0],
                               [0, 0, 1, 0, 0],
                               [0, 0, 1, 0, 0],
                               [0, 0, 1, 0, 0]]]
     
-    let r: [Float] = data.flatten()
-    let expected: [Float] = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+    let r: [Float16] = data.flatten()
+    let expected: [Float16] = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     XCTAssertFalse(r.isEmpty)
     XCTAssertEqual(r, expected)
     
-    let data2D: [[Float]] = [[1, 1, 1],
+    let data2D: [[Float16]] = [[1, 1, 1],
                               [2, 2, 2]]
     
-    let r2D: [Float] = data2D.flatten()
-    let expected2D: [Float] = [1,1,1,2,2,2]
+    let r2D: [Float16] = data2D.flatten()
+    let expected2D: [Float16] = [1,1,1,2,2,2]
     XCTAssertFalse(r2D.isEmpty)
     XCTAssertEqual(r2D, expected2D)
     
-    let dataEmpty: [[Float]] = [[],[]]
+    let dataEmpty: [[Float16]] = [[],[]]
     
-    let rEmpty: [Float] = dataEmpty.flatten()
+    let rEmpty: [Float16] = dataEmpty.flatten()
     XCTAssertEqual(rEmpty, [])
   }
   
   func testFlattenC() {
-    let data: [[Float]] = [[0, 0, 1, 0, 0],
+    let data: [[Float16]] = [[0, 0, 1, 0, 0],
                            [0, 0, 1, 0, 0],
                            [0, 0, 1, 0, 0],
                            [0, 0, 1, 0, 0],
@@ -585,24 +544,24 @@ final class NumSwiftTests: XCTestCase {
         
     let r = NumSwiftC.flatten(data)
     
-    let expected: [Float] = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+    let expected: [Float16] = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     XCTAssertFalse(r.isEmpty)
     XCTAssertEqual(r, expected)
   }
 
-  //this fails in the CI for some reason...probably some float logic
+  //this fails in the CI for some reason...probably some Float16 logic
 //  func testNormalization() {
-//    var test: [Float] = [1,2,3,4]
+//    var test: [Float16] = [1,2,3,4]
 //
 //    let result = test.normalize()
 //
 //    let mean = result.mean
 //    let std = result.std
-//    let expected: [Float] = [-1.3416408, -0.44721365, 0.44721353, 1.3416407]
+//    let expected: [Float16] = [-1.3416408, -0.44721365, 0.44721353, 1.3416407]
 //
 //    XCTAssertEqual(expected, test)
-//    XCTAssertEqual(mean, Float(2.5))
-//    XCTAssertEqual(std, Float(1.118034))
+//    XCTAssertEqual(mean, Float16(2.5))
+//    XCTAssertEqual(std, Float16(1.118034))
 //  }
 }
 

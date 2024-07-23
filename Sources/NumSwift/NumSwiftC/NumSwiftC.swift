@@ -56,8 +56,8 @@ public struct NumSwiftC {
     
     return result
   }
-  
-  public static func matmul(_ a: [[Float]], 
+
+  public static func matmul(_ a: [[Float]],
                             b: [[Float]],
                             aSize: (rows: Int, columns: Int),
                             bSize: (rows: Int, columns: Int)) -> [[Float]] {

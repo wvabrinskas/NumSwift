@@ -33,6 +33,7 @@ public protocol FloatArithmeticBase {
   static func div(lhs: Scalar, rhs: [Scalar]) -> [Scalar]
 }
 
+#if arch(arm64)
 public struct Float16Arithmetic: FloatArithmeticBase {
   public static func sum(_ array: [Float16]) -> Float16 {
     nsc_sum(array)
@@ -119,3 +120,4 @@ public struct Float16Arithmetic: FloatArithmeticBase {
   }
 }
 
+#endif

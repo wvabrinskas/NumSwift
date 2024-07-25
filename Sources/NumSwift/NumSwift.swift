@@ -59,33 +59,7 @@ public class NumSwift {
       }
     }
   }
-  
-  public static func randomChoice<T: Equatable>(in array: [T], p: [Float16] = []) -> (T, Int) {
-    guard p.isEmpty == false, p.count == array.count else {
-      let index = Int.random(in: 0..<array.count)
-      return (array[index], index)
-    }
-    
-    var distributionArray: [T] = []
-    
-    for i in 0..<p.count {
-      let prob = Int(ceil(p[i] * 100))
-      let a = array[i]
-      
-      distributionArray.append(contentsOf: [T](repeating: a, count: prob))
-    }
-    
-    guard distributionArray.isEmpty == false else {
-      let index = Int.random(in: 0..<array.count)
-      return (array[index], index)
-    }
-    
-    let random = Int.random(in: 0..<distributionArray.count)
-    let arrayIndex = array.firstIndex(where: { distributionArray[random] == $0 })
-    return (distributionArray[random], arrayIndex ?? 0)
-  }
-  
-  
+
   public static func randomChoice<T: Equatable>(in array: [T], p: [Float] = []) -> (T, Int) {
     guard p.isEmpty == false, p.count == array.count else {
       let index = Int.random(in: 0..<array.count)
@@ -124,21 +98,7 @@ public class NumSwift {
 
     return result
   }
-  
-  public static func onesLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float16]]] {
-    var result: [[[Float16]]]  = []
-    
-    for _ in 0..<size.depth {
-      var row: [[Float16]] = []
-      for _ in 0..<size.rows {
-        row.append([Float16](repeating: 1.0, count: size.columns))
-      }
-      result.append(row)
-    }
 
-    return result
-  }
-  
   public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Double]] {
     Array((0..<size.rows).map { _ in [Double](repeating: 1.0, count: size.columns) })
   }
@@ -158,20 +118,6 @@ public class NumSwift {
       previous = result
     }
     
-    return result
-  }
-  
-  public static func zerosLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float16]]] {
-    var result: [[[Float16]]]  = []
-    
-    for _ in 0..<size.depth {
-      var row: [[Float16]] = []
-      for _ in 0..<size.rows {
-        row.append([Float16](repeating: 0, count: size.columns))
-      }
-      result.append(row)
-    }
-
     return result
   }
   
@@ -195,10 +141,6 @@ public class NumSwift {
   
   public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Float]] {
     Array((0..<size.rows).map { _ in [Float](repeating: 0.0, count: size.columns) })
-  }
-  
-  public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Float16]] {
-    Array((0..<size.rows).map { _ in [Float16](repeating: 0.0, count: size.columns) })
   }
   
   public static func zerosLike<T: Collection>(_ array: T) -> Array<AnyHashable> {
@@ -532,3 +474,70 @@ public extension NumSwift {
   
 }
 
+
+
+#if arch(arm64)
+// MARK: Float16
+extension NumSwift {
+  
+  public static func zerosLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float16]]] {
+    var result: [[[Float16]]]  = []
+    
+    for _ in 0..<size.depth {
+      var row: [[Float16]] = []
+      for _ in 0..<size.rows {
+        row.append([Float16](repeating: 0, count: size.columns))
+      }
+      result.append(row)
+    }
+
+    return result
+  }
+  
+  public static func onesLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float16]]] {
+    var result: [[[Float16]]]  = []
+    
+    for _ in 0..<size.depth {
+      var row: [[Float16]] = []
+      for _ in 0..<size.rows {
+        row.append([Float16](repeating: 1.0, count: size.columns))
+      }
+      result.append(row)
+    }
+
+    return result
+  }
+  
+  
+  public static func randomChoice<T: Equatable>(in array: [T], p: [Float16] = []) -> (T, Int) {
+    guard p.isEmpty == false, p.count == array.count else {
+      let index = Int.random(in: 0..<array.count)
+      return (array[index], index)
+    }
+    
+    var distributionArray: [T] = []
+    
+    for i in 0..<p.count {
+      let prob = Int(ceil(p[i] * 100))
+      let a = array[i]
+      
+      distributionArray.append(contentsOf: [T](repeating: a, count: prob))
+    }
+    
+    guard distributionArray.isEmpty == false else {
+      let index = Int.random(in: 0..<array.count)
+      return (array[index], index)
+    }
+    
+    let random = Int.random(in: 0..<distributionArray.count)
+    let arrayIndex = array.firstIndex(where: { distributionArray[random] == $0 })
+    return (distributionArray[random], arrayIndex ?? 0)
+  }
+  
+  
+  public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Float16]] {
+    Array((0..<size.rows).map { _ in [Float16](repeating: 0.0, count: size.columns) })
+  }
+}
+
+#endif

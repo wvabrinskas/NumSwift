@@ -8,6 +8,7 @@
 import Foundation
 import Accelerate
 
+#if arch(arm64)
 public extension Array where Element == [Float16] {
   var shape: [Int] {
     let rows = self.count
@@ -867,3 +868,4 @@ public extension Array where Element == [Float16] {
     return result
   }
 }
+#endif

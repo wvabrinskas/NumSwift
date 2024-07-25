@@ -8,6 +8,7 @@
 import Foundation
 import NumSwiftC
 
+#if arch(arm64)
 public extension NumSwiftC {
   
   public static func tranpose(_ a: [[Float16]], size: (rows: Int, columns: Int)) -> [[Float16]] {
@@ -393,3 +394,4 @@ public extension NumSwiftC {
     return results
   }
 }
+#endif

@@ -317,42 +317,52 @@ public extension Array where Element == Float {
     return C
   }
 
+  @_specialize(where Element == Float)
   static func +(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.add(rhs, lhs)
   }
   
+  @_specialize(where Element == Float)
   static func +(lhs: Element, rhs: [Element]) -> [Element] {
     return vDSP.add(lhs, rhs)
   }
   
+  @_specialize(where Element == Float)
   static func +(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.add(rhs, lhs)
   }
   
+  @_specialize(where Element == Float)
   static func -(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.subtract(lhs, rhs)
   }
   
+  @_specialize(where Element == Float)
   static func *(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.multiply(rhs, lhs)
   }
   
+  @_specialize(where Element == Float)
   static func *(lhs: Element, rhs: [Element]) -> [Element] {
     return vDSP.multiply(lhs, rhs)
   }
   
+  @_specialize(where Element == Float)
   static func *(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.multiply(lhs, rhs)
   }
   
+  @_specialize(where Element == Float)
   static func /(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.divide(lhs, rhs)
   }
   
+  @_specialize(where Element == Float)
   static func /(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.divide(lhs, rhs)
   }
   
+  @_specialize(where Element == Float)
   static func /(lhs: Element, rhs: [Element]) -> [Element] {
     return vDSP.divide(lhs, rhs)
   }
@@ -427,6 +437,7 @@ public extension Array where Element == [[Float]] {
     }
   }
   
+  @_specialize(where Element == [[Float]])
   func matmul(_ b: Self) -> Self {
     let bShape = b.shape
     let aShape = shape
@@ -455,6 +466,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func *(lhs: Self, rhs: [Float]) -> Self {
     let left = lhs
             
@@ -467,6 +479,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func +(lhs: Self, rhs: [Float]) -> Self {
     let left = lhs
             
@@ -479,6 +492,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func /(lhs: Self, rhs: [Float]) -> Self {
     let left = lhs
             
@@ -491,6 +505,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func -(lhs: Self, rhs: [Float]) -> Self {
     let left = lhs
             
@@ -503,6 +518,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func *(lhs: Self, rhs: Float) -> Self {
     let left = lhs
             
@@ -515,6 +531,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func *(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
@@ -525,6 +542,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func /(lhs: Self, rhs: Float) -> Self {
     let left = lhs
             
@@ -537,6 +555,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func /(lhs: Float, rhs: Self) -> Self {
     let left = lhs
             
@@ -549,6 +568,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func +(lhs: Self, rhs: Float) -> Self {
     let left = lhs
             
@@ -561,6 +581,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func +(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
@@ -571,6 +592,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func -(lhs: Float, rhs: Self) -> Self {
     let left = lhs
             
@@ -583,6 +605,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func -(lhs: Self, rhs: Float) -> Self {
     let left = lhs
             
@@ -595,6 +618,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func *(lhs: Self, rhs: Self) -> Self {
     let left = lhs
     let right = rhs
@@ -611,6 +635,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func /(lhs: Self, rhs: Self) -> Self {
     let left = lhs
     let right = rhs
@@ -627,6 +652,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func -(lhs: Self, rhs: Self) -> Self {
     let left = lhs
     let right = rhs
@@ -643,6 +669,7 @@ public extension Array where Element == [[Float]] {
     return result
   }
   
+  @_specialize(where Element == [[Float]])
   static func +(lhs: Self, rhs: Self) -> Self {
     let left = lhs
     let right = rhs

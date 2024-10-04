@@ -828,152 +828,66 @@ extern void nsc_conv2d(float *const *signal,
                        NSC_Padding padding,
                        NSC_Size filter_size,
                        NSC_Size input_size) {
-  int paddingLeft;
-  int paddingRight;
-  int paddingBottom;
-  int paddingTop;
+  int paddingLeft, paddingRight, paddingBottom, paddingTop;
   
-  int *pad_l_ptr = &paddingLeft;
-  int *pad_r_ptr = &paddingRight;
-  int *pad_b_ptr = &paddingBottom;
-  int *pad_t_ptr = &paddingTop;
+  nsc_padding_calculation(stride, padding, filter_size, input_size,
+                          &paddingTop, &paddingBottom, &paddingLeft, &paddingRight);
   
-  nsc_padding_calculation(stride,
-                          padding,
-                          filter_size,
-                          input_size,
-                          pad_t_ptr,
-                          pad_b_ptr,
-                          pad_l_ptr,
-                          pad_r_ptr);
+  int inputRows = input_size.rows;
+  int inputColumns = input_size.columns;
+  int strideR = stride.rows;
+  int strideC = stride.columns;
+  int filterRows = filter_size.rows;
+  int filterColumns = filter_size.columns;
   
-  int padded_row_total = input_size.rows + paddingLeft + paddingRight;
-  int padded_col_total = input_size.columns + paddingTop + paddingBottom;
+  int padded_row_total = inputRows + paddingTop + paddingBottom;
+  int padded_col_total = inputColumns + paddingLeft + paddingRight;
   
-  // Dynamically allocate memory for the array of pointers (rows)
-  float **working_signal;
-  
+  float **working_signal = NULL;
   if (padding == same) {
-    int paddingLeft;
-    int paddingRight;
-    int paddingBottom;
-    int paddingTop;
-    
-    int *pad_l_ptr = &paddingLeft;
-    int *pad_r_ptr = &paddingRight;
-    int *pad_b_ptr = &paddingBottom;
-    int *pad_t_ptr = &paddingTop;
-    
-    nsc_padding_calculation(stride,
-                            same,
-                            filter_size,
-                            input_size,
-                            pad_t_ptr,
-                            pad_b_ptr,
-                            pad_l_ptr,
-                            pad_r_ptr);
-    
-    int inputRows = input_size.rows;
-    int inputColumns = input_size.columns;
-    
-    int padded_row_total = inputRows + paddingLeft + paddingRight;
-    int padded_col_total = inputColumns + paddingTop + paddingBottom;
-    
     working_signal = (float **)malloc(padded_row_total * sizeof(float *));
-    
-    // Check if allocation was successful
-    if (working_signal == NULL) {
+    if (!working_signal) {
       fprintf(stderr, "Memory allocation failed.\n");
-      return; // Exit with an error code
-    }
-    
-    // Dynamically allocate memory for each row (columns)
-    for (int i = 0; i < padded_row_total; ++i) {
-      working_signal[i] = (float *)malloc(padded_col_total * sizeof(float));
-      
-      // Check if allocation was successful
-      if (working_signal[i] == NULL) {
-        fprintf(stderr, "Memory allocation failed.\n");
-        return; // Exit with an error code
-      }
-    }
-    
-    int length = padded_row_total * padded_col_total;
-    
-    for (int i = 0; i < padded_row_total; i++) {
-      for (int j = 0; j < padded_col_total; j++) {
-        working_signal[i][j] = 0;
-      }
-    }
-    
-    if (result == NULL || signal == NULL)
       return;
+    }
+    
+    for (int i = 0; i < padded_row_total; ++i) {
+      working_signal[i] = (float *)calloc(padded_col_total, sizeof(float));
+      if (!working_signal[i]) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        for (int j = 0; j < i; ++j) free(working_signal[j]);
+        free(working_signal);
+        return;
+      }
+    }
     
     for (int r = 0; r < inputRows; r++) {
       for (int c = 0; c < inputColumns; c++) {
-        int padded_c = c + paddingLeft;
-        int padded_r = r + paddingTop;
-        
-        int index = (padded_r  * padded_row_total) + padded_c;
-        working_signal[padded_r][padded_c] = signal[r][c];
+        working_signal[r + paddingTop][c + paddingLeft] = signal[r][c];
       }
     }
   }
   
-  int inputRows = input_size.rows;
-  int inputColumns = input_size.columns;
+  if (!result) return;
   
-  int strideR = stride.rows;
-  int strideC = stride.columns;
+  int output_rows = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
+  int output_cols = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
   
-  int filterRows = filter_size.rows;
-  int filterColumns = filter_size.columns;
-  
-  if (result == NULL)
-    return;
-  
-  int rf = filterRows;
-  int cf = filterColumns;
-  int rd = inputRows + paddingTop + paddingBottom; //havnt dealt with padding yet
-  int cd = inputColumns + paddingLeft + paddingRight;
-  
-  int max_r = rd - rf + 1;
-  int max_c = cd - cf + 1;
-  
-  int rows = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
-  int columns = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
-  
-  int expected_r = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
-  int expected_c = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
-  
-  int result_index_r = 0;
-  for (int r = 0; r < max_r; r += strideR) {
-    int result_index_c = 0;
-    for (int c = 0; c < max_c; c += strideC) {
-      float sum = 0;
-      
+  #pragma omp parallel for collapse(2)
+  for (int r = 0; r < output_rows; r++) {
+    for (int c = 0; c < output_cols; c++) {
+      float sum = 0.0f;
       for (int fr = 0; fr < filterRows; fr++) {
         for (int fc = 0; fc < filterColumns; fc++) {
-          int current_data_row = r + fr;
-          int current_data_col = c + fc;
-          
-          float s_data = 0; // some checking of size here?
-          
-          if (padding == same) {
-            s_data = working_signal[current_data_row][current_data_col];
-          } else {
-            s_data = signal[current_data_row][current_data_col];
-          }
-          
-          float f_data = filter[fr][fc]; //do some checking of size here?
-          sum += s_data * f_data;
+          int input_r = r * strideR + fr;
+          int input_c = c * strideC + fc;
+          float s_data = (padding == same) ? working_signal[input_r][input_c] :
+                         (input_r < inputRows && input_c < inputColumns) ? signal[input_r][input_c] : 0.0f;
+          sum += s_data * filter[fr][fc];
         }
       }
-      
-      result[result_index_r][result_index_c] = sum;
-      result_index_c++;
+      result[r][c] = sum;
     }
-    result_index_r++;
   }
 
   if (padding == same) {
@@ -991,92 +905,61 @@ extern void nsc_conv1d_f16(const __fp16 signal[],
                            NSC_Padding padding,
                            NSC_Size filter_size,
                            NSC_Size input_size) {
-  int paddingLeft;
-  int paddingRight;
-  int paddingBottom;
-  int paddingTop;
+  int paddingLeft, paddingRight, paddingBottom, paddingTop;
   
-  int *pad_l_ptr = &paddingLeft;
-  int *pad_r_ptr = &paddingRight;
-  int *pad_b_ptr = &paddingBottom;
-  int *pad_t_ptr = &paddingTop;
-  
-  nsc_padding_calculation(stride,
-                          padding,
-                          filter_size,
-                          input_size,
-                          pad_t_ptr,
-                          pad_b_ptr,
-                          pad_l_ptr,
-                          pad_r_ptr);
-  
-  int padded_row_total = input_size.rows + paddingLeft + paddingRight;
-  int padded_col_total = input_size.columns + paddingTop + paddingBottom;
-  
-  __fp16 working_signal[padded_row_total * padded_col_total];
-  if (padding == same) {
-    nsc_zero_pad_f16(signal,
-                     working_signal,
-                     filter_size,
-                     input_size,
-                     stride);
-  }
+  nsc_padding_calculation(stride, padding, filter_size, input_size,
+                          &paddingTop, &paddingBottom, &paddingLeft, &paddingRight);
   
   int inputRows = input_size.rows;
   int inputColumns = input_size.columns;
-  
   int strideR = stride.rows;
   int strideC = stride.columns;
-  
   int filterRows = filter_size.rows;
   int filterColumns = filter_size.columns;
   
-  if (result == NULL)
-    return;
+  if (result == NULL) return;
   
-  int rf = filterRows;
-  int cf = filterColumns;
-  int rd = inputRows + paddingTop + paddingBottom; //havnt dealt with padding yet
+  int rd = inputRows + paddingTop + paddingBottom;
   int cd = inputColumns + paddingLeft + paddingRight;
   
-  int max_r = rd - rf + 1;
-  int max_c = cd - cf + 1;
+  int output_rows = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
+  int output_cols = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
 
-  int expected_r = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
-  int expected_c = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
-
-  __fp16 mutable_result[expected_r * expected_c]; //= malloc(expected_r * expected_c * sizeof(float));
-
-  for (int i = 0; i < expected_r * expected_c; i++) {
-    mutable_result[i] = 0.0f;
+  __fp16 *working_signal = NULL;
+  if (padding == same) {
+    working_signal = (__fp16*)malloc(rd * cd * sizeof(__fp16));
+    if (!working_signal) {
+      fprintf(stderr, "Memory allocation failed.\n");
+      return;
+    }
+    nsc_zero_pad_f16(signal, working_signal, filter_size, input_size, stride);
   }
 
-  int result_index = 0;
-  for (int r = 0; r < max_r; r += strideR) {
-    for (int c = 0; c < max_c; c += strideC) {
+  #pragma omp parallel for collapse(2)
+  for (int r = 0; r < output_rows; r++) {
+    for (int c = 0; c < output_cols; c++) {
       __fp16 sum = 0;
-      
       for (int fr = 0; fr < filterRows; fr++) {
-        
         for (int fc = 0; fc < filterColumns; fc++) {
-          int current_data_row = r + fr;
-          int current_data_col = c + fc;
+          int current_data_row = r * strideR + fr;
+          int current_data_col = c * strideC + fc;
           
-          int signal_index = (current_data_row * cd) + current_data_col;
-          int filter_index = (fr * cf) + fc;
+          __fp16 s_data;
+          if (padding == valid) {
+            s_data = (current_data_row < inputRows && current_data_col < inputColumns) ?
+                     signal[current_data_row * inputColumns + current_data_col] : 0;
+          } else {
+            s_data = working_signal[current_data_row * cd + current_data_col];
+          }
           
-          __fp16 s_data = padding == valid ? signal[signal_index] : working_signal[signal_index]; //do some checking of size here?
-          __fp16 f_data = filter[filter_index]; //do some checking of size here?
-          sum += s_data * f_data;
+          sum += s_data * filter[fr * filterColumns + fc];
         }
       }
-      
-      mutable_result[result_index] = sum;
-      result_index += 1;
+      result[r * output_cols + c] = sum;
     }
   }
-  
-  memcpy(result, mutable_result, expected_r * expected_c * sizeof(__fp16));
+
+  if (working_signal) free(working_signal);
 }
 
 extern void nsc_conv1d(const float signal[],

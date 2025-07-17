@@ -32,7 +32,7 @@ let package = Package(
       .target(
           name: "NumSwiftMetal",
           dependencies: ["NumSwiftC"],
-          resources: []),
+          resources: [.process("Resources")]),
       .target(
             name: "NumSwift",
             dependencies: ["NumSwiftC", "NumSwiftMetal",

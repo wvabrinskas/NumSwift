@@ -23,14 +23,27 @@ public struct MetalConfiguration {
     
     self.device = device
     
-    guard
-      let commandQueue = self.device.makeCommandQueue(),
-      let library = self.device.makeDefaultLibrary() else {
+    guard let commandQueue = self.device.makeCommandQueue() else {
       return nil
     }
     
     self.commandQueue = commandQueue
-    self.library = library
+    
+    var library: MTLLibrary?
+    let bundle = Bundle.module
+    
+    library = try? device.makeDefaultLibrary(bundle: bundle)
+
+    if library == nil {
+      library = device.makeDefaultLibrary()
+    }
+    
+    guard let metalLibrary = library else {
+      print("Failed to load Metal library")
+      return nil
+    }
+    
+    self.library = metalLibrary
   }
 }
 
@@ -65,6 +78,7 @@ public class NumSwiftMetal {
     
     guard let function = config.library.makeFunction(name: functionName) else {
       print("Failed to create function: \(functionName)")
+      print("Available functions in library: \(config.library.functionNames)")
       return nil
     }
     

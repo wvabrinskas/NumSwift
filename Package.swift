@@ -29,11 +29,10 @@ let package = Package(
       .target(
           name: "NumSwiftMetal",
           dependencies: ["NumSwiftC"],
-          resources: []),
+          resources: [.process("Resources")]),
       .target(
             name: "NumSwift",
-            dependencies: ["NumSwiftC", "NumSwiftMetal"],
-            resources: [ ]),
+            dependencies: ["NumSwiftC", "NumSwiftMetal"]),
         .testTarget(
             name: "NumSwiftTests",
             dependencies: ["NumSwift", "NumSwiftC", "NumSwiftMetal"])

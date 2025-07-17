@@ -70,6 +70,73 @@ public class NumSwiftMetal {
   // Cache for frequently used compute pipelines
   private var pipelineCache: [String: MTLComputePipelineState] = [:]
   
+  // Buffer pool for memory reuse
+  private var bufferPool: [Int: [MTLBuffer]] = [:]
+  private let bufferPoolLock = NSLock()
+  private let maxPoolSize = 20 // Maximum buffers per size category
+  private var memoryPressure: Double = 0.0
+  private let maxMemoryUsage: Int = 256 * 1024 * 1024 // 256MB limit
+  private var currentMemoryUsage: Int = 0
+  
+  // Command buffer queue for async execution - using UUID for tracking
+  private var commandBufferQueue: [String: MTLCommandBuffer] = [:]
+  private let commandQueueLock = NSLock()
+  private var isAsyncMode = false
+  
+  // Optimized threadgroup sizes based on problem size
+  private func getOptimalThreadgroupSize(width: Int, height: Int = 1) -> MTLSize {
+    let device = config.device
+    
+    // Apple Silicon optimized sizes
+    if device.name.contains("Apple") {
+      if width * height > 100000 {
+        return MTLSize(width: 32, height: 32, depth: 1) // Large problems
+      } else if width * height > 10000 {
+        return MTLSize(width: 16, height: 16, depth: 1) // Medium problems
+      } else {
+        return MTLSize(width: 8, height: 8, depth: 1)   // Small problems
+      }
+    }
+    
+    // Intel/AMD GPU optimized sizes
+    if width * height > 50000 {
+      return MTLSize(width: 16, height: 16, depth: 1)
+    } else {
+      return MTLSize(width: 8, height: 8, depth: 1)
+    }
+  }
+  
+  private func getOptimal1DThreadgroupSize(elementCount: Int) -> Int {
+    let device = config.device
+    
+    // Apple Silicon can handle larger threadgroups
+    if device.name.contains("Apple") {
+      if elementCount > 100000 {
+        return 1024
+      } else if elementCount > 10000 {
+        return 512
+      } else {
+        return 256
+      }
+    }
+    
+    // Conservative sizes for other GPUs
+    return elementCount > 10000 ? 256 : 128
+  }
+  
+  private func getOptimalTileSize(aRows: Int, aCols: Int, bCols: Int) -> Int {
+    let totalElements = aRows * aCols * bCols
+    
+    // Larger tiles for bigger problems, but limited by shared memory
+    if totalElements > 1000000 {
+      return 32
+    } else if totalElements > 100000 {
+      return 16
+    } else {
+      return 8
+    }
+  }
+  
   public init?(configuration: MetalConfiguration? = nil) {
     if let config = configuration {
       self.config = config
@@ -122,16 +189,523 @@ public class NumSwiftMetal {
     }
   }
   
-  // MARK: - Buffer Management
+  private func shouldUseParallelReduction(for elementCount: Int) -> Bool {
+    // Use parallel reduction for arrays larger than 4096 elements
+    // Below this threshold, the overhead of parallel reduction isn't worth it
+    return elementCount > 4096
+  }
+  
+  private func shouldUseTiledMatmul(aRows: Int, aCols: Int, bCols: Int) -> Bool {
+    // Use tiled matrix multiplication for larger matrices
+    // The tile size is 16x16, so it's beneficial when at least one dimension is > 32
+    let totalOps = aRows * aCols * bCols
+    return totalOps > 32768 && (aRows >= 32 || aCols >= 32 || bCols >= 32)
+  }
+  
+  private func shouldUseOptimizedConv(inputHeight: Int, inputWidth: Int, filterSize: Int) -> Bool {
+    // Use optimized convolution for larger inputs or small filter sizes
+    let inputSize = inputHeight * inputWidth
+    return inputSize > 1024 || filterSize <= 5
+  }
+  
+  // MARK: - Optimized Buffer Management
   
   private func createBuffer<T>(from data: [T], type: T.Type) -> MTLBuffer? {
     let size = data.count * MemoryLayout<T>.stride
-    return config.device.makeBuffer(bytes: data, length: size, options: .storageModeShared)
+    
+    // Try to get buffer from pool first
+    if let buffer = getBufferFromPool(size: size) {
+      // Copy data to reused buffer
+      let bufferPointer = buffer.contents().bindMemory(to: T.self, capacity: data.count)
+      data.withUnsafeBufferPointer { dataPtr in
+        bufferPointer.initialize(from: dataPtr.baseAddress!, count: data.count)
+      }
+      return buffer
+    }
+    
+    // Create new buffer if pool is empty
+    let buffer = config.device.makeBuffer(bytes: data, length: size, options: .storageModeShared)
+    currentMemoryUsage += size
+    updateMemoryPressure()
+    return buffer
   }
   
   private func createBuffer<T>(count: Int, type: T.Type) -> MTLBuffer? {
     let size = count * MemoryLayout<T>.stride
-    return config.device.makeBuffer(length: size, options: .storageModeShared)
+    
+    // Try to get buffer from pool first
+    if let buffer = getBufferFromPool(size: size) {
+      return buffer
+    }
+    
+    // Create new buffer if pool is empty
+    let buffer = config.device.makeBuffer(length: size, options: .storageModeShared)
+    currentMemoryUsage += size
+    updateMemoryPressure()
+    return buffer
+  }
+  
+  private func getBufferFromPool(size: Int) -> MTLBuffer? {
+    bufferPoolLock.lock()
+    defer { bufferPoolLock.unlock() }
+    
+    // Round size to nearest power of 2 for better pooling
+    let poolKey = nextPowerOfTwo(size)
+    
+    if var buffers = bufferPool[poolKey], !buffers.isEmpty {
+      let buffer = buffers.removeLast()
+      bufferPool[poolKey] = buffers
+      return buffer
+    }
+    
+    return nil
+  }
+  
+  private func returnBufferToPool(_ buffer: MTLBuffer) {
+    bufferPoolLock.lock()
+    defer { bufferPoolLock.unlock() }
+    
+    let poolKey = nextPowerOfTwo(buffer.length)
+    
+    if bufferPool[poolKey] == nil {
+      bufferPool[poolKey] = []
+    }
+    
+    // Check memory pressure before returning to pool
+    if bufferPool[poolKey]!.count < maxPoolSize && currentMemoryUsage < maxMemoryUsage {
+      bufferPool[poolKey]!.append(buffer)
+      currentMemoryUsage += buffer.length
+    } else {
+      // Release buffer to reduce memory pressure
+      currentMemoryUsage = Swift.max(0, currentMemoryUsage - buffer.length)
+    }
+    
+    updateMemoryPressure()
+  }
+  
+  private func nextPowerOfTwo(_ value: Int) -> Int {
+    guard value > 1 else { return 1 }
+    return 1 << (64 - value.leadingZeroBitCount)
+  }
+  
+  // Clean up memory pool when needed
+  public func cleanupMemoryPool() {
+    bufferPoolLock.lock()
+    defer { bufferPoolLock.unlock() }
+    
+    var totalFreed = 0
+    
+    // Clear buffers based on memory pressure
+    for (size, buffers) in bufferPool {
+      let keepCount = memoryPressure > 0.7 ? buffers.count / 4 : buffers.count / 2
+      let freedBuffers = buffers.dropFirst(keepCount)
+      
+      for buffer in freedBuffers {
+        totalFreed += buffer.length
+      }
+      
+      bufferPool[size] = Array(buffers.prefix(keepCount))
+    }
+    
+    currentMemoryUsage -= totalFreed
+    updateMemoryPressure()
+  }
+  
+  private func updateMemoryPressure() {
+    memoryPressure = Double(currentMemoryUsage) / Double(maxMemoryUsage)
+    
+    // Aggressive cleanup if memory pressure is very high
+    if memoryPressure > 0.9 {
+      bufferPool.removeAll()
+      currentMemoryUsage = 0
+      memoryPressure = 0.0
+    }
+  }
+  
+  // MARK: - Async Execution Management
+  
+  public func setAsyncMode(_ enabled: Bool) {
+    isAsyncMode = enabled
+  }
+  
+  // Memory monitoring API
+  public func getMemoryUsage() -> (current: Int, max: Int, pressure: Double) {
+    return (currentMemoryUsage, maxMemoryUsage, memoryPressure)
+  }
+  
+  public func forceMemoryCleanup() {
+    cleanupMemoryPool()
+  }
+  
+  public func waitForCompletion() {
+    commandQueueLock.lock()
+    defer { commandQueueLock.unlock() }
+    
+    for (_, commandBuffer) in commandBufferQueue {
+      commandBuffer.waitUntilCompleted()
+    }
+    commandBufferQueue.removeAll()
+  }
+  
+  private func executeCommandAsync(
+    _ commandBuffer: MTLCommandBuffer,
+    completion: @escaping () -> Void = {}
+  ) {
+    let commandId = UUID().uuidString
+    
+    commandQueueLock.lock()
+    commandBufferQueue[commandId] = commandBuffer
+    commandQueueLock.unlock()
+    
+    commandBuffer.addCompletedHandler { [weak self] _ in
+      self?.commandQueueLock.lock()
+      self?.commandBufferQueue.removeValue(forKey: commandId)
+      self?.commandQueueLock.unlock()
+      completion()
+    }
+    
+    commandBuffer.commit()
+  }
+  
+  // MARK: - Parallel Reduction Helper
+  
+  private func executeParallelReduction<T>(
+    pipeline: MTLComputePipelineState,
+    inputBuffer: MTLBuffer,
+    elementCount: Int,
+    type: T.Type,
+    finalReduction: @escaping ([T]) -> T
+  ) -> T? {
+    let threadsPerThreadgroup = getOptimal1DThreadgroupSize(elementCount: elementCount)
+    let threadgroups = (elementCount + threadsPerThreadgroup - 1) / threadsPerThreadgroup
+    let sharedMemorySize = threadsPerThreadgroup * MemoryLayout<T>.stride
+    
+    guard let resultBuffer = createBuffer(count: threadgroups, type: type),
+          let sizeBuffer = createBuffer(from: [UInt32(elementCount)], type: UInt32.self) else {
+      return nil
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return nil
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(inputBuffer, offset: 0, index: 0)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 1)
+    encoder.setBuffer(sizeBuffer, offset: 0, index: 2)
+    encoder.setThreadgroupMemoryLength(sharedMemorySize, index: 0)
+    
+    let threadgroupSize = MTLSize(width: threadsPerThreadgroup, height: 1, depth: 1)
+    let threadgroupCount = MTLSize(width: threadgroups, height: 1, depth: 1)
+    
+    encoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
+    encoder.endEncoding()
+    
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
+    
+    // Get partial results from each threadgroup
+    let resultPointer = resultBuffer.contents().bindMemory(to: type, capacity: threadgroups)
+    let partialResults = Array(UnsafeBufferPointer(start: resultPointer, count: threadgroups))
+    
+    // Final reduction on CPU (small array now)
+    return finalReduction(partialResults)
+  }
+  
+  // MARK: - Tiled Matrix Multiplication Helper
+  
+  private func executeTiledMatmul<T>(
+    pipeline: MTLComputePipelineState,
+    aBuffer: MTLBuffer,
+    bBuffer: MTLBuffer,
+    aRows: Int,
+    aCols: Int,
+    bCols: Int,
+    type: T.Type
+  ) -> MTLBuffer? {
+    let tileSize = getOptimalTileSize(aRows: aRows, aCols: aCols, bCols: bCols)
+    let sharedMemorySize = tileSize * tileSize * MemoryLayout<T>.stride
+    
+    let aSize = NSC_Size(rows: Int32(aRows), columns: Int32(aCols))
+    let bSize = NSC_Size(rows: Int32(aCols), columns: Int32(bCols))
+    
+    guard let resultBuffer = createBuffer(count: aRows * bCols, type: type),
+          let aSizeBuffer = createBuffer(from: [aSize], type: NSC_Size.self),
+          let bSizeBuffer = createBuffer(from: [bSize], type: NSC_Size.self) else {
+      return nil
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return nil
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(aBuffer, offset: 0, index: 0)
+    encoder.setBuffer(bBuffer, offset: 0, index: 1)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 2)
+    encoder.setBuffer(aSizeBuffer, offset: 0, index: 3)
+    encoder.setBuffer(bSizeBuffer, offset: 0, index: 4)
+    encoder.setThreadgroupMemoryLength(sharedMemorySize, index: 0) // shared_a
+    encoder.setThreadgroupMemoryLength(sharedMemorySize, index: 1) // shared_b
+    
+    let threadsPerThreadgroup = MTLSize(width: tileSize, height: tileSize, depth: 1)
+    let threadgroups = MTLSize(
+      width: (bCols + tileSize - 1) / tileSize,
+      height: (aRows + tileSize - 1) / tileSize,
+      depth: 1
+    )
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
+    
+    return resultBuffer
+  }
+  
+  // MARK: - Batched Operations (Neural Network Optimized)
+  
+  public func batchedMatmul(_ a: [[[Float]]], _ b: [[[Float]]]) -> [[[Float]]] {
+    guard a.count == b.count else {
+      fatalError("Batch sizes must match")
+    }
+    
+    let batchSize = a.count
+    guard batchSize > 0 else { return [] }
+    
+    let aRows = a[0].count
+    let aCols = a[0][0].count
+    let bRows = b[0].count
+    let bCols = b[0][0].count
+    
+    guard aCols == bRows else {
+      fatalError("Matrix dimensions don't match for multiplication")
+    }
+    
+    let elementCount = batchSize * aRows * bCols
+    
+    if !shouldUseMetal(for: elementCount) {
+      // CPU fallback - process each batch individually
+      var results = [[[Float]]]()
+      for i in 0..<batchSize {
+        results.append(matmul(a[i], b[i]))
+      }
+      return results
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_batched_matmul_float_kernel") else {
+      // Fallback to individual matrix multiplications
+      var results = [[[Float]]]()
+      for i in 0..<batchSize {
+        results.append(matmul(a[i], b[i]))
+      }
+      return results
+    }
+    
+    // Flatten all batches into single arrays
+    let aFlat = a.flatMap { $0.flatMap { $0 } }
+    let bFlat = b.flatMap { $0.flatMap { $0 } }
+    
+    let aSize = NSC_Size(rows: Int32(aRows), columns: Int32(aCols))
+    let bSize = NSC_Size(rows: Int32(bRows), columns: Int32(bCols))
+    
+    guard let aBuffer = createBuffer(from: aFlat, type: Float.self),
+          let bBuffer = createBuffer(from: bFlat, type: Float.self),
+          let resultBuffer = createBuffer(count: batchSize * aRows * bCols, type: Float.self),
+          let aSizeBuffer = createBuffer(from: [aSize], type: NSC_Size.self),
+          let bSizeBuffer = createBuffer(from: [bSize], type: NSC_Size.self),
+          let batchSizeBuffer = createBuffer(from: [UInt32(batchSize)], type: UInt32.self) else {
+      // Fallback to individual matrix multiplications
+      var results = [[[Float]]]()
+      for i in 0..<batchSize {
+        results.append(matmul(a[i], b[i]))
+      }
+      return results
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(aBuffer, offset: 0, index: 0)
+    encoder.setBuffer(bBuffer, offset: 0, index: 1)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 2)
+    encoder.setBuffer(aSizeBuffer, offset: 0, index: 3)
+    encoder.setBuffer(bSizeBuffer, offset: 0, index: 4)
+    encoder.setBuffer(batchSizeBuffer, offset: 0, index: 5)
+    
+    let threadsPerThreadgroup = getOptimalThreadgroupSize(width: 256, height: 1)
+    let threadgroups = MTLSize(
+      width: (bCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
+      height: (aRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
+      depth: batchSize
+    )
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: batchSize * aRows * bCols)
+    let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: batchSize * aRows * bCols))
+    
+    // Convert back to 3D array
+    var results = [[[Float]]]()
+    for batch in 0..<batchSize {
+      var batchResult = [[Float]]()
+      for row in 0..<aRows {
+        let startIndex = batch * aRows * bCols + row * bCols
+        let endIndex = startIndex + bCols
+        batchResult.append(Array(resultFlat[startIndex..<endIndex]))
+      }
+      results.append(batchResult)
+    }
+    
+    return results
+  }
+  
+  public func batchedMatmul(_ a: [[[Float16]]], _ b: [[[Float16]]]) -> [[[Float16]]] {
+    guard a.count == b.count else {
+      fatalError("Batch sizes must match")
+    }
+    
+    let batchSize = a.count
+    guard batchSize > 0 else { return [] }
+    
+    let aRows = a[0].count
+    let aCols = a[0][0].count
+    let bRows = b[0].count
+    let bCols = b[0][0].count
+    
+    guard aCols == bRows else {
+      fatalError("Matrix dimensions don't match for multiplication")
+    }
+    
+    let elementCount = batchSize * aRows * bCols
+    
+    if !shouldUseMetal(for: elementCount) {
+      // CPU fallback - process each batch individually
+      var results = [[[Float16]]]()
+      for i in 0..<batchSize {
+        results.append(matmul(a[i], b[i]))
+      }
+      return results
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_batched_matmul_kernel") else {
+      // Fallback to individual matrix multiplications
+      var results = [[[Float16]]]()
+      for i in 0..<batchSize {
+        results.append(matmul(a[i], b[i]))
+      }
+      return results
+    }
+    
+    // Flatten all batches into single arrays
+    let aFlat = a.flatMap { $0.flatMap { $0 } }
+    let bFlat = b.flatMap { $0.flatMap { $0 } }
+    
+    let aSize = NSC_Size(rows: Int32(aRows), columns: Int32(aCols))
+    let bSize = NSC_Size(rows: Int32(bRows), columns: Int32(bCols))
+    
+    guard let aBuffer = createBuffer(from: aFlat, type: Float16.self),
+          let bBuffer = createBuffer(from: bFlat, type: Float16.self),
+          let resultBuffer = createBuffer(count: batchSize * aRows * bCols, type: Float16.self),
+          let aSizeBuffer = createBuffer(from: [aSize], type: NSC_Size.self),
+          let bSizeBuffer = createBuffer(from: [bSize], type: NSC_Size.self),
+          let batchSizeBuffer = createBuffer(from: [UInt32(batchSize)], type: UInt32.self) else {
+      // Fallback to individual matrix multiplications
+      var results = [[[Float16]]]()
+      for i in 0..<batchSize {
+        results.append(matmul(a[i], b[i]))
+      }
+      return results
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(aBuffer, offset: 0, index: 0)
+    encoder.setBuffer(bBuffer, offset: 0, index: 1)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 2)
+    encoder.setBuffer(aSizeBuffer, offset: 0, index: 3)
+    encoder.setBuffer(bSizeBuffer, offset: 0, index: 4)
+    encoder.setBuffer(batchSizeBuffer, offset: 0, index: 5)
+    
+    let threadsPerThreadgroup = getOptimalThreadgroupSize(width: 256, height: 1)
+    let threadgroups = MTLSize(
+      width: (bCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
+      height: (aRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
+      depth: batchSize
+    )
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: batchSize * aRows * bCols)
+    let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: batchSize * aRows * bCols))
+    
+    // Convert back to 3D array
+    var results = [[[Float16]]]()
+    for batch in 0..<batchSize {
+      var batchResult = [[Float16]]()
+      for row in 0..<aRows {
+        let startIndex = batch * aRows * bCols + row * bCols
+        let endIndex = startIndex + bCols
+        batchResult.append(Array(resultFlat[startIndex..<endIndex]))
+      }
+      results.append(batchResult)
+    }
+    
+    return results
   }
   
   // MARK: - Basic Array Operations
@@ -143,8 +717,27 @@ public class NumSwiftMetal {
       return array.reduce(0, +)
     }
     
+    guard let inputBuffer = createBuffer(from: array, type: Float.self) else {
+      return array.reduce(0, +)
+    }
+    
+    // Use parallel reduction for large arrays
+    if shouldUseParallelReduction(for: elementCount) {
+      guard let pipeline = computePipeline(for: "nsc_parallel_sum_float_kernel") else {
+        return array.reduce(0, +)
+      }
+      
+      return executeParallelReduction(
+        pipeline: pipeline,
+        inputBuffer: inputBuffer,
+        elementCount: elementCount,
+        type: Float.self,
+        finalReduction: { $0.reduce(0, +) }
+      ) ?? array.reduce(0, +)
+    }
+    
+    // Use single-threaded kernel for smaller arrays
     guard let pipeline = computePipeline(for: "nsc_sum_float_kernel"),
-          let inputBuffer = createBuffer(from: array, type: Float.self),
           let resultBuffer = createBuffer(count: 1, type: Float.self),
           let sizeBuffer = createBuffer(from: [UInt32(elementCount)], type: UInt32.self) else {
       return array.reduce(0, +)
@@ -166,8 +759,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: 1)
     return resultPointer[0]
@@ -182,8 +784,41 @@ public class NumSwiftMetal {
       }
     }
     
+    guard let inputBuffer = createBuffer(from: array, type: Float16.self) else {
+      return array.withUnsafeBufferPointer { ptr in
+        return nsc_sum(ptr.baseAddress!)
+      }
+    }
+    
+    // Use parallel reduction for large arrays
+    if shouldUseParallelReduction(for: elementCount) {
+      guard let pipeline = computePipeline(for: "nsc_parallel_sum_kernel") else {
+        return array.withUnsafeBufferPointer { ptr in
+          return nsc_sum(ptr.baseAddress!)
+        }
+      }
+      
+      return executeParallelReduction(
+        pipeline: pipeline,
+        inputBuffer: inputBuffer,
+        elementCount: elementCount,
+        type: Float16.self,
+        finalReduction: { partialResults in
+          return partialResults.withUnsafeBufferPointer { ptr in
+            var result: Float16 = 0
+            for i in 0..<partialResults.count {
+              result += ptr[i]
+            }
+            return result
+          }
+        }
+      ) ?? array.withUnsafeBufferPointer { ptr in
+        return nsc_sum(ptr.baseAddress!)
+      }
+    }
+    
+    // Use single-threaded kernel for smaller arrays
     guard let pipeline = computePipeline(for: "nsc_sum_kernel"),
-          let inputBuffer = createBuffer(from: array, type: Float16.self),
           let resultBuffer = createBuffer(count: 1, type: Float16.self),
           let sizeBuffer = createBuffer(from: [UInt32(elementCount)], type: UInt32.self) else {
       // Fallback to CPU implementation
@@ -208,8 +843,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: 1)
     return resultPointer[0]
@@ -222,8 +866,27 @@ public class NumSwiftMetal {
       return array.max() ?? 0
     }
     
+    guard let inputBuffer = createBuffer(from: array, type: Float.self) else {
+      return array.max() ?? 0
+    }
+    
+    // Use parallel reduction for large arrays
+    if shouldUseParallelReduction(for: elementCount) {
+      guard let pipeline = computePipeline(for: "nsc_parallel_max_float_kernel") else {
+        return array.max() ?? 0
+      }
+      
+      return executeParallelReduction(
+        pipeline: pipeline,
+        inputBuffer: inputBuffer,
+        elementCount: elementCount,
+        type: Float.self,
+        finalReduction: { $0.max() ?? -Float.infinity }
+      ) ?? array.max() ?? 0
+    }
+    
+    // Use single-threaded kernel for smaller arrays
     guard let pipeline = computePipeline(for: "nsc_max_float_kernel"),
-          let inputBuffer = createBuffer(from: array, type: Float.self),
           let resultBuffer = createBuffer(count: 1, type: Float.self),
           let sizeBuffer = createBuffer(from: [UInt32(elementCount)], type: UInt32.self) else {
       return array.max() ?? 0
@@ -245,8 +908,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: 1)
     return resultPointer[0]
@@ -259,8 +931,27 @@ public class NumSwiftMetal {
       return array.min() ?? 0
     }
     
+    guard let inputBuffer = createBuffer(from: array, type: Float.self) else {
+      return array.min() ?? 0
+    }
+    
+    // Use parallel reduction for large arrays
+    if shouldUseParallelReduction(for: elementCount) {
+      guard let pipeline = computePipeline(for: "nsc_parallel_min_float_kernel") else {
+        return array.min() ?? 0
+      }
+      
+      return executeParallelReduction(
+        pipeline: pipeline,
+        inputBuffer: inputBuffer,
+        elementCount: elementCount,
+        type: Float.self,
+        finalReduction: { $0.min() ?? Float.infinity }
+      ) ?? array.min() ?? 0
+    }
+    
+    // Use single-threaded kernel for smaller arrays
     guard let pipeline = computePipeline(for: "nsc_min_float_kernel"),
-          let inputBuffer = createBuffer(from: array, type: Float.self),
           let resultBuffer = createBuffer(count: 1, type: Float.self),
           let sizeBuffer = createBuffer(from: [UInt32(elementCount)], type: UInt32.self) else {
       return array.min() ?? 0
@@ -282,8 +973,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: 1)
     return resultPointer[0]
@@ -298,8 +998,41 @@ public class NumSwiftMetal {
       }
     }
     
+    guard let inputBuffer = createBuffer(from: array, type: Float16.self) else {
+      return array.withUnsafeBufferPointer { ptr in
+        return nsc_max(ptr.baseAddress!)
+      }
+    }
+    
+    // Use parallel reduction for large arrays
+    if shouldUseParallelReduction(for: elementCount) {
+      guard let pipeline = computePipeline(for: "nsc_parallel_max_kernel") else {
+        return array.withUnsafeBufferPointer { ptr in
+          return nsc_max(ptr.baseAddress!)
+        }
+      }
+      
+      return executeParallelReduction(
+        pipeline: pipeline,
+        inputBuffer: inputBuffer,
+        elementCount: elementCount,
+        type: Float16.self,
+        finalReduction: { partialResults in
+          var maxVal: Float16 = -Float16.infinity
+          for val in partialResults {
+            if val > maxVal {
+              maxVal = val
+            }
+          }
+          return maxVal
+        }
+      ) ?? array.withUnsafeBufferPointer { ptr in
+        return nsc_max(ptr.baseAddress!)
+      }
+    }
+    
+    // Use single-threaded kernel for smaller arrays
     guard let pipeline = computePipeline(for: "nsc_max_kernel"),
-          let inputBuffer = createBuffer(from: array, type: Float16.self),
           let resultBuffer = createBuffer(count: 1, type: Float16.self),
           let sizeBuffer = createBuffer(from: [UInt32(elementCount)], type: UInt32.self) else {
       return array.withUnsafeBufferPointer { ptr in
@@ -323,8 +1056,100 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: 1)
+    return resultPointer[0]
+  }
+  
+  public func min(_ array: [Float16]) -> Float16 {
+    let elementCount = array.count
+    
+    if !shouldUseMetal(for: elementCount) {
+      return array.withUnsafeBufferPointer { ptr in
+        return nsc_min(ptr.baseAddress!)
+      }
+    }
+    
+    guard let inputBuffer = createBuffer(from: array, type: Float16.self) else {
+      return array.withUnsafeBufferPointer { ptr in
+        return nsc_min(ptr.baseAddress!)
+      }
+    }
+    
+    // Use parallel reduction for large arrays
+    if shouldUseParallelReduction(for: elementCount) {
+      guard let pipeline = computePipeline(for: "nsc_parallel_min_kernel") else {
+        return array.withUnsafeBufferPointer { ptr in
+          return nsc_min(ptr.baseAddress!)
+        }
+      }
+      
+      return executeParallelReduction(
+        pipeline: pipeline,
+        inputBuffer: inputBuffer,
+        elementCount: elementCount,
+        type: Float16.self,
+        finalReduction: { partialResults in
+          var minVal: Float16 = Float16.infinity
+          for val in partialResults {
+            if val < minVal {
+              minVal = val
+            }
+          }
+          return minVal
+        }
+      ) ?? array.withUnsafeBufferPointer { ptr in
+        return nsc_min(ptr.baseAddress!)
+      }
+    }
+    
+    // Use single-threaded kernel for smaller arrays
+    guard let pipeline = computePipeline(for: "nsc_min_kernel"),
+          let resultBuffer = createBuffer(count: 1, type: Float16.self),
+          let sizeBuffer = createBuffer(from: [UInt32(elementCount)], type: UInt32.self) else {
+      return array.withUnsafeBufferPointer { ptr in
+        return nsc_min(ptr.baseAddress!)
+      }
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return 0
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(inputBuffer, offset: 0, index: 0)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 1)
+    encoder.setBuffer(sizeBuffer, offset: 0, index: 2)
+    
+    let threadgroupSize = MTLSize(width: 1, height: 1, depth: 1)
+    let threadgroups = MTLSize(width: 1, height: 1, depth: 1)
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
+    encoder.endEncoding()
+    
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: 1)
     return resultPointer[0]
@@ -365,8 +1190,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
     return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
@@ -405,8 +1239,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
     return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
@@ -462,8 +1305,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: elementCount)
     return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
@@ -502,8 +1354,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
     return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
@@ -542,8 +1403,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
     return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
@@ -599,8 +1469,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: elementCount)
     return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
@@ -636,49 +1515,78 @@ public class NumSwiftMetal {
       return result
     }
     
-    guard let pipeline = computePipeline(for: "nsc_matmul_float_kernel") else {
-      fatalError("Failed to create matmul pipeline")
-    }
-    
     let aFlat = a.flatMap { $0 }
     let bFlat = b.flatMap { $0 }
-    let aSize = NSC_Size(rows: Int32(aRows), columns: Int32(aCols))
-    let bSize = NSC_Size(rows: Int32(bRows), columns: Int32(bCols))
     
     guard let aBuffer = createBuffer(from: aFlat, type: Float.self),
-          let bBuffer = createBuffer(from: bFlat, type: Float.self),
-          let resultBuffer = createBuffer(count: aRows * bCols, type: Float.self),
-          let aSizeBuffer = createBuffer(from: [aSize], type: NSC_Size.self),
-          let bSizeBuffer = createBuffer(from: [bSize], type: NSC_Size.self) else {
+          let bBuffer = createBuffer(from: bFlat, type: Float.self) else {
       fatalError("Failed to create buffers")
     }
     
-    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
-          let encoder = commandBuffer.makeComputeCommandEncoder() else {
-      return []
+    // Use tiled matrix multiplication for large matrices
+    let resultBuffer: MTLBuffer?
+    if shouldUseTiledMatmul(aRows: aRows, aCols: aCols, bCols: bCols) {
+      guard let pipeline = computePipeline(for: "nsc_tiled_matmul_float_kernel") else {
+        fatalError("Failed to create tiled matmul pipeline")
+      }
+      
+      resultBuffer = executeTiledMatmul(
+        pipeline: pipeline,
+        aBuffer: aBuffer,
+        bBuffer: bBuffer,
+        aRows: aRows,
+        aCols: aCols,
+        bCols: bCols,
+        type: Float.self
+      )
+    } else {
+      // Use simple matrix multiplication for smaller matrices
+      guard let pipeline = computePipeline(for: "nsc_matmul_float_kernel") else {
+        fatalError("Failed to create matmul pipeline")
+      }
+      
+      let aSize = NSC_Size(rows: Int32(aRows), columns: Int32(aCols))
+      let bSize = NSC_Size(rows: Int32(bRows), columns: Int32(bCols))
+      
+      guard let buffer = createBuffer(count: aRows * bCols, type: Float.self),
+            let aSizeBuffer = createBuffer(from: [aSize], type: NSC_Size.self),
+            let bSizeBuffer = createBuffer(from: [bSize], type: NSC_Size.self) else {
+        fatalError("Failed to create buffers")
+      }
+      
+      guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+            let encoder = commandBuffer.makeComputeCommandEncoder() else {
+        return []
+      }
+      
+      encoder.setComputePipelineState(pipeline)
+      encoder.setBuffer(aBuffer, offset: 0, index: 0)
+      encoder.setBuffer(bBuffer, offset: 0, index: 1)
+      encoder.setBuffer(buffer, offset: 0, index: 2)
+      encoder.setBuffer(aSizeBuffer, offset: 0, index: 3)
+      encoder.setBuffer(bSizeBuffer, offset: 0, index: 4)
+      
+      let threadsPerThreadgroup = getOptimalThreadgroupSize(width: 256, height: 1)
+      let threadgroups = MTLSize(
+        width: (bCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
+        height: (aRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
+        depth: 1
+      )
+      
+      encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+      encoder.endEncoding()
+      
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+      
+      resultBuffer = buffer
     }
     
-    encoder.setComputePipelineState(pipeline)
-    encoder.setBuffer(aBuffer, offset: 0, index: 0)
-    encoder.setBuffer(bBuffer, offset: 0, index: 1)
-    encoder.setBuffer(resultBuffer, offset: 0, index: 2)
-    encoder.setBuffer(aSizeBuffer, offset: 0, index: 3)
-    encoder.setBuffer(bSizeBuffer, offset: 0, index: 4)
+    guard let finalBuffer = resultBuffer else {
+      fatalError("Matrix multiplication failed")
+    }
     
-    let threadsPerThreadgroup = MTLSize(width: 16, height: 16, depth: 1)
-    let threadgroups = MTLSize(
-      width: (bCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
-      height: (aRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
-      depth: 1
-    )
-    
-    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
-    encoder.endEncoding()
-    
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
-    
-    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: aRows * bCols)
+    let resultPointer = finalBuffer.contents().bindMemory(to: Float.self, capacity: aRows * bCols)
     let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: aRows * bCols))
     
     var result = [[Float]]()
@@ -711,50 +1619,83 @@ public class NumSwiftMetal {
       return NumSwiftC.matmul(a, b: b, aSize: (aRows, aCols), bSize: (bRows, bCols))
     }
     
-    // Metal implementation
-    guard let pipeline = computePipeline(for: "nsc_matmul_kernel") else {
-      fatalError("Failed to create matmul pipeline")
-    }
-    
     let aFlat = a.flatMap { $0 }
     let bFlat = b.flatMap { $0 }
-    let aSize = NSC_Size(rows: Int32(aRows), columns: Int32(aCols))
-    let bSize = NSC_Size(rows: Int32(bRows), columns: Int32(bCols))
     
     guard let aBuffer = createBuffer(from: aFlat, type: Float16.self),
-          let bBuffer = createBuffer(from: bFlat, type: Float16.self),
-          let resultBuffer = createBuffer(count: aRows * bCols, type: Float16.self),
-          let aSizeBuffer = createBuffer(from: [aSize], type: NSC_Size.self),
-          let bSizeBuffer = createBuffer(from: [bSize], type: NSC_Size.self) else {
-      fatalError("Failed to create buffers")
+          let bBuffer = createBuffer(from: bFlat, type: Float16.self) else {
+      // Fallback to CPU implementation
+      return NumSwiftC.matmul(a, b: b, aSize: (aRows, aCols), bSize: (bRows, bCols))
     }
     
-    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
-          let encoder = commandBuffer.makeComputeCommandEncoder() else {
-      return []
+    // Use tiled matrix multiplication for large matrices
+    let resultBuffer: MTLBuffer?
+    if shouldUseTiledMatmul(aRows: aRows, aCols: aCols, bCols: bCols) {
+      guard let pipeline = computePipeline(for: "nsc_tiled_matmul_kernel") else {
+        // Fallback to CPU implementation
+        return NumSwiftC.matmul(a, b: b, aSize: (aRows, aCols), bSize: (bRows, bCols))
+      }
+      
+      resultBuffer = executeTiledMatmul(
+        pipeline: pipeline,
+        aBuffer: aBuffer,
+        bBuffer: bBuffer,
+        aRows: aRows,
+        aCols: aCols,
+        bCols: bCols,
+        type: Float16.self
+      )
+    } else {
+      // Use simple matrix multiplication for smaller matrices
+      guard let pipeline = computePipeline(for: "nsc_matmul_kernel") else {
+        // Fallback to CPU implementation
+        return NumSwiftC.matmul(a, b: b, aSize: (aRows, aCols), bSize: (bRows, bCols))
+      }
+      
+      let aSize = NSC_Size(rows: Int32(aRows), columns: Int32(aCols))
+      let bSize = NSC_Size(rows: Int32(bRows), columns: Int32(bCols))
+      
+      guard let buffer = createBuffer(count: aRows * bCols, type: Float16.self),
+            let aSizeBuffer = createBuffer(from: [aSize], type: NSC_Size.self),
+            let bSizeBuffer = createBuffer(from: [bSize], type: NSC_Size.self) else {
+        // Fallback to CPU implementation
+        return NumSwiftC.matmul(a, b: b, aSize: (aRows, aCols), bSize: (bRows, bCols))
+      }
+      
+      guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+            let encoder = commandBuffer.makeComputeCommandEncoder() else {
+        return []
+      }
+      
+      encoder.setComputePipelineState(pipeline)
+      encoder.setBuffer(aBuffer, offset: 0, index: 0)
+      encoder.setBuffer(bBuffer, offset: 0, index: 1)
+      encoder.setBuffer(buffer, offset: 0, index: 2)
+      encoder.setBuffer(aSizeBuffer, offset: 0, index: 3)
+      encoder.setBuffer(bSizeBuffer, offset: 0, index: 4)
+      
+      let threadsPerThreadgroup = getOptimalThreadgroupSize(width: 256, height: 1)
+      let threadgroups = MTLSize(
+        width: (bCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
+        height: (aRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
+        depth: 1
+      )
+      
+      encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+      encoder.endEncoding()
+      
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+      
+      resultBuffer = buffer
     }
     
-    encoder.setComputePipelineState(pipeline)
-    encoder.setBuffer(aBuffer, offset: 0, index: 0)
-    encoder.setBuffer(bBuffer, offset: 0, index: 1)
-    encoder.setBuffer(resultBuffer, offset: 0, index: 2)
-    encoder.setBuffer(aSizeBuffer, offset: 0, index: 3)
-    encoder.setBuffer(bSizeBuffer, offset: 0, index: 4)
+    guard let finalBuffer = resultBuffer else {
+      // Fallback to CPU implementation
+      return NumSwiftC.matmul(a, b: b, aSize: (aRows, aCols), bSize: (bRows, bCols))
+    }
     
-    let threadsPerThreadgroup = MTLSize(width: 16, height: 16, depth: 1)
-    let threadgroups = MTLSize(
-      width: (bCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
-      height: (aRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
-      depth: 1
-    )
-    
-    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
-    encoder.endEncoding()
-    
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
-    
-    let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: aRows * bCols)
+    let resultPointer = finalBuffer.contents().bindMemory(to: Float16.self, capacity: aRows * bCols)
     let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: aRows * bCols))
     
     // Convert back to 2D array
@@ -847,7 +1788,7 @@ public class NumSwiftMetal {
     encoder.setBuffer(strideSizeBuffer, offset: 0, index: 5)
     encoder.setBuffer(resultSizeBuffer, offset: 0, index: 6)
     
-    let threadsPerThreadgroup = MTLSize(width: 16, height: 16, depth: 1)
+    let threadsPerThreadgroup = getOptimalThreadgroupSize(width: 256, height: 1)
     let threadgroups = MTLSize(
       width: (inputCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
       height: (inputRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
@@ -857,8 +1798,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: outputRows * outputCols))
     
@@ -965,7 +1915,7 @@ public class NumSwiftMetal {
     encoder.setBuffer(strideSizeBuffer, offset: 0, index: 5)
     encoder.setBuffer(resultSizeBuffer, offset: 0, index: 6)
     
-    let threadsPerThreadgroup = MTLSize(width: 16, height: 16, depth: 1)
+    let threadsPerThreadgroup = getOptimalThreadgroupSize(width: 256, height: 1)
     let threadgroups = MTLSize(
       width: (inputCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
       height: (inputRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
@@ -975,8 +1925,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: outputRows * outputCols))
     
@@ -1062,12 +2021,38 @@ public class NumSwiftMetal {
                               inputSize: (inputRows, inputCols))
     }
     
-    guard let pipeline = computePipeline(for: "nsc_conv2d_float_kernel") else {
-      fatalError("Failed to create conv2d pipeline")
-    }
-    
     let signalFlat = signal.flatMap { $0 }
     let filterFlat = filter.flatMap { $0 }
+    
+    guard let signalBuffer = createBuffer(from: signalFlat, type: Float.self),
+          let filterBuffer = createBuffer(from: filterFlat, type: Float.self) else {
+      return NumSwiftC.conv2d(signal: signal,
+                              filter: filter,
+                              strides: stride,
+                              padding: padding,
+                              filterSize: (filterRows, filterCols),
+                              inputSize: (inputRows, inputCols))
+    }
+    
+    // Use optimized convolution kernels based on problem characteristics
+    let pipeline: MTLComputePipelineState?
+    let useSharedMemory = shouldUseOptimizedConv(inputHeight: inputRows, inputWidth: inputCols, filterSize: Swift.max(filterRows, filterCols))
+    
+    if useSharedMemory {
+      pipeline = computePipeline(for: "nsc_im2col_conv2d_float_kernel")
+    } else {
+      pipeline = computePipeline(for: "nsc_conv2d_float_kernel")
+    }
+    
+    guard let convPipeline = pipeline else {
+      return NumSwiftC.conv2d(signal: signal,
+                              filter: filter,
+                              strides: stride,
+                              padding: padding,
+                              filterSize: (filterRows, filterCols),
+                              inputSize: (inputRows, inputCols))
+    }
+    
     let inputSize = NSC_Size(rows: Int32(inputRows), columns: Int32(inputCols))
     let filterSize = NSC_Size(rows: Int32(filterRows), columns: Int32(filterCols))
     let strideSize = NSC_Size(rows: Int32(stride.rows), columns: Int32(stride.cols))
@@ -1076,17 +2061,19 @@ public class NumSwiftMetal {
     let padTopValue = Int32(padTop)
     let padLeftValue = Int32(padLeft)
     
-    guard let signalBuffer = createBuffer(from: signalFlat, type: Float.self),
-          let filterBuffer = createBuffer(from: filterFlat, type: Float.self),
-          let resultBuffer = createBuffer(count: outputRows * outputCols, type: Float.self),
+    guard let resultBuffer = createBuffer(count: outputRows * outputCols, type: Float.self),
           let inputSizeBuffer = createBuffer(from: [inputSize], type: NSC_Size.self),
           let filterSizeBuffer = createBuffer(from: [filterSize], type: NSC_Size.self),
           let strideSizeBuffer = createBuffer(from: [strideSize], type: NSC_Size.self),
           let resultSizeBuffer = createBuffer(from: [resultSize], type: NSC_Size.self),
-          let paddingBuffer = createBuffer(from: [paddingValue], type: Int32.self),
           let padTopBuffer = createBuffer(from: [padTopValue], type: Int32.self),
           let padLeftBuffer = createBuffer(from: [padLeftValue], type: Int32.self) else {
-      fatalError("Failed to create buffers")
+      return NumSwiftC.conv2d(signal: signal,
+                              filter: filter,
+                              strides: stride,
+                              padding: padding,
+                              filterSize: (filterRows, filterCols),
+                              inputSize: (inputRows, inputCols))
     }
     
     guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
@@ -1094,7 +2081,7 @@ public class NumSwiftMetal {
       return []
     }
     
-    encoder.setComputePipelineState(pipeline)
+    encoder.setComputePipelineState(convPipeline)
     encoder.setBuffer(signalBuffer, offset: 0, index: 0)
     encoder.setBuffer(filterBuffer, offset: 0, index: 1)
     encoder.setBuffer(resultBuffer, offset: 0, index: 2)
@@ -1102,11 +2089,22 @@ public class NumSwiftMetal {
     encoder.setBuffer(filterSizeBuffer, offset: 0, index: 4)
     encoder.setBuffer(strideSizeBuffer, offset: 0, index: 5)
     encoder.setBuffer(resultSizeBuffer, offset: 0, index: 6)
-    encoder.setBuffer(paddingBuffer, offset: 0, index: 7)
-    encoder.setBuffer(padTopBuffer, offset: 0, index: 8)
-    encoder.setBuffer(padLeftBuffer, offset: 0, index: 9)
+    encoder.setBuffer(padTopBuffer, offset: 0, index: 7)
+    encoder.setBuffer(padLeftBuffer, offset: 0, index: 8)
     
-    let threadsPerThreadgroup = MTLSize(width: 16, height: 16, depth: 1)
+    if useSharedMemory {
+      // Set shared memory for im2col kernel
+      let sharedMemorySize = 16 * 16 * MemoryLayout<Float>.stride
+      encoder.setThreadgroupMemoryLength(sharedMemorySize, index: 0)
+    } else {
+      // Add padding buffer for legacy kernel
+      let paddingBuffer = createBuffer(from: [paddingValue], type: Int32.self)
+      encoder.setBuffer(paddingBuffer, offset: 0, index: 7)
+      encoder.setBuffer(padTopBuffer, offset: 0, index: 8)
+      encoder.setBuffer(padLeftBuffer, offset: 0, index: 9)
+    }
+    
+    let threadsPerThreadgroup = getOptimalThreadgroupSize(width: 256, height: 1)
     let threadgroups = MTLSize(
       width: (outputCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
       height: (outputRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
@@ -1116,8 +2114,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: outputRows * outputCols)
     let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: outputRows * outputCols))
@@ -1158,13 +2165,38 @@ public class NumSwiftMetal {
                               inputSize: (inputRows, inputCols))
     }
     
-    // Metal implementation
-    guard let pipeline = computePipeline(for: "nsc_conv2d_kernel") else {
-      fatalError("Failed to create conv2d pipeline")
-    }
-    
     let signalFlat = signal.flatMap { $0 }
     let filterFlat = filter.flatMap { $0 }
+    
+    guard let signalBuffer = createBuffer(from: signalFlat, type: Float16.self),
+          let filterBuffer = createBuffer(from: filterFlat, type: Float16.self) else {
+      return NumSwiftC.conv2d(signal: signal,
+                              filter: filter,
+                              strides: stride,
+                              padding: padding,
+                              filterSize: (filterRows, filterCols),
+                              inputSize: (inputRows, inputCols))
+    }
+    
+    // Use optimized convolution kernels based on problem characteristics
+    let pipeline: MTLComputePipelineState?
+    let useSharedMemory = shouldUseOptimizedConv(inputHeight: inputRows, inputWidth: inputCols, filterSize: Swift.max(filterRows, filterCols))
+    
+    if useSharedMemory {
+      pipeline = computePipeline(for: "nsc_im2col_conv2d_kernel")
+    } else {
+      pipeline = computePipeline(for: "nsc_conv2d_kernel")
+    }
+    
+    guard let convPipeline = pipeline else {
+      return NumSwiftC.conv2d(signal: signal,
+                              filter: filter,
+                              strides: stride,
+                              padding: padding,
+                              filterSize: (filterRows, filterCols),
+                              inputSize: (inputRows, inputCols))
+    }
+    
     let inputSize = NSC_Size(rows: Int32(inputRows), columns: Int32(inputCols))
     let filterSize = NSC_Size(rows: Int32(filterRows), columns: Int32(filterCols))
     let strideSize = NSC_Size(rows: Int32(stride.rows), columns: Int32(stride.cols))
@@ -1173,17 +2205,19 @@ public class NumSwiftMetal {
     let padTopValue = Int32(padTop)
     let padLeftValue = Int32(padLeft)
     
-    guard let signalBuffer = createBuffer(from: signalFlat, type: Float16.self),
-          let filterBuffer = createBuffer(from: filterFlat, type: Float16.self),
-          let resultBuffer = createBuffer(count: outputRows * outputCols, type: Float16.self),
+    guard let resultBuffer = createBuffer(count: outputRows * outputCols, type: Float16.self),
           let inputSizeBuffer = createBuffer(from: [inputSize], type: NSC_Size.self),
           let filterSizeBuffer = createBuffer(from: [filterSize], type: NSC_Size.self),
           let strideSizeBuffer = createBuffer(from: [strideSize], type: NSC_Size.self),
           let resultSizeBuffer = createBuffer(from: [resultSize], type: NSC_Size.self),
-          let paddingBuffer = createBuffer(from: [paddingValue], type: Int32.self),
           let padTopBuffer = createBuffer(from: [padTopValue], type: Int32.self),
           let padLeftBuffer = createBuffer(from: [padLeftValue], type: Int32.self) else {
-      fatalError("Failed to create buffers")
+      return NumSwiftC.conv2d(signal: signal,
+                              filter: filter,
+                              strides: stride,
+                              padding: padding,
+                              filterSize: (filterRows, filterCols),
+                              inputSize: (inputRows, inputCols))
     }
     
     guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
@@ -1191,7 +2225,7 @@ public class NumSwiftMetal {
       return []
     }
     
-    encoder.setComputePipelineState(pipeline)
+    encoder.setComputePipelineState(convPipeline)
     encoder.setBuffer(signalBuffer, offset: 0, index: 0)
     encoder.setBuffer(filterBuffer, offset: 0, index: 1)
     encoder.setBuffer(resultBuffer, offset: 0, index: 2)
@@ -1199,11 +2233,22 @@ public class NumSwiftMetal {
     encoder.setBuffer(filterSizeBuffer, offset: 0, index: 4)
     encoder.setBuffer(strideSizeBuffer, offset: 0, index: 5)
     encoder.setBuffer(resultSizeBuffer, offset: 0, index: 6)
-    encoder.setBuffer(paddingBuffer, offset: 0, index: 7)
-    encoder.setBuffer(padTopBuffer, offset: 0, index: 8)
-    encoder.setBuffer(padLeftBuffer, offset: 0, index: 9)
+    encoder.setBuffer(padTopBuffer, offset: 0, index: 7)
+    encoder.setBuffer(padLeftBuffer, offset: 0, index: 8)
     
-    let threadsPerThreadgroup = MTLSize(width: 16, height: 16, depth: 1)
+    if useSharedMemory {
+      // Set shared memory for im2col kernel
+      let sharedMemorySize = 16 * 16 * MemoryLayout<Float16>.stride
+      encoder.setThreadgroupMemoryLength(sharedMemorySize, index: 0)
+    } else {
+      // Add padding buffer for legacy kernel
+      let paddingBuffer = createBuffer(from: [paddingValue], type: Int32.self)
+      encoder.setBuffer(paddingBuffer, offset: 0, index: 7)
+      encoder.setBuffer(padTopBuffer, offset: 0, index: 8)
+      encoder.setBuffer(padLeftBuffer, offset: 0, index: 9)
+    }
+    
+    let threadsPerThreadgroup = getOptimalThreadgroupSize(width: 256, height: 1)
     let threadgroups = MTLSize(
       width: (outputCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
       height: (outputRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
@@ -1213,8 +2258,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: outputRows * outputCols)
     let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: outputRows * outputCols))
@@ -1322,8 +2376,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
     return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
@@ -1427,8 +2490,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
     return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
@@ -1524,8 +2596,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: elementCount)
     return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
@@ -1629,8 +2710,17 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    commandBuffer.commit()
-    commandBuffer.waitUntilCompleted()
+    if isAsyncMode {
+      // Submit command buffer asynchronously
+      commandBuffer.addCompletedHandler { [weak self] buffer in
+        // Return buffers to pool when operation completes
+        // Buffer cleanup handled elsewhere
+      }
+      commandBuffer.commit()
+    } else {
+      commandBuffer.commit()
+      commandBuffer.waitUntilCompleted()
+    }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: elementCount)
     return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))

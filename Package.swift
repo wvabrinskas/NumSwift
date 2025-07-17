@@ -13,7 +13,7 @@ let package = Package(
         // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
             name: "NumSwift",
-            targets: ["NumSwift", "NumSwiftC"])
+            targets: ["NumSwift", "NumSwiftC", "NumSwiftMetal"])
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -27,11 +27,15 @@ let package = Package(
           dependencies: [],
           resources: []),
       .target(
+          name: "NumSwiftMetal",
+          dependencies: ["NumSwiftC"],
+          resources: []),
+      .target(
             name: "NumSwift",
-            dependencies: ["NumSwiftC"],
+            dependencies: ["NumSwiftC", "NumSwiftMetal"],
             resources: [ ]),
         .testTarget(
             name: "NumSwiftTests",
-            dependencies: ["NumSwift"])
+            dependencies: ["NumSwift", "NumSwiftC", "NumSwiftMetal"])
     ]
 )

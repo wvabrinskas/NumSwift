@@ -676,10 +676,13 @@ public class NumSwiftMetal {
   }
   
   public func matmul(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
-    let aRows = a.count
-    let aCols = a[0].count
-    let bRows = b.count
-    let bCols = b[0].count
+    let aShape = a.shape
+    let bShape = b.shape
+    
+    let aRows = aShape[safe: 1] ?? 0
+    let aCols = aShape[safe: 0] ?? 0
+    let bRows = bShape[safe: 1] ?? 0
+    let bCols = bShape[safe: 0] ?? 0
     
     guard aCols == bRows else {
       fatalError("Matrix dimensions don't match for multiplication")
@@ -689,7 +692,7 @@ public class NumSwiftMetal {
     
     if !shouldUseMetal(for: elementCount) {
       // Fallback to CPU implementation
-      return matmul(a, b)
+      return NumSwiftC.matmul(a, b: b, aSize: (aRows, aCols), bSize: (bRows, bCols))
     }
     
     // Metal implementation
@@ -749,40 +752,40 @@ public class NumSwiftMetal {
     return result
   }
   
-  // MARK: - Convolution Operations
+  // MARK: - Transposed Convolution Operations
   
-  public func conv2d(_ signal: [[Float]], _ filter: [[Float]], stride: (rows: Int, cols: Int) = (1, 1)) -> [[Float]] {
-    let inputRows = signal.count
-    let inputCols = signal[0].count
-    let filterRows = filter.count
-    let filterCols = filter[0].count
+  public func transconv2d(_ signal: [[Float]], _ filter: [[Float]], stride: (rows: Int, cols: Int) = (1, 1), padding: NumSwift.ConvPadding = .valid) -> [[Float]] {
+    let signalSize = signal.shape
+    let fSize = filter.shape
     
-    let outputRows = (inputRows - filterRows) / stride.rows + 1
-    let outputCols = (inputCols - filterCols) / stride.cols + 1
+    let inputRows = signalSize[safe: 1] ?? 0
+    let inputCols = signalSize[safe: 0] ?? 0
+    let filterRows = fSize[safe: 1] ?? 0
+    let filterCols = fSize[safe: 0] ?? 0
+    
+    // Calculate output dimensions for transposed convolution
+    let outputRows = (inputRows - 1) * stride.rows + filterRows
+    let outputCols = (inputCols - 1) * stride.cols + filterCols
+    
     let elementCount = outputRows * outputCols
     
     if !shouldUseMetal(for: elementCount) {
-      var result = [[Float]]()
-      for i in 0..<outputRows {
-        var row = [Float]()
-        for j in 0..<outputCols {
-          var sum: Float = 0
-          for fi in 0..<filterRows {
-            for fj in 0..<filterCols {
-              let signalRow = i * stride.rows + fi
-              let signalCol = j * stride.cols + fj
-              sum += signal[signalRow][signalCol] * filter[fi][fj]
-            }
-          }
-          row.append(sum)
-        }
-        result.append(row)
-      }
-      return result
+      return NumSwiftC.transConv2d(signal: signal,
+                                   filter: filter,
+                                   strides: stride,
+                                   padding: padding,
+                                   filterSize: (filterRows, filterCols),
+                                   inputSize: (inputRows, inputCols))
     }
     
-    guard let pipeline = computePipeline(for: "nsc_conv2d_float_kernel") else {
-      fatalError("Failed to create conv2d pipeline")
+    guard let pipeline = computePipeline(for: "nsc_transconv2d_float_kernel") else {
+      // Fallback to CPU implementation
+      return NumSwiftC.transConv2d(signal: signal,
+                                   filter: filter,
+                                   strides: stride,
+                                   padding: padding,
+                                   filterSize: (filterRows, filterCols),
+                                   inputSize: (inputRows, inputCols))
     }
     
     let signalFlat = signal.flatMap { $0 }
@@ -799,6 +802,274 @@ public class NumSwiftMetal {
           let filterSizeBuffer = createBuffer(from: [filterSize], type: NSC_Size.self),
           let strideSizeBuffer = createBuffer(from: [strideSize], type: NSC_Size.self),
           let resultSizeBuffer = createBuffer(from: [resultSize], type: NSC_Size.self) else {
+      // Fallback to CPU implementation
+      return NumSwiftC.transConv2d(signal: signal,
+                                   filter: filter,
+                                   strides: stride,
+                                   padding: padding,
+                                   filterSize: (filterRows, filterCols),
+                                   inputSize: (inputRows, inputCols))
+    }
+    
+    // Initialize result buffer to zero
+    var resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: outputRows * outputCols)
+    for i in 0..<(outputRows * outputCols) {
+      resultPointer[i] = 0.0
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(signalBuffer, offset: 0, index: 0)
+    encoder.setBuffer(filterBuffer, offset: 0, index: 1)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 2)
+    encoder.setBuffer(inputSizeBuffer, offset: 0, index: 3)
+    encoder.setBuffer(filterSizeBuffer, offset: 0, index: 4)
+    encoder.setBuffer(strideSizeBuffer, offset: 0, index: 5)
+    encoder.setBuffer(resultSizeBuffer, offset: 0, index: 6)
+    
+    let threadsPerThreadgroup = MTLSize(width: 16, height: 16, depth: 1)
+    let threadgroups = MTLSize(
+      width: (inputCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
+      height: (inputRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
+      depth: 1
+    )
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: outputRows * outputCols))
+    
+    // Apply padding if needed
+    var finalResult: [[Float]] = []
+    for i in 0..<outputRows {
+      let startIndex = i * outputCols
+      let endIndex = startIndex + outputCols
+      finalResult.append(Array(resultFlat[startIndex..<endIndex]))
+    }
+    
+    // Handle padding
+    if padding == .same {
+      let padLeft = Int(floor(Double(filterRows - stride.rows) / 2.0))
+      let padRight = filterRows - stride.rows - padLeft
+      let padTop = Int(floor(Double(filterCols - stride.cols) / 2.0))
+      let padBottom = filterCols - stride.cols - padTop
+      
+      let startRow = padTop
+      let endRow = outputRows - padBottom
+      let startCol = padLeft
+      let endCol = outputCols - padRight
+      
+      finalResult = Array(finalResult[startRow..<endRow].map { Array($0[startCol..<endCol]) })
+    }
+    
+    return finalResult
+  }
+  
+  public func transconv2d(_ signal: [[Float16]], _ filter: [[Float16]], stride: (rows: Int, cols: Int) = (1, 1), padding: NumSwift.ConvPadding = .valid) -> [[Float16]] {
+    let signalSize = signal.shape
+    let fSize = filter.shape
+    
+    let inputRows = signalSize[safe: 1] ?? 0
+    let inputCols = signalSize[safe: 0] ?? 0
+    let filterRows = fSize[safe: 1] ?? 0
+    let filterCols = fSize[safe: 0] ?? 0
+    
+    // Calculate output dimensions for transposed convolution
+    let outputRows = (inputRows - 1) * stride.rows + filterRows
+    let outputCols = (inputCols - 1) * stride.cols + filterCols
+    
+    let elementCount = outputRows * outputCols
+    
+    if !shouldUseMetal(for: elementCount) {
+      return NumSwiftC.transConv2d(signal: signal,
+                                   filter: filter,
+                                   strides: stride,
+                                   padding: padding,
+                                   filterSize: (filterRows, filterCols),
+                                   inputSize: (inputRows, inputCols))
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_transconv2d_kernel") else {
+      // Fallback to CPU implementation
+      return NumSwiftC.transConv2d(signal: signal,
+                                   filter: filter,
+                                   strides: stride,
+                                   padding: padding,
+                                   filterSize: (filterRows, filterCols),
+                                   inputSize: (inputRows, inputCols))
+    }
+    
+    let signalFlat = signal.flatMap { $0 }
+    let filterFlat = filter.flatMap { $0 }
+    let inputSize = NSC_Size(rows: Int32(inputRows), columns: Int32(inputCols))
+    let filterSize = NSC_Size(rows: Int32(filterRows), columns: Int32(filterCols))
+    let strideSize = NSC_Size(rows: Int32(stride.rows), columns: Int32(stride.cols))
+    let resultSize = NSC_Size(rows: Int32(outputRows), columns: Int32(outputCols))
+    
+    guard let signalBuffer = createBuffer(from: signalFlat, type: Float16.self),
+          let filterBuffer = createBuffer(from: filterFlat, type: Float16.self),
+          let resultBuffer = createBuffer(count: outputRows * outputCols, type: Float16.self),
+          let inputSizeBuffer = createBuffer(from: [inputSize], type: NSC_Size.self),
+          let filterSizeBuffer = createBuffer(from: [filterSize], type: NSC_Size.self),
+          let strideSizeBuffer = createBuffer(from: [strideSize], type: NSC_Size.self),
+          let resultSizeBuffer = createBuffer(from: [resultSize], type: NSC_Size.self) else {
+      // Fallback to CPU implementation
+      return NumSwiftC.transConv2d(signal: signal,
+                                   filter: filter,
+                                   strides: stride,
+                                   padding: padding,
+                                   filterSize: (filterRows, filterCols),
+                                   inputSize: (inputRows, inputCols))
+    }
+    
+    // Initialize result buffer to zero
+    var resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: outputRows * outputCols)
+    for i in 0..<(outputRows * outputCols) {
+      resultPointer[i] = 0.0
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(signalBuffer, offset: 0, index: 0)
+    encoder.setBuffer(filterBuffer, offset: 0, index: 1)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 2)
+    encoder.setBuffer(inputSizeBuffer, offset: 0, index: 3)
+    encoder.setBuffer(filterSizeBuffer, offset: 0, index: 4)
+    encoder.setBuffer(strideSizeBuffer, offset: 0, index: 5)
+    encoder.setBuffer(resultSizeBuffer, offset: 0, index: 6)
+    
+    let threadsPerThreadgroup = MTLSize(width: 16, height: 16, depth: 1)
+    let threadgroups = MTLSize(
+      width: (inputCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
+      height: (inputRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
+      depth: 1
+    )
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: outputRows * outputCols))
+    
+    // Apply padding if needed
+    var finalResult: [[Float16]] = []
+    for i in 0..<outputRows {
+      let startIndex = i * outputCols
+      let endIndex = startIndex + outputCols
+      finalResult.append(Array(resultFlat[startIndex..<endIndex]))
+    }
+    
+    // Handle padding
+    if padding == .same {
+      let padLeft = Int(floor(Double(filterRows - stride.rows) / 2.0))
+      let padRight = filterRows - stride.rows - padLeft
+      let padTop = Int(floor(Double(filterCols - stride.cols) / 2.0))
+      let padBottom = filterCols - stride.cols - padTop
+      
+      let startRow = padTop
+      let endRow = outputRows - padBottom
+      let startCol = padLeft
+      let endCol = outputCols - padRight
+      
+      finalResult = Array(finalResult[startRow..<endRow].map { Array($0[startCol..<endCol]) })
+    }
+    
+    return finalResult
+  }
+  
+  // MARK: - Convolution Helpers
+  
+  private func calculateConvolutionDimensions(
+    inputRows: Int, inputCols: Int,
+    filterRows: Int, filterCols: Int,
+    stride: (rows: Int, cols: Int),
+    padding: NumSwift.ConvPadding
+  ) -> (outputRows: Int, outputCols: Int, padTop: Int, padLeft: Int) {
+    switch padding {
+    case .valid:
+      let outputRows = (inputRows - filterRows) / stride.rows + 1
+      let outputCols = (inputCols - filterCols) / stride.cols + 1
+      return (outputRows, outputCols, 0, 0)
+      
+    case .same:
+      let outputRows = (inputRows + stride.rows - 1) / stride.rows
+      let outputCols = (inputCols + stride.cols - 1) / stride.cols
+      
+      let padAlongHeight = Swift.max(0, (outputRows - 1) * stride.rows + filterRows - inputRows)
+      let padAlongWidth = Swift.max(0, (outputCols - 1) * stride.cols + filterCols - inputCols)
+      
+      let padTop = padAlongHeight / 2
+      let padLeft = padAlongWidth / 2
+      
+      return (outputRows, outputCols, padTop, padLeft)
+    }
+  }
+  
+  // MARK: - Convolution Operations
+  
+  public func conv2d(_ signal: [[Float]], _ filter: [[Float]], stride: (rows: Int, cols: Int) = (1, 1), padding: NumSwift.ConvPadding = .valid) -> [[Float]] {
+    let signalSize = signal.shape
+    let fSize = filter.shape
+    
+    let inputRows = signalSize[safe: 1] ?? 0
+    let inputCols = signalSize[safe: 0] ?? 0
+    let filterRows = fSize[safe: 1] ?? 0
+    let filterCols = fSize[safe: 0] ?? 0
+    
+    let (outputRows, outputCols, padTop, padLeft) = calculateConvolutionDimensions(
+      inputRows: inputRows, inputCols: inputCols,
+      filterRows: filterRows, filterCols: filterCols,
+      stride: stride, padding: padding
+    )
+    
+    let elementCount = outputRows * outputCols
+    
+    if !shouldUseMetal(for: elementCount) {
+      return NumSwiftC.conv2d(signal: signal,
+                              filter: filter,
+                              strides: stride,
+                              padding: padding,
+                              filterSize: (filterRows, filterCols),
+                              inputSize: (inputRows, inputCols))
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_conv2d_float_kernel") else {
+      fatalError("Failed to create conv2d pipeline")
+    }
+    
+    let signalFlat = signal.flatMap { $0 }
+    let filterFlat = filter.flatMap { $0 }
+    let inputSize = NSC_Size(rows: Int32(inputRows), columns: Int32(inputCols))
+    let filterSize = NSC_Size(rows: Int32(filterRows), columns: Int32(filterCols))
+    let strideSize = NSC_Size(rows: Int32(stride.rows), columns: Int32(stride.cols))
+    let resultSize = NSC_Size(rows: Int32(outputRows), columns: Int32(outputCols))
+    let paddingValue = Int32(padding == .same ? 1 : 0)
+    let padTopValue = Int32(padTop)
+    let padLeftValue = Int32(padLeft)
+    
+    guard let signalBuffer = createBuffer(from: signalFlat, type: Float.self),
+          let filterBuffer = createBuffer(from: filterFlat, type: Float.self),
+          let resultBuffer = createBuffer(count: outputRows * outputCols, type: Float.self),
+          let inputSizeBuffer = createBuffer(from: [inputSize], type: NSC_Size.self),
+          let filterSizeBuffer = createBuffer(from: [filterSize], type: NSC_Size.self),
+          let strideSizeBuffer = createBuffer(from: [strideSize], type: NSC_Size.self),
+          let resultSizeBuffer = createBuffer(from: [resultSize], type: NSC_Size.self),
+          let paddingBuffer = createBuffer(from: [paddingValue], type: Int32.self),
+          let padTopBuffer = createBuffer(from: [padTopValue], type: Int32.self),
+          let padLeftBuffer = createBuffer(from: [padLeftValue], type: Int32.self) else {
       fatalError("Failed to create buffers")
     }
     
@@ -815,6 +1086,9 @@ public class NumSwiftMetal {
     encoder.setBuffer(filterSizeBuffer, offset: 0, index: 4)
     encoder.setBuffer(strideSizeBuffer, offset: 0, index: 5)
     encoder.setBuffer(resultSizeBuffer, offset: 0, index: 6)
+    encoder.setBuffer(paddingBuffer, offset: 0, index: 7)
+    encoder.setBuffer(padTopBuffer, offset: 0, index: 8)
+    encoder.setBuffer(padLeftBuffer, offset: 0, index: 9)
     
     let threadsPerThreadgroup = MTLSize(width: 16, height: 16, depth: 1)
     let threadgroups = MTLSize(
@@ -842,19 +1116,30 @@ public class NumSwiftMetal {
     return result
   }
   
-  public func conv2d(_ signal: [[Float16]], _ filter: [[Float16]], stride: (rows: Int, cols: Int) = (1, 1)) -> [[Float16]] {
-    let inputRows = signal.count
-    let inputCols = signal[0].count
-    let filterRows = filter.count
-    let filterCols = filter[0].count
+  public func conv2d(_ signal: [[Float16]], _ filter: [[Float16]], stride: (rows: Int, cols: Int) = (1, 1), padding: NumSwift.ConvPadding = .valid) -> [[Float16]] {
+    let signalSize = signal.shape
+    let fSize = filter.shape
     
-    let outputRows = (inputRows - filterRows) / stride.rows + 1
-    let outputCols = (inputCols - filterCols) / stride.cols + 1
+    let inputRows = signalSize[safe: 1] ?? 0
+    let inputCols = signalSize[safe: 0] ?? 0
+    let filterRows = fSize[safe: 1] ?? 0
+    let filterCols = fSize[safe: 0] ?? 0
+    
+    let (outputRows, outputCols, padTop, padLeft) = calculateConvolutionDimensions(
+      inputRows: inputRows, inputCols: inputCols,
+      filterRows: filterRows, filterCols: filterCols,
+      stride: stride, padding: padding
+    )
+    
     let elementCount = outputRows * outputCols
     
     if !shouldUseMetal(for: elementCount) {
-      // Fallback to CPU implementation
-      return conv2d(signal, filter, stride: stride)
+      return NumSwiftC.conv2d(signal: signal,
+                              filter: filter,
+                              strides: stride,
+                              padding: padding,
+                              filterSize: (filterRows, filterCols),
+                              inputSize: (inputRows, inputCols))
     }
     
     // Metal implementation
@@ -868,6 +1153,9 @@ public class NumSwiftMetal {
     let filterSize = NSC_Size(rows: Int32(filterRows), columns: Int32(filterCols))
     let strideSize = NSC_Size(rows: Int32(stride.rows), columns: Int32(stride.cols))
     let resultSize = NSC_Size(rows: Int32(outputRows), columns: Int32(outputCols))
+    let paddingValue = Int32(padding == .same ? 1 : 0)
+    let padTopValue = Int32(padTop)
+    let padLeftValue = Int32(padLeft)
     
     guard let signalBuffer = createBuffer(from: signalFlat, type: Float16.self),
           let filterBuffer = createBuffer(from: filterFlat, type: Float16.self),
@@ -875,7 +1163,10 @@ public class NumSwiftMetal {
           let inputSizeBuffer = createBuffer(from: [inputSize], type: NSC_Size.self),
           let filterSizeBuffer = createBuffer(from: [filterSize], type: NSC_Size.self),
           let strideSizeBuffer = createBuffer(from: [strideSize], type: NSC_Size.self),
-          let resultSizeBuffer = createBuffer(from: [resultSize], type: NSC_Size.self) else {
+          let resultSizeBuffer = createBuffer(from: [resultSize], type: NSC_Size.self),
+          let paddingBuffer = createBuffer(from: [paddingValue], type: Int32.self),
+          let padTopBuffer = createBuffer(from: [padTopValue], type: Int32.self),
+          let padLeftBuffer = createBuffer(from: [padLeftValue], type: Int32.self) else {
       fatalError("Failed to create buffers")
     }
     
@@ -892,6 +1183,9 @@ public class NumSwiftMetal {
     encoder.setBuffer(filterSizeBuffer, offset: 0, index: 4)
     encoder.setBuffer(strideSizeBuffer, offset: 0, index: 5)
     encoder.setBuffer(resultSizeBuffer, offset: 0, index: 6)
+    encoder.setBuffer(paddingBuffer, offset: 0, index: 7)
+    encoder.setBuffer(padTopBuffer, offset: 0, index: 8)
+    encoder.setBuffer(padLeftBuffer, offset: 0, index: 9)
     
     let threadsPerThreadgroup = MTLSize(width: 16, height: 16, depth: 1)
     let threadgroups = MTLSize(

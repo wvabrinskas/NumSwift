@@ -727,3 +727,244 @@ enum NSC_Padding {
       }
     }
   }
+
+
+// MARK: - Activation Functions
+
+kernel void nsc_activation_kernel(const device float* data [[ buffer(0) ]],
+                                  device float* results [[ buffer(1) ]],
+                                  const device uint& activationType [[ buffer(2) ]],
+                                  const device float& limit [[ buffer(3) ]],
+                                  const uint tgPos [[ threadgroup_position_in_grid ]],
+                                  const uint tPerTg [[ threads_per_threadgroup ]],
+                                  const uint tPos [[ thread_position_in_threadgroup ]]) {
+  
+  uint resultIndex = tgPos * tPerTg + tPos;
+  
+  float completeValue = data[resultIndex];
+
+  if (activationType == 0) { //relu
+    results[resultIndex] = max((float)0, completeValue);
+    
+  } else if (activationType == 1) { //leaky relu
+    if (completeValue < 0) {
+      results[resultIndex] = limit * completeValue;
+    } else {
+      results[resultIndex] = completeValue;
+    }
+      
+  } else if (activationType == 2) { //sigmoid
+    results[resultIndex] = 1.0 / (1.0 + exp(-completeValue));
+
+  } else if (activationType == 3) { //swish
+    float sigmoid = 1.0 / (1.0 + exp(-completeValue));
+    results[resultIndex] = completeValue * sigmoid;
+    
+  } else if (activationType == 4) { //tanH
+    float denom = 1.0 + exp(-2 * completeValue);
+    results[resultIndex] = (2.0 / denom) - 1.0;
+    
+  } else if (activationType == 5) { //none
+    results[resultIndex] = completeValue;
+    
+  } else if (activationType == 6) { //selu
+    const float alpha = 1.6732632423543772848170429916717;
+    const float scale = 1.0507009873554804934193349852946;
+    if (completeValue <= 0) {
+      results[resultIndex] = scale * alpha * (exp(completeValue) - 1.0);
+    } else {
+      results[resultIndex] = scale * completeValue;
+    }
+    
+  } else if (activationType == 7) { //gelu
+    const float sqrt_2_pi = 0.7978845608028654; // sqrt(2/pi)
+    const float a = 0.044715;
+    float tanh_input = sqrt_2_pi * (completeValue + a * pow(completeValue, 3));
+    results[resultIndex] = 0.5 * completeValue * (1.0 + tanh(tanh_input));
+  }
+
+}
+
+kernel void nsc_derivate_kernel(const device float* data [[ buffer(0) ]],
+                                device float* results [[ buffer(1) ]],
+                                const device uint& activationType [[ buffer(2) ]],
+                                const device float& limit [[ buffer(3) ]],
+                                const uint tgPos [[ threadgroup_position_in_grid ]],
+                                const uint tPerTg [[ threads_per_threadgroup ]],
+                                const uint tPos [[ thread_position_in_threadgroup ]]) {
+
+  uint resultIndex = tgPos * tPerTg + tPos;
+  
+  float completeValue = data[resultIndex];
+  
+  float value = completeValue;
+  
+  if (activationType == 0) { //relu
+    if (completeValue >= 0) {
+      value = 1;
+    } else {
+      value = 0;
+    }
+    
+  } else if (activationType == 1) { //leaky relu
+    if (completeValue > 0) {
+      value = 1;
+    } else {
+      value = limit;
+    }
+    
+  } else if (activationType == 2) { //sigmoid
+    float sig = 1.0 / (1.0 + exp(-completeValue));
+    value = sig * (1 - sig);
+    
+  } else if (activationType == 3) { //swish
+    value = (exp(-completeValue) * (completeValue + 1) + 1) / pow((1 + exp(-completeValue)), 2);
+    
+  } else if (activationType == 4) { //tanH
+    float denom = 1.0 + exp(-2 * completeValue);
+    float tanActivate = (2.0 / denom) - 1.0;
+    value = 1 - (pow(tanActivate, 2));
+    
+  } else if (activationType == 5) { //none
+    results[resultIndex] = 1;
+    
+  } else if (activationType == 6) { //selu
+    const float alpha = 1.6732632423543772848170429916717;
+    const float scale = 1.0507009873554804934193349852946;
+    if (completeValue <= 0) {
+      value = scale * alpha * exp(completeValue);
+    } else {
+      value = scale;
+    }
+    
+  } else if (activationType == 7) { //gelu
+    const float sqrt_2_pi = 0.7978845608028654; // sqrt(2/pi)
+    const float a = 0.044715;
+    float x_cubed = pow(completeValue, 3);
+    float tanh_input = sqrt_2_pi * (completeValue + a * x_cubed);
+    float tanh_val = tanh(tanh_input);
+    float sech_val = 1.0 - tanh_val * tanh_val; // sech^2(x) = 1 - tanh^2(x)
+    value = 0.5 * (1.0 + tanh_val) + 0.5 * completeValue * sech_val * sqrt_2_pi * (1.0 + 3.0 * a * completeValue * completeValue);
+  }
+  
+  results[resultIndex] = value;
+}
+
+kernel void nsc_activation_half_kernel(const device half* data [[ buffer(0) ]],
+                                       device half* results [[ buffer(1) ]],
+                                       const device uint& activationType [[ buffer(2) ]],
+                                       const device half& limit [[ buffer(3) ]],
+                                       const uint tgPos [[ threadgroup_position_in_grid ]],
+                                       const uint tPerTg [[ threads_per_threadgroup ]],
+                                       const uint tPos [[ thread_position_in_threadgroup ]]) {
+  
+  uint resultIndex = tgPos * tPerTg + tPos;
+  
+  half completeValue = data[resultIndex];
+
+  if (activationType == 0) { //relu
+    results[resultIndex] = max((half)0, completeValue);
+    
+  } else if (activationType == 1) { //leaky relu
+    if (completeValue < 0) {
+      results[resultIndex] = limit * completeValue;
+    } else {
+      results[resultIndex] = completeValue;
+    }
+      
+  } else if (activationType == 2) { //sigmoid
+    results[resultIndex] = 1.0h / (1.0h + exp(-completeValue));
+
+  } else if (activationType == 3) { //swish
+    half sigmoid = 1.0h / (1.0h + exp(-completeValue));
+    results[resultIndex] = completeValue * sigmoid;
+    
+  } else if (activationType == 4) { //tanH
+    half denom = 1.0h + exp(-2 * completeValue);
+    results[resultIndex] = (2.0h / denom) - 1.0h;
+    
+  } else if (activationType == 5) { //none
+    results[resultIndex] = completeValue;
+    
+  } else if (activationType == 6) { //selu
+    const half alpha = 1.6732632423543772848170429916717h;
+    const half scale = 1.0507009873554804934193349852946h;
+    if (completeValue <= 0) {
+      results[resultIndex] = scale * alpha * (exp(completeValue) - 1.0h);
+    } else {
+      results[resultIndex] = scale * completeValue;
+    }
+    
+  } else if (activationType == 7) { //gelu
+    const half sqrt_2_pi = 0.7978845608028654h; // sqrt(2/pi)
+    const half a = 0.044715h;
+    half tanh_input = sqrt_2_pi * (completeValue + a * pow(completeValue, 3));
+    results[resultIndex] = 0.5h * completeValue * (1.0h + tanh(tanh_input));
+  }
+
+}
+
+kernel void nsc_derivate_half_kernel(const device half* data [[ buffer(0) ]],
+                                     device half* results [[ buffer(1) ]],
+                                     const device uint& activationType [[ buffer(2) ]],
+                                     const device half& limit [[ buffer(3) ]],
+                                     const uint tgPos [[ threadgroup_position_in_grid ]],
+                                     const uint tPerTg [[ threads_per_threadgroup ]],
+                                     const uint tPos [[ thread_position_in_threadgroup ]]) {
+
+  uint resultIndex = tgPos * tPerTg + tPos;
+  
+  half completeValue = data[resultIndex];
+  
+  half value = completeValue;
+  
+  if (activationType == 0) { //relu
+    if (completeValue >= 0) {
+      value = 1;
+    } else {
+      value = 0;
+    }
+    
+  } else if (activationType == 1) { //leaky relu
+    if (completeValue > 0) {
+      value = 1;
+    } else {
+      value = limit;
+    }
+    
+  } else if (activationType == 2) { //sigmoid
+    half sig = 1.0h / (1.0h + exp(-completeValue));
+    value = sig * (1 - sig);
+    
+  } else if (activationType == 3) { //swish
+    value = (exp(-completeValue) * (completeValue + 1) + 1) / pow((1 + exp(-completeValue)), 2);
+    
+  } else if (activationType == 4) { //tanH
+    half denom = 1.0h + exp(-2 * completeValue);
+    half tanActivate = (2.0h / denom) - 1.0h;
+    value = 1 - (pow(tanActivate, 2));
+    
+  } else if (activationType == 5) { //none
+    results[resultIndex] = 1;
+    
+  } else if (activationType == 6) { //selu
+    const half alpha = 1.6732632423543772848170429916717h;
+    const half scale = 1.0507009873554804934193349852946h;
+    if (completeValue <= 0) {
+      value = scale * alpha * exp(completeValue);
+    } else {
+      value = scale;
+    }
+    
+  } else if (activationType == 7) { //gelu
+    const half sqrt_2_pi = 0.7978845608028654h; // sqrt(2/pi)
+    const half a = 0.044715h;
+    half x_cubed = pow(completeValue, 3);
+    half tanh_input = sqrt_2_pi * (completeValue + a * x_cubed);
+    half tanh_val = tanh(tanh_input);
+    half sech_val = 1.0h - tanh_val * tanh_val; // sech^2(x) = 1 - tanh^2(x)
+    value = 0.5h * (1.0h + tanh_val) + 0.5h * completeValue * sech_val * sqrt_2_pi * (1.0h + 3.0h * a * completeValue * completeValue);
+  }
+  
+  results[resultIndex] = value;
+}

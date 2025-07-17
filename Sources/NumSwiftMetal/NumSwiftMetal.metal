@@ -510,6 +510,124 @@ enum NSC_Padding {
   
   // MARK: - Float32 Variants (for compatibility with existing float code)
   
+  // MARK: - Basic Array Operations (Float32)
+  
+  kernel void nsc_sum_float_kernel(device const float* input [[ buffer(0) ]],
+                                   device float* result [[ buffer(1) ]],
+                                   device const uint* size [[ buffer(2) ]],
+                                   uint id [[ thread_position_in_grid ]]) {
+    if (id != 0) return;
+    
+    float sum = 0.0f;
+    for (uint i = 0; i < *size; i++) {
+      sum += input[i];
+    }
+    *result = sum;
+  }
+  
+  kernel void nsc_sum_of_squares_float_kernel(device const float* input [[ buffer(0) ]],
+                                              device float* result [[ buffer(1) ]],
+                                              device const uint* size [[ buffer(2) ]],
+                                              uint id [[ thread_position_in_grid ]]) {
+    if (id != 0) return;
+    
+    float sum = 0.0f;
+    for (uint i = 0; i < *size; i++) {
+      sum += input[i] * input[i];
+    }
+    *result = sum;
+  }
+  
+  kernel void nsc_max_float_kernel(device const float* input [[ buffer(0) ]],
+                                   device float* result [[ buffer(1) ]],
+                                   device const uint* size [[ buffer(2) ]],
+                                   uint id [[ thread_position_in_grid ]]) {
+    if (id != 0) return;
+    
+    float max_val = input[0];
+    for (uint i = 1; i < *size; i++) {
+      if (input[i] > max_val) {
+        max_val = input[i];
+      }
+    }
+    *result = max_val;
+  }
+  
+  kernel void nsc_min_float_kernel(device const float* input [[ buffer(0) ]],
+                                   device float* result [[ buffer(1) ]],
+                                   device const uint* size [[ buffer(2) ]],
+                                   uint id [[ thread_position_in_grid ]]) {
+    if (id != 0) return;
+    
+    float min_val = input[0];
+    for (uint i = 1; i < *size; i++) {
+      if (input[i] < min_val) {
+        min_val = input[i];
+      }
+    }
+    *result = min_val;
+  }
+  
+  // MARK: - Arithmetic Operations (Float32)
+  
+  kernel void nsc_add_scalar_float_kernel(device const float* lhs [[ buffer(0) ]],
+                                          device const float* rhs [[ buffer(1) ]],
+                                          device float* result [[ buffer(2) ]],
+                                          uint id [[ thread_position_in_grid ]]) {
+    result[id] = *lhs + rhs[id];
+  }
+  
+  kernel void nsc_add_float_kernel(device const float* lhs [[ buffer(0) ]],
+                                   device const float* rhs [[ buffer(1) ]],
+                                   device float* result [[ buffer(2) ]],
+                                   uint id [[ thread_position_in_grid ]]) {
+    result[id] = lhs[id] + rhs[id];
+  }
+  
+  kernel void nsc_sub_float_kernel(device const float* lhs [[ buffer(0) ]],
+                                   device const float* rhs [[ buffer(1) ]],
+                                   device float* result [[ buffer(2) ]],
+                                   uint id [[ thread_position_in_grid ]]) {
+    result[id] = lhs[id] - rhs[id];
+  }
+  
+  kernel void nsc_mult_scalar_float_kernel(device const float* lhs [[ buffer(0) ]],
+                                           device const float* rhs [[ buffer(1) ]],
+                                           device float* result [[ buffer(2) ]],
+                                           uint id [[ thread_position_in_grid ]]) {
+    result[id] = *lhs * rhs[id];
+  }
+  
+  kernel void nsc_mult_float_kernel(device const float* lhs [[ buffer(0) ]],
+                                    device const float* rhs [[ buffer(1) ]],
+                                    device float* result [[ buffer(2) ]],
+                                    uint id [[ thread_position_in_grid ]]) {
+    result[id] = lhs[id] * rhs[id];
+  }
+  
+  kernel void nsc_div_float_kernel(device const float* lhs [[ buffer(0) ]],
+                                   device const float* rhs [[ buffer(1) ]],
+                                   device float* result [[ buffer(2) ]],
+                                   uint id [[ thread_position_in_grid ]]) {
+    result[id] = lhs[id] / rhs[id];
+  }
+  
+  kernel void nsc_div_scalar_array_float_kernel(device const float* lhs [[ buffer(0) ]],
+                                                device const float* rhs [[ buffer(1) ]],
+                                                device float* result [[ buffer(2) ]],
+                                                uint id [[ thread_position_in_grid ]]) {
+    result[id] = *lhs / rhs[id];
+  }
+  
+  kernel void nsc_div_array_scalar_float_kernel(device const float* lhs [[ buffer(0) ]],
+                                                device const float* rhs [[ buffer(1) ]],
+                                                device float* result [[ buffer(2) ]],
+                                                uint id [[ thread_position_in_grid ]]) {
+    result[id] = lhs[id] / *rhs;
+  }
+  
+  // MARK: - Matrix Operations (Float32)
+  
   kernel void nsc_matmul_float_kernel(device const float* a [[ buffer(0) ]],
                                       device const float* b [[ buffer(1) ]],
                                       device float* result [[ buffer(2) ]],

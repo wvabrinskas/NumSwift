@@ -13,7 +13,7 @@ let package = Package(
         // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
             name: "NumSwift",
-            targets: ["NumSwift", "NumSwiftC"])
+            targets: ["NumSwift", "NumSwiftC", "NumSwiftMetal"])
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -30,13 +30,17 @@ let package = Package(
             .define("__ARM_FEATURE_FP16_VECTOR_ARITHMETIC", .when(platforms: [.iOS, .tvOS, .watchOS]))
           ]),
       .target(
+          name: "NumSwiftMetal",
+          dependencies: ["NumSwiftC"],
+          resources: []),
+      .target(
             name: "NumSwift",
-            dependencies: ["NumSwiftC",
+            dependencies: ["NumSwiftC", "NumSwiftMetal",
               .product(name: "Numerics", package: "swift-numerics")],
             resources: [.process("Resources")]),
         .testTarget(
             name: "NumSwiftTests",
-            dependencies: ["NumSwift", "NumSwiftC"]),
+            dependencies: ["NumSwift", "NumSwiftC", "NumSwiftMetal"]),
 
     ]
 )

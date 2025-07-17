@@ -106,6 +106,43 @@ public class NumSwiftMetal {
   
   // MARK: - Basic Array Operations
   
+  public func sum(_ array: [Float]) -> Float {
+    let elementCount = array.count
+    
+    if !shouldUseMetal(for: elementCount) {
+      return array.reduce(0, +)
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_sum_float_kernel"),
+          let inputBuffer = createBuffer(from: array, type: Float.self),
+          let resultBuffer = createBuffer(count: 1, type: Float.self),
+          let sizeBuffer = createBuffer(from: [UInt32(elementCount)], type: UInt32.self) else {
+      return array.reduce(0, +)
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return 0
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(inputBuffer, offset: 0, index: 0)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 1)
+    encoder.setBuffer(sizeBuffer, offset: 0, index: 2)
+    
+    let threadgroupSize = MTLSize(width: 1, height: 1, depth: 1)
+    let threadgroups = MTLSize(width: 1, height: 1, depth: 1)
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: 1)
+    return resultPointer[0]
+  }
+  
   public func sum(_ array: [Float16]) -> Float16 {
     let elementCount = array.count
     
@@ -145,6 +182,80 @@ public class NumSwiftMetal {
     commandBuffer.waitUntilCompleted()
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: 1)
+    return resultPointer[0]
+  }
+  
+  public func max(_ array: [Float]) -> Float {
+    let elementCount = array.count
+    
+    if !shouldUseMetal(for: elementCount) {
+      return array.max() ?? 0
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_max_float_kernel"),
+          let inputBuffer = createBuffer(from: array, type: Float.self),
+          let resultBuffer = createBuffer(count: 1, type: Float.self),
+          let sizeBuffer = createBuffer(from: [UInt32(elementCount)], type: UInt32.self) else {
+      return array.max() ?? 0
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return 0
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(inputBuffer, offset: 0, index: 0)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 1)
+    encoder.setBuffer(sizeBuffer, offset: 0, index: 2)
+    
+    let threadgroupSize = MTLSize(width: 1, height: 1, depth: 1)
+    let threadgroups = MTLSize(width: 1, height: 1, depth: 1)
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: 1)
+    return resultPointer[0]
+  }
+  
+  public func min(_ array: [Float]) -> Float {
+    let elementCount = array.count
+    
+    if !shouldUseMetal(for: elementCount) {
+      return array.min() ?? 0
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_min_float_kernel"),
+          let inputBuffer = createBuffer(from: array, type: Float.self),
+          let resultBuffer = createBuffer(count: 1, type: Float.self),
+          let sizeBuffer = createBuffer(from: [UInt32(elementCount)], type: UInt32.self) else {
+      return array.min() ?? 0
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return 0
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(inputBuffer, offset: 0, index: 0)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 1)
+    encoder.setBuffer(sizeBuffer, offset: 0, index: 2)
+    
+    let threadgroupSize = MTLSize(width: 1, height: 1, depth: 1)
+    let threadgroups = MTLSize(width: 1, height: 1, depth: 1)
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: 1)
     return resultPointer[0]
   }
   
@@ -191,6 +302,86 @@ public class NumSwiftMetal {
   
   // MARK: - Element-wise Operations
   
+  public func add(_ lhs: [Float], _ rhs: [Float]) -> [Float] {
+    let elementCount = lhs.count
+    guard elementCount == rhs.count else {
+      fatalError("Array sizes must match")
+    }
+    
+    if !shouldUseMetal(for: elementCount) {
+      return zip(lhs, rhs).map(+)
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_add_float_kernel"),
+          let lhsBuffer = createBuffer(from: lhs, type: Float.self),
+          let rhsBuffer = createBuffer(from: rhs, type: Float.self),
+          let resultBuffer = createBuffer(count: elementCount, type: Float.self) else {
+      return zip(lhs, rhs).map(+)
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(lhsBuffer, offset: 0, index: 0)
+    encoder.setBuffer(rhsBuffer, offset: 0, index: 1)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 2)
+    
+    let threadsPerThreadgroup = MTLSize(width: Swift.min(pipeline.threadExecutionWidth, elementCount), height: 1, depth: 1)
+    let threadgroups = MTLSize(width: (elementCount + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width, height: 1, depth: 1)
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
+    return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
+  }
+  
+  public func subtract(_ lhs: [Float], _ rhs: [Float]) -> [Float] {
+    let elementCount = lhs.count
+    guard elementCount == rhs.count else {
+      fatalError("Array sizes must match")
+    }
+    
+    if !shouldUseMetal(for: elementCount) {
+      return zip(lhs, rhs).map(-)
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_sub_float_kernel"),
+          let lhsBuffer = createBuffer(from: lhs, type: Float.self),
+          let rhsBuffer = createBuffer(from: rhs, type: Float.self),
+          let resultBuffer = createBuffer(count: elementCount, type: Float.self) else {
+      return zip(lhs, rhs).map(-)
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(lhsBuffer, offset: 0, index: 0)
+    encoder.setBuffer(rhsBuffer, offset: 0, index: 1)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 2)
+    
+    let threadsPerThreadgroup = MTLSize(width: Swift.min(pipeline.threadExecutionWidth, elementCount), height: 1, depth: 1)
+    let threadgroups = MTLSize(width: (elementCount + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width, height: 1, depth: 1)
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
+    return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
+  }
+  
   public func add(_ lhs: [Float16], _ rhs: [Float16]) -> [Float16] {
     let elementCount = lhs.count
     guard elementCount == rhs.count else {
@@ -235,7 +426,7 @@ public class NumSwiftMetal {
     encoder.setBuffer(rhsBuffer, offset: 0, index: 1)
     encoder.setBuffer(resultBuffer, offset: 0, index: 2)
     
-    let threadsPerThreadgroup = MTLSize(width: min(pipeline.threadExecutionWidth, elementCount), height: 1, depth: 1)
+    let threadsPerThreadgroup = MTLSize(width: Swift.min(pipeline.threadExecutionWidth, elementCount), height: 1, depth: 1)
     let threadgroups = MTLSize(width: (elementCount + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width, height: 1, depth: 1)
     
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
@@ -245,6 +436,86 @@ public class NumSwiftMetal {
     commandBuffer.waitUntilCompleted()
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: elementCount)
+    return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
+  }
+  
+  public func multiply(_ lhs: [Float], _ rhs: [Float]) -> [Float] {
+    let elementCount = lhs.count
+    guard elementCount == rhs.count else {
+      fatalError("Array sizes must match")
+    }
+    
+    if !shouldUseMetal(for: elementCount) {
+      return zip(lhs, rhs).map(*)
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_mult_float_kernel"),
+          let lhsBuffer = createBuffer(from: lhs, type: Float.self),
+          let rhsBuffer = createBuffer(from: rhs, type: Float.self),
+          let resultBuffer = createBuffer(count: elementCount, type: Float.self) else {
+      return zip(lhs, rhs).map(*)
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(lhsBuffer, offset: 0, index: 0)
+    encoder.setBuffer(rhsBuffer, offset: 0, index: 1)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 2)
+    
+    let threadsPerThreadgroup = MTLSize(width: Swift.min(pipeline.threadExecutionWidth, elementCount), height: 1, depth: 1)
+    let threadgroups = MTLSize(width: (elementCount + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width, height: 1, depth: 1)
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
+    return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
+  }
+  
+  public func divide(_ lhs: [Float], _ rhs: [Float]) -> [Float] {
+    let elementCount = lhs.count
+    guard elementCount == rhs.count else {
+      fatalError("Array sizes must match")
+    }
+    
+    if !shouldUseMetal(for: elementCount) {
+      return zip(lhs, rhs).map(/)
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_div_float_kernel"),
+          let lhsBuffer = createBuffer(from: lhs, type: Float.self),
+          let rhsBuffer = createBuffer(from: rhs, type: Float.self),
+          let resultBuffer = createBuffer(count: elementCount, type: Float.self) else {
+      return zip(lhs, rhs).map(/)
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(lhsBuffer, offset: 0, index: 0)
+    encoder.setBuffer(rhsBuffer, offset: 0, index: 1)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 2)
+    
+    let threadsPerThreadgroup = MTLSize(width: Swift.min(pipeline.threadExecutionWidth, elementCount), height: 1, depth: 1)
+    let threadgroups = MTLSize(width: (elementCount + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width, height: 1, depth: 1)
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
     return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
   }
   
@@ -292,7 +563,7 @@ public class NumSwiftMetal {
     encoder.setBuffer(rhsBuffer, offset: 0, index: 1)
     encoder.setBuffer(resultBuffer, offset: 0, index: 2)
     
-    let threadsPerThreadgroup = MTLSize(width: min(pipeline.threadExecutionWidth, elementCount), height: 1, depth: 1)
+    let threadsPerThreadgroup = MTLSize(width: Swift.min(pipeline.threadExecutionWidth, elementCount), height: 1, depth: 1)
     let threadgroups = MTLSize(width: (elementCount + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width, height: 1, depth: 1)
     
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
@@ -306,6 +577,89 @@ public class NumSwiftMetal {
   }
   
   // MARK: - Matrix Operations
+  
+  public func matmul(_ a: [[Float]], _ b: [[Float]]) -> [[Float]] {
+    let aRows = a.count
+    let aCols = a[0].count
+    let bRows = b.count
+    let bCols = b[0].count
+    
+    guard aCols == bRows else {
+      fatalError("Matrix dimensions don't match for multiplication")
+    }
+    
+    let elementCount = aRows * bCols
+    
+    if !shouldUseMetal(for: elementCount) {
+      var result = [[Float]]()
+      for i in 0..<aRows {
+        var row = [Float]()
+        for j in 0..<bCols {
+          var sum: Float = 0
+          for k in 0..<aCols {
+            sum += a[i][k] * b[k][j]
+          }
+          row.append(sum)
+        }
+        result.append(row)
+      }
+      return result
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_matmul_float_kernel") else {
+      fatalError("Failed to create matmul pipeline")
+    }
+    
+    let aFlat = a.flatMap { $0 }
+    let bFlat = b.flatMap { $0 }
+    let aSize = NSC_Size(rows: Int32(aRows), columns: Int32(aCols))
+    let bSize = NSC_Size(rows: Int32(bRows), columns: Int32(bCols))
+    
+    guard let aBuffer = createBuffer(from: aFlat, type: Float.self),
+          let bBuffer = createBuffer(from: bFlat, type: Float.self),
+          let resultBuffer = createBuffer(count: aRows * bCols, type: Float.self),
+          let aSizeBuffer = createBuffer(from: [aSize], type: NSC_Size.self),
+          let bSizeBuffer = createBuffer(from: [bSize], type: NSC_Size.self) else {
+      fatalError("Failed to create buffers")
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(aBuffer, offset: 0, index: 0)
+    encoder.setBuffer(bBuffer, offset: 0, index: 1)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 2)
+    encoder.setBuffer(aSizeBuffer, offset: 0, index: 3)
+    encoder.setBuffer(bSizeBuffer, offset: 0, index: 4)
+    
+    let threadsPerThreadgroup = MTLSize(width: 16, height: 16, depth: 1)
+    let threadgroups = MTLSize(
+      width: (bCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
+      height: (aRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
+      depth: 1
+    )
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: aRows * bCols)
+    let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: aRows * bCols))
+    
+    var result = [[Float]]()
+    for i in 0..<aRows {
+      let startIndex = i * bCols
+      let endIndex = startIndex + bCols
+      result.append(Array(resultFlat[startIndex..<endIndex]))
+    }
+    
+    return result
+  }
   
   public func matmul(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
     let aRows = a.count
@@ -382,6 +736,97 @@ public class NumSwiftMetal {
   }
   
   // MARK: - Convolution Operations
+  
+  public func conv2d(_ signal: [[Float]], _ filter: [[Float]], stride: (rows: Int, cols: Int) = (1, 1)) -> [[Float]] {
+    let inputRows = signal.count
+    let inputCols = signal[0].count
+    let filterRows = filter.count
+    let filterCols = filter[0].count
+    
+    let outputRows = (inputRows - filterRows) / stride.rows + 1
+    let outputCols = (inputCols - filterCols) / stride.cols + 1
+    let elementCount = outputRows * outputCols
+    
+    if !shouldUseMetal(for: elementCount) {
+      var result = [[Float]]()
+      for i in 0..<outputRows {
+        var row = [Float]()
+        for j in 0..<outputCols {
+          var sum: Float = 0
+          for fi in 0..<filterRows {
+            for fj in 0..<filterCols {
+              let signalRow = i * stride.rows + fi
+              let signalCol = j * stride.cols + fj
+              sum += signal[signalRow][signalCol] * filter[fi][fj]
+            }
+          }
+          row.append(sum)
+        }
+        result.append(row)
+      }
+      return result
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_conv2d_float_kernel") else {
+      fatalError("Failed to create conv2d pipeline")
+    }
+    
+    let signalFlat = signal.flatMap { $0 }
+    let filterFlat = filter.flatMap { $0 }
+    let inputSize = NSC_Size(rows: Int32(inputRows), columns: Int32(inputCols))
+    let filterSize = NSC_Size(rows: Int32(filterRows), columns: Int32(filterCols))
+    let strideSize = NSC_Size(rows: Int32(stride.rows), columns: Int32(stride.cols))
+    let resultSize = NSC_Size(rows: Int32(outputRows), columns: Int32(outputCols))
+    
+    guard let signalBuffer = createBuffer(from: signalFlat, type: Float.self),
+          let filterBuffer = createBuffer(from: filterFlat, type: Float.self),
+          let resultBuffer = createBuffer(count: outputRows * outputCols, type: Float.self),
+          let inputSizeBuffer = createBuffer(from: [inputSize], type: NSC_Size.self),
+          let filterSizeBuffer = createBuffer(from: [filterSize], type: NSC_Size.self),
+          let strideSizeBuffer = createBuffer(from: [strideSize], type: NSC_Size.self),
+          let resultSizeBuffer = createBuffer(from: [resultSize], type: NSC_Size.self) else {
+      fatalError("Failed to create buffers")
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(signalBuffer, offset: 0, index: 0)
+    encoder.setBuffer(filterBuffer, offset: 0, index: 1)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 2)
+    encoder.setBuffer(inputSizeBuffer, offset: 0, index: 3)
+    encoder.setBuffer(filterSizeBuffer, offset: 0, index: 4)
+    encoder.setBuffer(strideSizeBuffer, offset: 0, index: 5)
+    encoder.setBuffer(resultSizeBuffer, offset: 0, index: 6)
+    
+    let threadsPerThreadgroup = MTLSize(width: 16, height: 16, depth: 1)
+    let threadgroups = MTLSize(
+      width: (outputCols + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width,
+      height: (outputRows + threadsPerThreadgroup.height - 1) / threadsPerThreadgroup.height,
+      depth: 1
+    )
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: outputRows * outputCols)
+    let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: outputRows * outputCols))
+    
+    var result = [[Float]]()
+    for i in 0..<outputRows {
+      let startIndex = i * outputCols
+      let endIndex = startIndex + outputCols
+      result.append(Array(resultFlat[startIndex..<endIndex]))
+    }
+    
+    return result
+  }
   
   public func conv2d(_ signal: [[Float16]], _ filter: [[Float16]], stride: (rows: Int, cols: Int) = (1, 1)) -> [[Float16]] {
     let inputRows = signal.count

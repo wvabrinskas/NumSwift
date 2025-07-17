@@ -21,6 +21,7 @@ public enum ActivationType: UInt32 {
   case none = 5
   case selu = 6
   case gelu = 7
+  case softmax = 8
 }
 
 public struct MetalConfiguration {
@@ -64,6 +65,7 @@ public struct MetalConfiguration {
 public class NumSwiftMetal {
   private let config: MetalConfiguration
   private var backend: ComputeBackend = .metal
+  private let update = NSRecursiveLock()
   
   // Cache for frequently used compute pipelines
   private var pipelineCache: [String: MTLComputePipelineState] = [:]
@@ -84,6 +86,8 @@ public class NumSwiftMetal {
   // MARK: - Pipeline Management
   
   private func computePipeline(for functionName: String) -> MTLComputePipelineState? {
+    defer { update.unlock() }
+    update.lock()
     if let cached = pipelineCache[functionName] {
       return cached
     }
@@ -1258,6 +1262,8 @@ public class NumSwiftMetal {
           let a: Float = 0.044715
           let tanhInput = sqrt2Pi * (value + a * pow(value, 3))
           return 0.5 * value * (1.0 + tanh(tanhInput))
+        case .softmax:
+          return value
         }
       }
     }
@@ -1293,6 +1299,8 @@ public class NumSwiftMetal {
           let a: Float = 0.044715
           let tanhInput = sqrt2Pi * (value + a * pow(value, 3))
           return 0.5 * value * (1.0 + tanh(tanhInput))
+        case .softmax:
+          return value
         }
       }
     }
@@ -1355,6 +1363,8 @@ public class NumSwiftMetal {
           let tanhVal = tanh(tanhInput)
           let sechVal = 1.0 - tanhVal * tanhVal // sech^2(x) = 1 - tanh^2(x)
           return 0.5 * (1.0 + tanhVal) + 0.5 * value * sechVal * sqrt2Pi * (1.0 + 3.0 * a * value * value)
+        case .softmax:
+          return 1
         }
       }
     }
@@ -1394,6 +1404,8 @@ public class NumSwiftMetal {
           let tanhVal = tanh(tanhInput)
           let sechVal = 1.0 - tanhVal * tanhVal // sech^2(x) = 1 - tanh^2(x)
           return 0.5 * (1.0 + tanhVal) + 0.5 * value * sechVal * sqrt2Pi * (1.0 + 3.0 * a * value * value)
+        case .softmax:
+          return 1
         }
       }
     }
@@ -1452,6 +1464,8 @@ public class NumSwiftMetal {
           let a: Float16 = 0.044715
           let tanhInput = sqrt2Pi * (value + a * Float16.pow(value, 3))
           return 0.5 * value * (1.0 + Float16.tanh(tanhInput))
+        case .softmax:
+          return value
         }
       }
     }
@@ -1487,6 +1501,8 @@ public class NumSwiftMetal {
           let a: Float16 = 0.044715
           let tanhInput = sqrt2Pi * (value + a * Float16.pow(value, 3))
           return 0.5 * value * (1.0 + Float16.tanh(tanhInput))
+        case .softmax:
+          return value
         }
       }
     }
@@ -1549,6 +1565,8 @@ public class NumSwiftMetal {
           let tanhVal = Float16.tanh(tanhInput)
           let sechVal = 1.0 - tanhVal * tanhVal // sech^2(x) = 1 - tanh^2(x)
           return 0.5 * (1.0 + tanhVal) + 0.5 * value * sechVal * sqrt2Pi * (1.0 + 3.0 * a * value * value)
+        case .softmax:
+          return 1
         }
       }
     }
@@ -1588,6 +1606,8 @@ public class NumSwiftMetal {
           let tanhVal = Float16.tanh(tanhInput)
           let sechVal = 1.0 - tanhVal * tanhVal // sech^2(x) = 1 - tanh^2(x)
           return 0.5 * (1.0 + tanhVal) + 0.5 * value * sechVal * sqrt2Pi * (1.0 + 3.0 * a * value * value)
+        case .softmax:
+          return 1
         }
       }
     }

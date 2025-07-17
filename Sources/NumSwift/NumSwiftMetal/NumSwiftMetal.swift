@@ -2,6 +2,7 @@ import Foundation
 import Metal
 import MetalKit
 import NumSwiftC
+import Numerics
 
 // MARK: - Metal Backend Configuration
 
@@ -9,6 +10,17 @@ public enum ComputeBackend {
   case cpu
   case metal
   case auto // Automatically chooses based on problem size
+}
+
+public enum ActivationType: UInt32 {
+  case relu = 0
+  case leakyRelu = 1
+  case sigmoid = 2
+  case swish = 3
+  case tanh = 4
+  case none = 5
+  case selu = 6
+  case gelu = 7
 }
 
 public struct MetalConfiguration {
@@ -1213,16 +1225,394 @@ public class NumSwiftMetal {
     
     return result
   }
+  
+  // MARK: - Activation Functions
+  
+  public func activation(_ data: [Float], type: ActivationType, limit: Float = 0.01) -> [Float] {
+    let elementCount = data.count
+    
+    if !shouldUseMetal(for: elementCount) {
+      // CPU fallback
+      return data.map { value in
+        switch type {
+        case .relu:
+          return Swift.max(0, value)
+        case .leakyRelu:
+          return value < 0 ? limit * value : value
+        case .sigmoid:
+          return 1.0 / (1.0 + exp(-value))
+        case .swish:
+          let sigmoid = 1.0 / (1.0 + exp(-value))
+          return value * sigmoid
+        case .tanh:
+          let denom = 1.0 + exp(-2 * value)
+          return (2.0 / denom) - 1.0
+        case .none:
+          return value
+        case .selu:
+          let alpha: Float = 1.6732632423543772848170429916717
+          let scale: Float = 1.0507009873554804934193349852946
+          return value <= 0 ? scale * alpha * (exp(value) - 1.0) : scale * value
+        case .gelu:
+          let sqrt2Pi: Float = 0.7978845608028654 // sqrt(2/pi)
+          let a: Float = 0.044715
+          let tanhInput = sqrt2Pi * (value + a * pow(value, 3))
+          return 0.5 * value * (1.0 + tanh(tanhInput))
+        }
+      }
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_activation_kernel"),
+          let dataBuffer = createBuffer(from: data, type: Float.self),
+          let resultBuffer = createBuffer(count: elementCount, type: Float.self),
+          let typeBuffer = createBuffer(from: [type.rawValue], type: UInt32.self),
+          let limitBuffer = createBuffer(from: [limit], type: Float.self) else {
+      // Fallback to CPU implementation
+      return data.map { value in
+        switch type {
+        case .relu:
+          return Swift.max(0, value)
+        case .leakyRelu:
+          return value < 0 ? limit * value : value
+        case .sigmoid:
+          return 1.0 / (1.0 + exp(-value))
+        case .swish:
+          let sigmoid = 1.0 / (1.0 + exp(-value))
+          return value * sigmoid
+        case .tanh:
+          let denom = 1.0 + exp(-2 * value)
+          return (2.0 / denom) - 1.0
+        case .none:
+          return value
+        case .selu:
+          let alpha: Float = 1.6732632423543772848170429916717
+          let scale: Float = 1.0507009873554804934193349852946
+          return value <= 0 ? scale * alpha * (exp(value) - 1.0) : scale * value
+        case .gelu:
+          let sqrt2Pi: Float = 0.7978845608028654 // sqrt(2/pi)
+          let a: Float = 0.044715
+          let tanhInput = sqrt2Pi * (value + a * pow(value, 3))
+          return 0.5 * value * (1.0 + tanh(tanhInput))
+        }
+      }
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(dataBuffer, offset: 0, index: 0)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 1)
+    encoder.setBuffer(typeBuffer, offset: 0, index: 2)
+    encoder.setBuffer(limitBuffer, offset: 0, index: 3)
+    
+    let threadsPerThreadgroup = MTLSize(width: Swift.min(pipeline.threadExecutionWidth, elementCount), height: 1, depth: 1)
+    let threadgroups = MTLSize(width: (elementCount + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width, height: 1, depth: 1)
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
+    return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
+  }
+  
+  public func derivative(_ data: [Float], type: ActivationType, limit: Float = 0.01) -> [Float] {
+    let elementCount = data.count
+    
+    if !shouldUseMetal(for: elementCount) {
+      // CPU fallback
+      return data.map { value in
+        switch type {
+        case .relu:
+          return value >= 0 ? 1 : 0
+        case .leakyRelu:
+          return value > 0 ? 1 : limit
+        case .sigmoid:
+          let sig = 1.0 / (1.0 + exp(-value))
+          return sig * (1 - sig)
+        case .swish:
+          return (exp(-value) * (value + 1) + 1) / pow((1 + exp(-value)), 2)
+        case .tanh:
+          let denom = 1.0 + exp(-2 * value)
+          let tanActivate = (2.0 / denom) - 1.0
+          return 1 - (pow(tanActivate, 2))
+        case .none:
+          return 1
+        case .selu:
+          let alpha: Float = 1.6732632423543772848170429916717
+          let scale: Float = 1.0507009873554804934193349852946
+          return value <= 0 ? scale * alpha * exp(value) : scale
+        case .gelu:
+          let sqrt2Pi: Float = 0.7978845608028654 // sqrt(2/pi)
+          let a: Float = 0.044715
+          let xCubed = pow(value, 3)
+          let tanhInput = sqrt2Pi * (value + a * xCubed)
+          let tanhVal = tanh(tanhInput)
+          let sechVal = 1.0 - tanhVal * tanhVal // sech^2(x) = 1 - tanh^2(x)
+          return 0.5 * (1.0 + tanhVal) + 0.5 * value * sechVal * sqrt2Pi * (1.0 + 3.0 * a * value * value)
+        }
+      }
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_derivate_kernel"),
+          let dataBuffer = createBuffer(from: data, type: Float.self),
+          let resultBuffer = createBuffer(count: elementCount, type: Float.self),
+          let typeBuffer = createBuffer(from: [type.rawValue], type: UInt32.self),
+          let limitBuffer = createBuffer(from: [limit], type: Float.self) else {
+      // Fallback to CPU implementation
+      return data.map { value in
+        switch type {
+        case .relu:
+          return value >= 0 ? 1 : 0
+        case .leakyRelu:
+          return value > 0 ? 1 : limit
+        case .sigmoid:
+          let sig = 1.0 / (1.0 + exp(-value))
+          return sig * (1 - sig)
+        case .swish:
+          return (exp(-value) * (value + 1) + 1) / pow((1 + exp(-value)), 2)
+        case .tanh:
+          let denom = 1.0 + exp(-2 * value)
+          let tanActivate = (2.0 / denom) - 1.0
+          return 1 - (pow(tanActivate, 2))
+        case .none:
+          return 1
+        case .selu:
+          let alpha: Float = 1.6732632423543772848170429916717
+          let scale: Float = 1.0507009873554804934193349852946
+          return value <= 0 ? scale * alpha * exp(value) : scale
+        case .gelu:
+          let sqrt2Pi: Float = 0.7978845608028654 // sqrt(2/pi)
+          let a: Float = 0.044715
+          let xCubed = pow(value, 3)
+          let tanhInput = sqrt2Pi * (value + a * xCubed)
+          let tanhVal = tanh(tanhInput)
+          let sechVal = 1.0 - tanhVal * tanhVal // sech^2(x) = 1 - tanh^2(x)
+          return 0.5 * (1.0 + tanhVal) + 0.5 * value * sechVal * sqrt2Pi * (1.0 + 3.0 * a * value * value)
+        }
+      }
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(dataBuffer, offset: 0, index: 0)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 1)
+    encoder.setBuffer(typeBuffer, offset: 0, index: 2)
+    encoder.setBuffer(limitBuffer, offset: 0, index: 3)
+    
+    let threadsPerThreadgroup = MTLSize(width: Swift.min(pipeline.threadExecutionWidth, elementCount), height: 1, depth: 1)
+    let threadgroups = MTLSize(width: (elementCount + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width, height: 1, depth: 1)
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
+    return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
+  }
+  
+  public func activation(_ data: [Float16], type: ActivationType, limit: Float16 = 0.01) -> [Float16] {
+    let elementCount = data.count
+    
+    if !shouldUseMetal(for: elementCount) {
+      // CPU fallback
+      return data.map { value in
+        switch type {
+        case .relu:
+          return Swift.max(0, value)
+        case .leakyRelu:
+          return value < 0 ? limit * value : value
+        case .sigmoid:
+          return 1.0 / (1.0 + Float16.exp(-value))
+        case .swish:
+          let sigmoid = 1.0 / (1.0 + Float16.exp(-value))
+          return value * sigmoid
+        case .tanh:
+          let denom = 1.0 + Float16.exp(-2 * value)
+          return (2.0 / denom) - 1.0
+        case .none:
+          return value
+        case .selu:
+          let alpha: Float16 = 1.6732632423543772848170429916717
+          let scale: Float16 = 1.0507009873554804934193349852946
+          return value <= 0 ? scale * alpha * (Float16.exp(value) - 1.0) : scale * value
+        case .gelu:
+          let sqrt2Pi: Float16 = 0.7978845608028654 // sqrt(2/pi)
+          let a: Float16 = 0.044715
+          let tanhInput = sqrt2Pi * (value + a * Float16.pow(value, 3))
+          return 0.5 * value * (1.0 + Float16.tanh(tanhInput))
+        }
+      }
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_activation_half_kernel"),
+          let dataBuffer = createBuffer(from: data, type: Float16.self),
+          let resultBuffer = createBuffer(count: elementCount, type: Float16.self),
+          let typeBuffer = createBuffer(from: [type.rawValue], type: UInt32.self),
+          let limitBuffer = createBuffer(from: [limit], type: Float16.self) else {
+      // Fallback to CPU implementation
+      return data.map { value in
+        switch type {
+        case .relu:
+          return Swift.max(0, value)
+        case .leakyRelu:
+          return value < 0 ? limit * value : value
+        case .sigmoid:
+          return 1.0 / (1.0 + Float16.exp(-value))
+        case .swish:
+          let sigmoid = 1.0 / (1.0 + Float16.exp(-value))
+          return value * sigmoid
+        case .tanh:
+          let denom = 1.0 + Float16.exp(-2 * value)
+          return (2.0 / denom) - 1.0
+        case .none:
+          return value
+        case .selu:
+          let alpha: Float16 = 1.6732632423543772848170429916717
+          let scale: Float16 = 1.0507009873554804934193349852946
+          return value <= 0 ? scale * alpha * (Float16.exp(value) - 1.0) : scale * value
+        case .gelu:
+          let sqrt2Pi: Float16 = 0.7978845608028654 // sqrt(2/pi)
+          let a: Float16 = 0.044715
+          let tanhInput = sqrt2Pi * (value + a * Float16.pow(value, 3))
+          return 0.5 * value * (1.0 + Float16.tanh(tanhInput))
+        }
+      }
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(dataBuffer, offset: 0, index: 0)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 1)
+    encoder.setBuffer(typeBuffer, offset: 0, index: 2)
+    encoder.setBuffer(limitBuffer, offset: 0, index: 3)
+    
+    let threadsPerThreadgroup = MTLSize(width: Swift.min(pipeline.threadExecutionWidth, elementCount), height: 1, depth: 1)
+    let threadgroups = MTLSize(width: (elementCount + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width, height: 1, depth: 1)
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: elementCount)
+    return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
+  }
+  
+  public func derivative(_ data: [Float16], type: ActivationType, limit: Float16 = 0.01) -> [Float16] {
+    let elementCount = data.count
+    
+    if !shouldUseMetal(for: elementCount) {
+      // CPU fallback
+      return data.map { value in
+        switch type {
+        case .relu:
+          return value >= 0 ? 1 : 0
+        case .leakyRelu:
+          return value > 0 ? 1 : limit
+        case .sigmoid:
+          let sig = 1.0 / (1.0 + Float16.exp(-value))
+          return sig * (1 - sig)
+        case .swish:
+          return (Float16.exp(-value) * (value + 1) + 1) / Float16.pow((1 + Float16.exp(-value)), 2)
+        case .tanh:
+          let denom = 1.0 + Float16.exp(-2 * value)
+          let tanActivate = (2.0 / denom) - 1.0
+          return 1 - (Float16.pow(tanActivate, 2))
+        case .none:
+          return 1
+        case .selu:
+          let alpha: Float16 = 1.6732632423543772848170429916717
+          let scale: Float16 = 1.0507009873554804934193349852946
+          return value <= 0 ? scale * alpha * Float16.exp(value) : scale
+        case .gelu:
+          let sqrt2Pi: Float16 = 0.7978845608028654 // sqrt(2/pi)
+          let a: Float16 = 0.044715
+          let xCubed = Float16.pow(value, 3)
+          let tanhInput = sqrt2Pi * (value + a * xCubed)
+          let tanhVal = Float16.tanh(tanhInput)
+          let sechVal = 1.0 - tanhVal * tanhVal // sech^2(x) = 1 - tanh^2(x)
+          return 0.5 * (1.0 + tanhVal) + 0.5 * value * sechVal * sqrt2Pi * (1.0 + 3.0 * a * value * value)
+        }
+      }
+    }
+    
+    guard let pipeline = computePipeline(for: "nsc_derivate_half_kernel"),
+          let dataBuffer = createBuffer(from: data, type: Float16.self),
+          let resultBuffer = createBuffer(count: elementCount, type: Float16.self),
+          let typeBuffer = createBuffer(from: [type.rawValue], type: UInt32.self),
+          let limitBuffer = createBuffer(from: [limit], type: Float16.self) else {
+      // Fallback to CPU implementation
+      return data.map { value in
+        switch type {
+        case .relu:
+          return value >= 0 ? 1 : 0
+        case .leakyRelu:
+          return value > 0 ? 1 : limit
+        case .sigmoid:
+          let sig = 1.0 / (1.0 + Float16.exp(-value))
+          return sig * (1 - sig)
+        case .swish:
+          return (Float16.exp(-value) * (value + 1) + 1) / Float16.pow((1 + Float16.exp(-value)), 2)
+        case .tanh:
+          let denom = 1.0 + Float16.exp(-2 * value)
+          let tanActivate = (2.0 / denom) - 1.0
+          return 1 - (Float16.pow(tanActivate, 2))
+        case .none:
+          return 1
+        case .selu:
+          let alpha: Float16 = 1.6732632423543772848170429916717
+          let scale: Float16 = 1.0507009873554804934193349852946
+          return value <= 0 ? scale * alpha * Float16.exp(value) : scale
+        case .gelu:
+          let sqrt2Pi: Float16 = 0.7978845608028654 // sqrt(2/pi)
+          let a: Float16 = 0.044715
+          let xCubed = Float16.pow(value, 3)
+          let tanhInput = sqrt2Pi * (value + a * xCubed)
+          let tanhVal = Float16.tanh(tanhInput)
+          let sechVal = 1.0 - tanhVal * tanhVal // sech^2(x) = 1 - tanh^2(x)
+          return 0.5 * (1.0 + tanhVal) + 0.5 * value * sechVal * sqrt2Pi * (1.0 + 3.0 * a * value * value)
+        }
+      }
+    }
+    
+    guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
+          let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      return []
+    }
+    
+    encoder.setComputePipelineState(pipeline)
+    encoder.setBuffer(dataBuffer, offset: 0, index: 0)
+    encoder.setBuffer(resultBuffer, offset: 0, index: 1)
+    encoder.setBuffer(typeBuffer, offset: 0, index: 2)
+    encoder.setBuffer(limitBuffer, offset: 0, index: 3)
+    
+    let threadsPerThreadgroup = MTLSize(width: Swift.min(pipeline.threadExecutionWidth, elementCount), height: 1, depth: 1)
+    let threadgroups = MTLSize(width: (elementCount + threadsPerThreadgroup.width - 1) / threadsPerThreadgroup.width, height: 1, depth: 1)
+    
+    encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+    encoder.endEncoding()
+    
+    commandBuffer.commit()
+    commandBuffer.waitUntilCompleted()
+    
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: elementCount)
+    return Array(UnsafeBufferPointer(start: resultPointer, count: elementCount))
+  }
 }
-
-// MARK: - Extension for NSC_Size Compatibility
-
-// MARK: - Public Interface
-
-public func createNumSwiftMetal() -> NumSwiftMetal? {
-  return NumSwiftMetal()
-}
-
-// MARK: - Global Instance for Easy Access
-
-public let numSwiftMetal = NumSwiftMetal()

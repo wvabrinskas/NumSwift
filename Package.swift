@@ -18,6 +18,7 @@ let package = Package(
     dependencies: [
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
+      .package(url: "https://github.com/apple/swift-numerics", from: "1.0.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -30,7 +31,8 @@ let package = Package(
           ]),
       .target(
             name: "NumSwift",
-            dependencies: ["NumSwiftC"],
+            dependencies: ["NumSwiftC",
+              .product(name: "Numerics", package: "swift-numerics")],
             resources: [.process("Resources")]),
         .testTarget(
             name: "NumSwiftTests",

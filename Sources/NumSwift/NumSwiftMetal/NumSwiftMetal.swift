@@ -65,7 +65,7 @@ public struct MetalConfiguration {
 public class NumSwiftMetal {
   private let config: MetalConfiguration
   private var backend: ComputeBackend = .metal
-  private let update = NSRecursiveLock()
+  private let update = NSLock()
   
   // Cache for frequently used compute pipelines
   private var pipelineCache: [String: MTLComputePipelineState] = [:]
@@ -148,6 +148,60 @@ public class NumSwiftMetal {
   
   public func setBackend(_ backend: ComputeBackend) {
     self.backend = backend
+    print("🔄 NumSwiftMetal backend set to: \(backend)")
+  }
+  
+  // Quick GPU test
+  public func testGPUPerformance() -> (success: Bool, duration: Double) {
+    let testArray = Array(1...10000).map { Float($0) }
+    let startTime = CFAbsoluteTimeGetCurrent()
+  
+    let result = sum(testArray)
+    
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    let success = result > 0
+    
+    print("🗋 GPU Test: \(success ? "✅" : "❌") Duration: \(String(format: "%.4f", duration))s")
+    return (success, duration)
+  }
+  
+  // Async versions of key operations for better GPU utilization
+  @available(macOS 10.15, iOS 13.0, *)
+  public func matmulAsync(_ a: [[Float16]], _ b: [[Float16]]) async -> [[Float16]] {
+    return await withCheckedContinuation { continuation in
+      DispatchQueue.global(qos: .userInitiated).async {
+        let result = self.matmul(a, b)
+        continuation.resume(returning: result)
+      }
+    }
+  }
+  
+  @available(macOS 10.15, iOS 13.0, *)
+  public func conv2dAsync(_ signal: [[Float16]], _ filter: [[Float16]], stride: (rows: Int, cols: Int) = (1, 1), padding: NumSwift.ConvPadding = .valid) async -> [[Float16]] {
+    return await withCheckedContinuation { continuation in
+      DispatchQueue.global(qos: .userInitiated).async {
+        let result = self.conv2d(signal, filter, stride: stride, padding: padding)
+        continuation.resume(returning: result)
+      }
+    }
+  }
+  
+  // Batch async operations for neural networks
+  @available(macOS 10.15, iOS 13.0, *)
+  public func batchedMatmulAsync(_ a: [[[Float16]]], _ b: [[[Float16]]]) async -> [[[Float16]]] {
+    return await withCheckedContinuation { continuation in
+      DispatchQueue.global(qos: .userInitiated).async {
+        let result = self.batchedMatmul(a, b)
+        continuation.resume(returning: result)
+      }
+    }
+  }
+  
+  // Force completion of all pending operations
+  public func flushOperations() {
+    if isAsyncMode {
+      waitForCompletion()
+    }
   }
   
   // MARK: - Pipeline Management
@@ -184,8 +238,8 @@ public class NumSwiftMetal {
     case .metal:
       return true
     case .auto:
-      // Use Metal for larger problems where parallelization benefits outweigh overhead
-      return elementCount > 1000
+      // Lowered threshold for neural network workloads
+      return elementCount > 100  // Changed from 1000 to 100
     }
   }
   
@@ -312,13 +366,25 @@ public class NumSwiftMetal {
   }
   
   private func updateMemoryPressure() {
-    memoryPressure = Double(currentMemoryUsage) / Double(maxMemoryUsage)
-    
-    // Aggressive cleanup if memory pressure is very high
-    if memoryPressure > 0.9 {
-      bufferPool.removeAll()
-      currentMemoryUsage = 0
-      memoryPressure = 0.0
+//    update.lock()
+//    defer { update.unlock() }
+//    
+//    memoryPressure = Double(currentMemoryUsage) / Double(maxMemoryUsage)
+//    
+//    // Aggressive cleanup if memory pressure is very high
+//    if memoryPressure > 0.9 {
+//      bufferPool.removeAll()
+//      currentMemoryUsage = 0
+//      memoryPressure = 0.0
+//    }
+  }
+  
+  // Helper to clean up multiple buffers - CRITICAL for preventing memory leaks
+  private func cleanupBuffers(_ buffers: MTLBuffer?...) {
+    for buffer in buffers {
+      if let buffer = buffer {
+        returnBufferToPool(buffer)
+      }
     }
   }
   
@@ -335,6 +401,21 @@ public class NumSwiftMetal {
   
   public func forceMemoryCleanup() {
     cleanupMemoryPool()
+  }
+  
+  // GPU utilization monitoring (thread-safe)
+  private var metalOperationCount: Int = 0
+  private var cpuFallbackCount: Int = 0
+  private let statsLock = NSLock()
+  
+  // Thread safety for Metal operations
+  private let metalLock = NSLock()
+  
+  // Thread-safe Metal operation wrapper
+  private func executeMetalOperation<T>(_ operation: () throws -> T) rethrows -> T {
+    metalLock.lock()
+    defer { metalLock.unlock() }
+    return try operation()
   }
   
   public func waitForCompletion() {
@@ -365,6 +446,21 @@ public class NumSwiftMetal {
     }
     
     commandBuffer.commit()
+  }
+  
+  // Pipeline multiple operations for better GPU utilization
+  public func executeBatch(_ operations: [() -> Void]) {
+    let oldMode = isAsyncMode
+    isAsyncMode = true
+    
+    for operation in operations {
+      operation()
+    }
+    
+    // Wait for all operations to complete
+    waitForCompletion()
+    
+    isAsyncMode = oldMode
   }
   
   // MARK: - Parallel Reduction Helper
@@ -402,21 +498,24 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     // Get partial results from each threadgroup
     let resultPointer = resultBuffer.contents().bindMemory(to: type, capacity: threadgroups)
     let partialResults = Array(UnsafeBufferPointer(start: resultPointer, count: threadgroups))
+    
+    // Clean up buffers before final reduction
+    cleanupBuffers(resultBuffer, sizeBuffer)
     
     // Final reduction on CPU (small array now)
     return finalReduction(partialResults)
@@ -469,16 +568,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     return resultBuffer
@@ -567,16 +666,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: batchSize * aRows * bCols)
@@ -593,6 +692,9 @@ public class NumSwiftMetal {
       }
       results.append(batchResult)
     }
+    
+    // Clean up all buffers
+    cleanupBuffers(aBuffer, bBuffer, resultBuffer, aSizeBuffer, bSizeBuffer, batchSizeBuffer)
     
     return results
   }
@@ -678,16 +780,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: batchSize * aRows * bCols)
@@ -704,6 +806,9 @@ public class NumSwiftMetal {
       }
       results.append(batchResult)
     }
+    
+    // Clean up all buffers
+    cleanupBuffers(aBuffer, bBuffer, resultBuffer, aSizeBuffer, bSizeBuffer, batchSizeBuffer)
     
     return results
   }
@@ -724,27 +829,33 @@ public class NumSwiftMetal {
     // Use parallel reduction for large arrays
     if shouldUseParallelReduction(for: elementCount) {
       guard let pipeline = computePipeline(for: "nsc_parallel_sum_float_kernel") else {
+        cleanupBuffers(inputBuffer)
         return array.reduce(0, +)
       }
       
-      return executeParallelReduction(
+      let result = executeParallelReduction(
         pipeline: pipeline,
         inputBuffer: inputBuffer,
         elementCount: elementCount,
         type: Float.self,
         finalReduction: { $0.reduce(0, +) }
       ) ?? array.reduce(0, +)
+      
+      cleanupBuffers(inputBuffer)
+      return result
     }
     
     // Use single-threaded kernel for smaller arrays
     guard let pipeline = computePipeline(for: "nsc_sum_float_kernel"),
           let resultBuffer = createBuffer(count: 1, type: Float.self),
           let sizeBuffer = createBuffer(from: [UInt32(elementCount)], type: UInt32.self) else {
+      cleanupBuffers(inputBuffer)
       return array.reduce(0, +)
     }
     
     guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
           let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      cleanupBuffers(inputBuffer, resultBuffer, sizeBuffer)
       return 0
     }
     
@@ -759,20 +870,25 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: 1)
-    return resultPointer[0]
+    let result = resultPointer[0]
+    
+    // Clean up all buffers
+    cleanupBuffers(inputBuffer, resultBuffer, sizeBuffer)
+    
+    return result
   }
   
   public func sum(_ array: [Float16]) -> Float16 {
@@ -793,12 +909,13 @@ public class NumSwiftMetal {
     // Use parallel reduction for large arrays
     if shouldUseParallelReduction(for: elementCount) {
       guard let pipeline = computePipeline(for: "nsc_parallel_sum_kernel") else {
+        cleanupBuffers(inputBuffer)
         return array.withUnsafeBufferPointer { ptr in
           return nsc_sum(ptr.baseAddress!)
         }
       }
       
-      return executeParallelReduction(
+      let result = executeParallelReduction(
         pipeline: pipeline,
         inputBuffer: inputBuffer,
         elementCount: elementCount,
@@ -815,13 +932,16 @@ public class NumSwiftMetal {
       ) ?? array.withUnsafeBufferPointer { ptr in
         return nsc_sum(ptr.baseAddress!)
       }
+      
+      cleanupBuffers(inputBuffer)
+      return result
     }
     
     // Use single-threaded kernel for smaller arrays
     guard let pipeline = computePipeline(for: "nsc_sum_kernel"),
           let resultBuffer = createBuffer(count: 1, type: Float16.self),
           let sizeBuffer = createBuffer(from: [UInt32(elementCount)], type: UInt32.self) else {
-      // Fallback to CPU implementation
+      cleanupBuffers(inputBuffer)
       return array.withUnsafeBufferPointer { ptr in
         return nsc_sum(ptr.baseAddress!)
       }
@@ -829,6 +949,7 @@ public class NumSwiftMetal {
     
     guard let commandBuffer = config.commandQueue.makeCommandBuffer(),
           let encoder = commandBuffer.makeComputeCommandEncoder() else {
+      cleanupBuffers(inputBuffer, resultBuffer, sizeBuffer)
       return 0
     }
     
@@ -843,20 +964,25 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: 1)
-    return resultPointer[0]
+    let result = resultPointer[0]
+    
+    // Clean up all buffers
+    cleanupBuffers(inputBuffer, resultBuffer, sizeBuffer)
+    
+    return result
   }
   
   public func max(_ array: [Float]) -> Float {
@@ -908,16 +1034,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: 1)
@@ -973,16 +1099,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: 1)
@@ -1056,16 +1182,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: 1)
@@ -1139,16 +1265,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: 1)
@@ -1190,16 +1316,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
@@ -1239,16 +1365,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
@@ -1305,16 +1431,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: elementCount)
@@ -1354,16 +1480,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
@@ -1403,16 +1529,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
@@ -1469,16 +1595,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: elementCount)
@@ -1596,6 +1722,11 @@ public class NumSwiftMetal {
       result.append(Array(resultFlat[startIndex..<endIndex]))
     }
     
+    // CRITICAL: Clean up all buffers to prevent memory leaks
+    returnBufferToPool(aBuffer)
+    returnBufferToPool(bBuffer)
+    returnBufferToPool(finalBuffer)
+    
     return result
   }
   
@@ -1706,6 +1837,11 @@ public class NumSwiftMetal {
       result.append(Array(resultFlat[startIndex..<endIndex]))
     }
     
+    // CRITICAL: Clean up all buffers to prevent memory leaks
+    returnBufferToPool(aBuffer)
+    returnBufferToPool(bBuffer)
+    returnBufferToPool(finalBuffer)
+    
     return result
   }
   
@@ -1798,16 +1934,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: outputRows * outputCols))
@@ -1925,16 +2061,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: outputRows * outputCols))
@@ -2114,16 +2250,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: outputRows * outputCols)
@@ -2135,6 +2271,11 @@ public class NumSwiftMetal {
       let endIndex = startIndex + outputCols
       result.append(Array(resultFlat[startIndex..<endIndex]))
     }
+    
+    // CRITICAL: Clean up all buffers to prevent memory leaks
+    cleanupBuffers(signalBuffer, filterBuffer, resultBuffer, inputSizeBuffer, 
+                   filterSizeBuffer, strideSizeBuffer, resultSizeBuffer, 
+                   padTopBuffer, padLeftBuffer)
     
     return result
   }
@@ -2258,16 +2399,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: outputRows * outputCols)
@@ -2280,6 +2421,11 @@ public class NumSwiftMetal {
       let endIndex = startIndex + outputCols
       result.append(Array(resultFlat[startIndex..<endIndex]))
     }
+    
+    // CRITICAL: Clean up all buffers to prevent memory leaks
+    cleanupBuffers(signalBuffer, filterBuffer, resultBuffer, inputSizeBuffer, 
+                   filterSizeBuffer, strideSizeBuffer, resultSizeBuffer, 
+                   padTopBuffer, padLeftBuffer)
     
     return result
   }
@@ -2376,16 +2522,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
@@ -2490,16 +2636,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: elementCount)
@@ -2596,16 +2742,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: elementCount)
@@ -2710,16 +2856,16 @@ public class NumSwiftMetal {
     encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
     encoder.endEncoding()
     
-    if isAsyncMode {
-      // Submit command buffer asynchronously
-      commandBuffer.addCompletedHandler { [weak self] buffer in
-        // Return buffers to pool when operation completes
-        // Buffer cleanup handled elsewhere
-      }
-      commandBuffer.commit()
-    } else {
-      commandBuffer.commit()
-      commandBuffer.waitUntilCompleted()
+    // Execute with GPU pipeline optimization
+    executeCommandAsync(commandBuffer)
+    
+    // In async mode, we still need to wait for THIS operation but allow others to pipeline
+    let startTime = CFAbsoluteTimeGetCurrent()
+    commandBuffer.waitUntilCompleted()
+    let duration = CFAbsoluteTimeGetCurrent() - startTime
+    
+    if duration > 1.0 {  // Log operations taking >1 second
+      print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
     let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: elementCount)

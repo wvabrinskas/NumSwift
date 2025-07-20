@@ -1,6 +1,9 @@
 
 #include "include/numswiftc.h"
 #include "time.h"
+#ifdef __ARM_NEON
+#include <arm_neon.h>
+#endif
 
 extern void nsc_matmul_16(NSC_Size a_size,
                           NSC_Size b_size,
@@ -657,6 +660,156 @@ extern void nsc_zero_pad(const float input[],
   free(padded);
 }
 
+#ifdef __ARM_NEON
+// Optimized 3x3 convolution kernel for float32
+static inline float neon_conv_3x3(float *const *signal,
+                                 float *const *filter,
+                                 int sig_row, int sig_col) {
+  // Load 3x3 signal region
+  float32x4_t sig0 = vld1q_f32(&signal[sig_row][sig_col]);     // [s00, s01, s02, s03]
+  float32x4_t sig1 = vld1q_f32(&signal[sig_row + 1][sig_col]); // [s10, s11, s12, s13]
+  float32x4_t sig2 = vld1q_f32(&signal[sig_row + 2][sig_col]); // [s20, s21, s22, s23]
+  
+  // Load 3x3 filter
+  float32x4_t filt0 = vld1q_f32(&filter[0][0]); // [f00, f01, f02, 0]
+  float32x4_t filt1 = vld1q_f32(&filter[1][0]); // [f10, f11, f12, 0] 
+  float32x4_t filt2 = vld1q_f32(&filter[2][0]); // [f20, f21, f22, 0]
+  
+  // Multiply and accumulate - only use first 3 elements
+  float32x4_t acc0 = vmulq_f32(sig0, filt0);
+  float32x4_t acc1 = vmlaq_f32(acc0, sig1, filt1);
+  float32x4_t acc2 = vmlaq_f32(acc1, sig2, filt2);
+  
+  // Sum first 3 elements (ignore 4th)
+  float result = vgetq_lane_f32(acc2, 0) + vgetq_lane_f32(acc2, 1) + vgetq_lane_f32(acc2, 2);
+  return result;
+}
+
+// Optimized 3x3 convolution kernel for float16
+static inline __fp16 neon_conv_3x3_f16(__fp16 *const *signal,
+                                      __fp16 *const *filter,
+                                      int sig_row, int sig_col) {
+  // Load 3x3 signal region (8 elements per load, use first 3)
+  float16x8_t sig0 = vld1q_f16(&signal[sig_row][sig_col]);
+  float16x8_t sig1 = vld1q_f16(&signal[sig_row + 1][sig_col]);
+  float16x8_t sig2 = vld1q_f16(&signal[sig_row + 2][sig_col]);
+  
+  // Load 3x3 filter
+  float16x8_t filt0 = vld1q_f16(&filter[0][0]);
+  float16x8_t filt1 = vld1q_f16(&filter[1][0]);
+  float16x8_t filt2 = vld1q_f16(&filter[2][0]);
+  
+  // Multiply and accumulate
+  float16x8_t acc0 = vmulq_f16(sig0, filt0);
+  float16x8_t acc1 = vfmaq_f16(acc0, sig1, filt1);
+  float16x8_t acc2 = vfmaq_f16(acc1, sig2, filt2);
+  
+  // Sum first 3 elements
+  __fp16 result = vgetq_lane_f16(acc2, 0) + vgetq_lane_f16(acc2, 1) + vgetq_lane_f16(acc2, 2);
+  return result;
+}
+
+// Bounds-safe data access function for float32
+static inline float safe_get_signal(float *const *signal,
+                                   float *const *padded_signal,
+                                   int row, int col,
+                                   int input_rows, int input_cols,
+                                   int pad_top, int pad_left,
+                                   NSC_Padding padding) {
+  if (padding == same) {
+    return padded_signal[row][col];
+  } else {
+    // Direct access for valid padding
+    if (row >= 0 && row < input_rows && col >= 0 && col < input_cols) {
+      return signal[row][col];
+    }
+    return 0.0f; // Out of bounds
+  }
+}
+
+// Bounds-safe data access function for float16
+static inline __fp16 safe_get_signal_f16(__fp16 *const *signal,
+                                        __fp16 *const *padded_signal,
+                                        int row, int col,
+                                        int input_rows, int input_cols,
+                                        int pad_top, int pad_left,
+                                        NSC_Padding padding) {
+  if (padding == same) {
+    return padded_signal[row][col];
+  } else {
+    // Direct access for valid padding
+    if (row >= 0 && row < input_rows && col >= 0 && col < input_cols) {
+      return signal[row][col];
+    }
+    return 0.0f; // Out of bounds
+  }
+}
+
+// SIMD optimized convolution kernel for float32
+static inline float neon_conv_kernel(float *const *signal,
+                                   float *const *filter,
+                                   int sig_row, int sig_col,
+                                   int filter_rows, int filter_cols) {
+  float32x4_t acc = vdupq_n_f32(0.0f);
+  
+  for (int fr = 0; fr < filter_rows; fr++) {
+    int fc = 0;
+    
+    // Process 4 elements at a time
+    for (; fc <= filter_cols - 4; fc += 4) {
+      float32x4_t sig_vec = vld1q_f32(&signal[sig_row + fr][sig_col + fc]);
+      float32x4_t filt_vec = vld1q_f32(&filter[fr][fc]);
+      acc = vmlaq_f32(acc, sig_vec, filt_vec);
+    }
+    
+    // Handle remaining elements
+    for (; fc < filter_cols; fc++) {
+      float sig_val = signal[sig_row + fr][sig_col + fc];
+      float filt_val = filter[fr][fc];
+      acc = vmlaq_n_f32(acc, vdupq_n_f32(sig_val), filt_val);
+    }
+  }
+  
+  // Horizontal sum
+  float32x2_t sum_pair = vadd_f32(vget_high_f32(acc), vget_low_f32(acc));
+  return vget_lane_f32(vpadd_f32(sum_pair, sum_pair), 0);
+}
+
+// SIMD optimized convolution kernel for float16
+static inline __fp16 neon_conv_kernel_f16(__fp16 *const *signal,
+                                         __fp16 *const *filter,
+                                         int sig_row, int sig_col,
+                                         int filter_rows, int filter_cols) {
+  float16x8_t acc = vdupq_n_f16(0.0f);
+  
+  for (int fr = 0; fr < filter_rows; fr++) {
+    int fc = 0;
+    
+    // Process 8 elements at a time for fp16
+    for (; fc <= filter_cols - 8; fc += 8) {
+      float16x8_t sig_vec = vld1q_f16(&signal[sig_row + fr][sig_col + fc]);
+      float16x8_t filt_vec = vld1q_f16(&filter[fr][fc]);
+      acc = vfmaq_f16(acc, sig_vec, filt_vec);
+    }
+    
+    // Handle remaining elements
+    for (; fc < filter_cols; fc++) {
+      __fp16 sig_val = signal[sig_row + fr][sig_col + fc];
+      __fp16 filt_val = filter[fr][fc];
+      acc = vfmaq_n_f16(acc, vdupq_n_f16(sig_val), filt_val);
+    }
+  }
+  
+  // Horizontal sum - compatible approach
+  float16x4_t sum_low = vget_low_f16(acc);
+  float16x4_t sum_high = vget_high_f16(acc);
+  float16x4_t sum_pair = vadd_f16(sum_low, sum_high);
+  float16x4_t sum_fold = vpadd_f16(sum_pair, sum_pair);
+  float16x4_t sum_final = vpadd_f16(sum_fold, sum_fold);
+  return vget_lane_f16(sum_final, 0);
+}
+#endif
+
 extern void nsc_conv2d_f16(__fp16 *const *signal,
                        __fp16 *const *filter,
                        __fp16 **result,
@@ -686,8 +839,10 @@ extern void nsc_conv2d_f16(__fp16 *const *signal,
   int padded_row_total = input_size.rows + paddingLeft + paddingRight;
   int padded_col_total = input_size.columns + paddingTop + paddingBottom;
   
-  // Dynamically allocate memory for the array of pointers (rows)
-  __fp16 **working_signal;
+  // Optimized memory allocation for padding - use single malloc for better cache performance
+  __fp16 **working_signal = NULL;
+  __fp16 *working_signal_data = NULL;
+  int use_heap_allocation = 0;
   
   if (padding == same) {
     int inputRows = input_size.rows;
@@ -696,45 +851,35 @@ extern void nsc_conv2d_f16(__fp16 *const *signal,
     int padded_row_total = inputRows + paddingLeft + paddingRight;
     int padded_col_total = inputColumns + paddingTop + paddingBottom;
     
+    // Allocate memory more efficiently - single block + row pointers
+    working_signal_data = (__fp16 *)calloc(padded_row_total * padded_col_total, sizeof(__fp16));
     working_signal = (__fp16 **)malloc(padded_row_total * sizeof(__fp16 *));
     
-    // Check if allocation was successful
-    if (working_signal == NULL) {
+    if (working_signal == NULL || working_signal_data == NULL) {
       fprintf(stderr, "Memory allocation failed.\n");
-      return; // Exit with an error code
+      if (working_signal_data) free(working_signal_data);
+      if (working_signal) free(working_signal);
+      return;
     }
     
-    // Dynamically allocate memory for each row (columns)
-    for (int i = 0; i < padded_row_total; ++i) {
-      working_signal[i] = (__fp16 *)malloc(padded_col_total * sizeof(__fp16));
-      
-      // Check if allocation was successful
-      if (working_signal[i] == NULL) {
-        fprintf(stderr, "Memory allocation failed.\n");
-        return; // Exit with an error code
-      }
-    }
+    use_heap_allocation = 1;
     
-    int length = padded_row_total * padded_col_total;
-    
+    // Set up row pointers to point into the single data block
     for (int i = 0; i < padded_row_total; i++) {
-      for (int j = 0; j < padded_col_total; j++) {
-        working_signal[i][j] = 0;
+      working_signal[i] = &working_signal_data[i * padded_col_total];
+    }
+    
+    // Copy input data (data is already zero-initialized by calloc)
+    for (int r = 0; r < inputRows; r++) {
+      for (int c = 0; c < inputColumns; c++) {
+        int padded_r = r + paddingTop;
+        int padded_c = c + paddingLeft;
+        working_signal[padded_r][padded_c] = signal[r][c];
       }
     }
     
     if (result == NULL || signal == NULL)
       return;
-    
-    for (int r = 0; r < inputRows; r++) {
-      for (int c = 0; c < inputColumns; c++) {
-        int padded_c = c + paddingLeft;
-        int padded_r = r + paddingTop;
-        
-        int index = (padded_r  * padded_row_total) + padded_c;
-        working_signal[padded_r][padded_c] = signal[r][c];
-      }
-    }
   }
   
   int inputRows = input_size.rows;
@@ -769,6 +914,24 @@ extern void nsc_conv2d_f16(__fp16 *const *signal,
     for (int c = 0; c < max_c; c += strideC) {
       __fp16 sum = 0;
       
+#ifdef __ARM_NEON
+      // Use optimized 3x3 kernel if applicable
+      if (filterRows == 3 && filterColumns == 3) {
+        if (padding == same) {
+          sum = neon_conv_3x3_f16(working_signal, filter, r, c);
+        } else {
+          sum = neon_conv_3x3_f16(signal, filter, r, c);
+        }
+      } else {
+        // Use general SIMD optimized convolution kernel
+        if (padding == same) {
+          sum = neon_conv_kernel_f16(working_signal, filter, r, c, filterRows, filterColumns);
+        } else {
+          sum = neon_conv_kernel_f16(signal, filter, r, c, filterRows, filterColumns);
+        }
+      }
+#else
+      // Fallback to scalar implementation
       for (int fr = 0; fr < filterRows; fr++) {
         for (int fc = 0; fc < filterColumns; fc++) {
           int current_data_row = r + fr;
@@ -786,6 +949,7 @@ extern void nsc_conv2d_f16(__fp16 *const *signal,
           sum += s_data * f_data;
         }
       }
+#endif
       
       result[result_index_r][result_index_c] = sum;
       result_index_c++;
@@ -793,10 +957,8 @@ extern void nsc_conv2d_f16(__fp16 *const *signal,
     result_index_r++;
   }
 
-  if (padding == same) {
-    for (int i = 0; i < padded_row_total; ++i) {
-      free(working_signal[i]);
-    }
+  if (padding == same && use_heap_allocation) {
+    free(working_signal_data);
     free(working_signal);
   }
 }
@@ -830,8 +992,10 @@ extern void nsc_conv2d(float *const *signal,
   int padded_row_total = input_size.rows + paddingLeft + paddingRight;
   int padded_col_total = input_size.columns + paddingTop + paddingBottom;
   
-  // Dynamically allocate memory for the array of pointers (rows)
-  float **working_signal;
+  // Optimized memory allocation for padding - use single malloc for better cache performance
+  float **working_signal = NULL;
+  float *working_signal_data = NULL;
+  int use_heap_allocation = 0;
   
   if (padding == same) {
     int inputRows = input_size.rows;
@@ -840,45 +1004,35 @@ extern void nsc_conv2d(float *const *signal,
     int padded_row_total = inputRows + paddingLeft + paddingRight;
     int padded_col_total = inputColumns + paddingTop + paddingBottom;
     
+    // Allocate memory more efficiently - single block + row pointers
+    working_signal_data = (float *)calloc(padded_row_total * padded_col_total, sizeof(float));
     working_signal = (float **)malloc(padded_row_total * sizeof(float *));
     
-    // Check if allocation was successful
-    if (working_signal == NULL) {
+    if (working_signal == NULL || working_signal_data == NULL) {
       fprintf(stderr, "Memory allocation failed.\n");
-      return; // Exit with an error code
+      if (working_signal_data) free(working_signal_data);
+      if (working_signal) free(working_signal);
+      return;
     }
     
-    // Dynamically allocate memory for each row (columns)
-    for (int i = 0; i < padded_row_total; ++i) {
-      working_signal[i] = (float *)malloc(padded_col_total * sizeof(float));
-      
-      // Check if allocation was successful
-      if (working_signal[i] == NULL) {
-        fprintf(stderr, "Memory allocation failed.\n");
-        return; // Exit with an error code
-      }
-    }
+    use_heap_allocation = 1;
     
-    int length = padded_row_total * padded_col_total;
-    
+    // Set up row pointers to point into the single data block
     for (int i = 0; i < padded_row_total; i++) {
-      for (int j = 0; j < padded_col_total; j++) {
-        working_signal[i][j] = 0;
+      working_signal[i] = &working_signal_data[i * padded_col_total];
+    }
+    
+    // Copy input data (data is already zero-initialized by calloc)
+    for (int r = 0; r < inputRows; r++) {
+      for (int c = 0; c < inputColumns; c++) {
+        int padded_r = r + paddingTop;
+        int padded_c = c + paddingLeft;
+        working_signal[padded_r][padded_c] = signal[r][c];
       }
     }
     
     if (result == NULL || signal == NULL)
       return;
-    
-    for (int r = 0; r < inputRows; r++) {
-      for (int c = 0; c < inputColumns; c++) {
-        int padded_c = c + paddingLeft;
-        int padded_r = r + paddingTop;
-        
-        int index = (padded_r  * padded_row_total) + padded_c;
-        working_signal[padded_r][padded_c] = signal[r][c];
-      }
-    }
   }
   
   int inputRows = input_size.rows;
@@ -913,6 +1067,24 @@ extern void nsc_conv2d(float *const *signal,
     for (int c = 0; c < max_c; c += strideC) {
       float sum = 0;
       
+#ifdef __ARM_NEON
+      // Use optimized 3x3 kernel if applicable
+      if (filterRows == 3 && filterColumns == 3) {
+        if (padding == same) {
+          sum = neon_conv_3x3(working_signal, filter, r, c);
+        } else {
+          sum = neon_conv_3x3(signal, filter, r, c);
+        }
+      } else {
+        // Use general SIMD optimized convolution kernel
+        if (padding == same) {
+          sum = neon_conv_kernel(working_signal, filter, r, c, filterRows, filterColumns);
+        } else {
+          sum = neon_conv_kernel(signal, filter, r, c, filterRows, filterColumns);
+        }
+      }
+#else
+      // Fallback to scalar implementation
       for (int fr = 0; fr < filterRows; fr++) {
         for (int fc = 0; fc < filterColumns; fc++) {
           int current_data_row = r + fr;
@@ -930,6 +1102,7 @@ extern void nsc_conv2d(float *const *signal,
           sum += s_data * f_data;
         }
       }
+#endif
       
       result[result_index_r][result_index_c] = sum;
       result_index_c++;
@@ -937,10 +1110,8 @@ extern void nsc_conv2d(float *const *signal,
     result_index_r++;
   }
 
-  if (padding == same) {
-    for (int i = 0; i < padded_row_total; ++i) {
-      free(working_signal[i]);
-    }
+  if (padding == same && use_heap_allocation) {
+    free(working_signal_data);
     free(working_signal);
   }
 }

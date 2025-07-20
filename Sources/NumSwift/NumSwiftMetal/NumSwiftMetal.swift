@@ -65,23 +65,24 @@ public struct MetalConfiguration {
 public class NumSwiftMetal {
   private let config: MetalConfiguration
   private var backend: ComputeBackend = .metal
-  private let update = NSLock()
   
   // Cache for frequently used compute pipelines
   private var pipelineCache: [String: MTLComputePipelineState] = [:]
   
   // Buffer pool for memory reuse
   private var bufferPool: [Int: [MTLBuffer]] = [:]
-  private let bufferPoolLock = NSLock()
   private let maxPoolSize = 20 // Maximum buffers per size category
-  private var memoryPressure: Double = 0.0
-  private let maxMemoryUsage: Int = 256 * 1024 * 1024 // 256MB limit
-  private var currentMemoryUsage: Int = 0
+  
   
   // Command buffer queue for async execution - using UUID for tracking
   private var commandBufferQueue: [String: MTLCommandBuffer] = [:]
-  private let commandQueueLock = NSLock()
-  private var isAsyncMode = false
+  public var isAsyncMode = false
+  
+  // GPU utilization monitoring (thread-safe)
+  private var metalOperationCount: Int = 0
+  private var cpuFallbackCount: Int = 0
+  
+  private let metalLock = NSLock()
   
   // Optimized threadgroup sizes based on problem size
   private func getOptimalThreadgroupSize(width: Int, height: Int = 1) -> MTLSize {
@@ -207,8 +208,9 @@ public class NumSwiftMetal {
   // MARK: - Pipeline Management
   
   private func computePipeline(for functionName: String) -> MTLComputePipelineState? {
-    defer { update.unlock() }
-    update.lock()
+    defer { metalLock.unlock() }
+    metalLock.lock()
+    
     if let cached = pipelineCache[functionName] {
       return cached
     }
@@ -279,8 +281,6 @@ public class NumSwiftMetal {
     
     // Create new buffer if pool is empty
     let buffer = config.device.makeBuffer(bytes: data, length: size, options: .storageModeShared)
-    currentMemoryUsage += size
-    updateMemoryPressure()
     return buffer
   }
   
@@ -294,14 +294,12 @@ public class NumSwiftMetal {
     
     // Create new buffer if pool is empty
     let buffer = config.device.makeBuffer(length: size, options: .storageModeShared)
-    currentMemoryUsage += size
-    updateMemoryPressure()
     return buffer
   }
   
   private func getBufferFromPool(size: Int) -> MTLBuffer? {
-    bufferPoolLock.lock()
-    defer { bufferPoolLock.unlock() }
+    metalLock.lock()
+    defer { metalLock.unlock() }
     
     // Round size to nearest power of 2 for better pooling
     let poolKey = nextPowerOfTwo(size)
@@ -316,8 +314,8 @@ public class NumSwiftMetal {
   }
   
   private func returnBufferToPool(_ buffer: MTLBuffer) {
-    bufferPoolLock.lock()
-    defer { bufferPoolLock.unlock() }
+    metalLock.lock()
+    defer { metalLock.unlock() }
     
     let poolKey = nextPowerOfTwo(buffer.length)
     
@@ -326,59 +324,16 @@ public class NumSwiftMetal {
     }
     
     // Check memory pressure before returning to pool
-    if bufferPool[poolKey]!.count < maxPoolSize && currentMemoryUsage < maxMemoryUsage {
+    if bufferPool[poolKey]!.count < maxPoolSize {
       bufferPool[poolKey]!.append(buffer)
-      currentMemoryUsage += buffer.length
-    } else {
-      // Release buffer to reduce memory pressure
-      currentMemoryUsage = Swift.max(0, currentMemoryUsage - buffer.length)
     }
-    
-    updateMemoryPressure()
   }
   
   private func nextPowerOfTwo(_ value: Int) -> Int {
     guard value > 1 else { return 1 }
     return 1 << (64 - value.leadingZeroBitCount)
   }
-  
-  // Clean up memory pool when needed
-  public func cleanupMemoryPool() {
-    bufferPoolLock.lock()
-    defer { bufferPoolLock.unlock() }
-    
-    var totalFreed = 0
-    
-    // Clear buffers based on memory pressure
-    for (size, buffers) in bufferPool {
-      let keepCount = memoryPressure > 0.7 ? buffers.count / 4 : buffers.count / 2
-      let freedBuffers = buffers.dropFirst(keepCount)
-      
-      for buffer in freedBuffers {
-        totalFreed += buffer.length
-      }
-      
-      bufferPool[size] = Array(buffers.prefix(keepCount))
-    }
-    
-    currentMemoryUsage -= totalFreed
-    updateMemoryPressure()
-  }
-  
-  private func updateMemoryPressure() {
-//    update.lock()
-//    defer { update.unlock() }
-//    
-//    memoryPressure = Double(currentMemoryUsage) / Double(maxMemoryUsage)
-//    
-//    // Aggressive cleanup if memory pressure is very high
-//    if memoryPressure > 0.9 {
-//      bufferPool.removeAll()
-//      currentMemoryUsage = 0
-//      memoryPressure = 0.0
-//    }
-  }
-  
+
   // Helper to clean up multiple buffers - CRITICAL for preventing memory leaks
   private func cleanupBuffers(_ buffers: MTLBuffer?...) {
     for buffer in buffers {
@@ -393,23 +348,7 @@ public class NumSwiftMetal {
   public func setAsyncMode(_ enabled: Bool) {
     isAsyncMode = enabled
   }
-  
-  // Memory monitoring API
-  public func getMemoryUsage() -> (current: Int, max: Int, pressure: Double) {
-    return (currentMemoryUsage, maxMemoryUsage, memoryPressure)
-  }
-  
-  public func forceMemoryCleanup() {
-    cleanupMemoryPool()
-  }
-  
-  // GPU utilization monitoring (thread-safe)
-  private var metalOperationCount: Int = 0
-  private var cpuFallbackCount: Int = 0
-  private let statsLock = NSLock()
-  
-  // Thread safety for Metal operations
-  private let metalLock = NSLock()
+
   
   // Thread-safe Metal operation wrapper
   private func executeMetalOperation<T>(_ operation: () throws -> T) rethrows -> T {
@@ -419,11 +358,22 @@ public class NumSwiftMetal {
   }
   
   public func waitForCompletion() {
-    commandQueueLock.lock()
-    defer { commandQueueLock.unlock() }
+    metalLock.lock()
+    defer { metalLock.unlock() }
     
     for (_, commandBuffer) in commandBufferQueue {
+      commandBuffer.commit()
       commandBuffer.waitUntilCompleted()
+    }
+    commandBufferQueue.removeAll()
+  }
+  
+  public func commitAll() {
+    metalLock.lock()
+    defer { metalLock.unlock() }
+    
+    for (_, commandBuffer) in commandBufferQueue {
+      commandBuffer.commit()
     }
     commandBufferQueue.removeAll()
   }
@@ -434,33 +384,20 @@ public class NumSwiftMetal {
   ) {
     let commandId = UUID().uuidString
     
-    commandQueueLock.lock()
+    metalLock.lock()
     commandBufferQueue[commandId] = commandBuffer
-    commandQueueLock.unlock()
+    metalLock.unlock()
     
     commandBuffer.addCompletedHandler { [weak self] _ in
-      self?.commandQueueLock.lock()
+      self?.metalLock.lock()
       self?.commandBufferQueue.removeValue(forKey: commandId)
-      self?.commandQueueLock.unlock()
+      self?.metalLock.unlock()
       completion()
     }
     
-    commandBuffer.commit()
-  }
-  
-  // Pipeline multiple operations for better GPU utilization
-  public func executeBatch(_ operations: [() -> Void]) {
-    let oldMode = isAsyncMode
-    isAsyncMode = true
-    
-    for operation in operations {
-      operation()
+    if isAsyncMode == false {
+      commandBuffer.commit()
     }
-    
-    // Wait for all operations to complete
-    waitForCompletion()
-    
-    isAsyncMode = oldMode
   }
   
   // MARK: - Parallel Reduction Helper
@@ -2131,7 +2068,10 @@ public class NumSwiftMetal {
   
   // MARK: - Convolution Operations
   
-  public func conv2d(_ signal: [[Float]], _ filter: [[Float]], stride: (rows: Int, cols: Int) = (1, 1), padding: NumSwift.ConvPadding = .valid) -> [[Float]] {
+  public func conv2d(_ signal: [[Float]], _ filter: [[Float]],
+                     stride: (rows: Int, cols: Int) = (1, 1),
+                     padding: NumSwift.ConvPadding = .valid,
+                     completion: (([[Float]]) -> ())? = nil) -> [[Float]] {
     let signalSize = signal.shape
     let fSize = filter.shape
     
@@ -2251,33 +2191,47 @@ public class NumSwiftMetal {
     encoder.endEncoding()
     
     // Execute with GPU pipeline optimization
-    executeCommandAsync(commandBuffer)
+    executeCommandAsync(commandBuffer) {
+      completion?(processResult(resultBuffer: resultBuffer))
+    }
     
     // In async mode, we still need to wait for THIS operation but allow others to pipeline
     let startTime = CFAbsoluteTimeGetCurrent()
-    commandBuffer.waitUntilCompleted()
+    
+    func processResult(resultBuffer: MTLBuffer) -> [[Float]] {
+      let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: outputRows * outputCols)
+      let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: outputRows * outputCols))
+      
+      var result = [[Float]]()
+      for i in 0..<outputRows {
+        let startIndex = i * outputCols
+        let endIndex = startIndex + outputCols
+        result.append(Array(resultFlat[startIndex..<endIndex]))
+      }
+      
+      return result
+    }
+    
+    if isAsyncMode == false {
+      commandBuffer.waitUntilCompleted()
+    } else {
+      return []
+    }
+    
     let duration = CFAbsoluteTimeGetCurrent() - startTime
     
     if duration > 1.0 {  // Log operations taking >1 second
       print("⚠️  Slow GPU operation: \(String(format: "%.2f", duration))s")
     }
     
-    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: outputRows * outputCols)
-    let resultFlat = Array(UnsafeBufferPointer(start: resultPointer, count: outputRows * outputCols))
-    
-    var result = [[Float]]()
-    for i in 0..<outputRows {
-      let startIndex = i * outputCols
-      let endIndex = startIndex + outputCols
-      result.append(Array(resultFlat[startIndex..<endIndex]))
+    // CRITICAL: Clean up all buffers to prevent memory leaks
+    defer {
+      cleanupBuffers(signalBuffer, filterBuffer, resultBuffer, inputSizeBuffer,
+                     filterSizeBuffer, strideSizeBuffer, resultSizeBuffer,
+                     padTopBuffer, padLeftBuffer)
     }
     
-    // CRITICAL: Clean up all buffers to prevent memory leaks
-    cleanupBuffers(signalBuffer, filterBuffer, resultBuffer, inputSizeBuffer, 
-                   filterSizeBuffer, strideSizeBuffer, resultSizeBuffer, 
-                   padTopBuffer, padLeftBuffer)
-    
-    return result
+    return processResult(resultBuffer: resultBuffer)
   }
   
   public func conv2d(_ signal: [[Float16]], _ filter: [[Float16]], stride: (rows: Int, cols: Int) = (1, 1), padding: NumSwift.ConvPadding = .valid) -> [[Float16]] {

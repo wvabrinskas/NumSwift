@@ -1,7 +1,8 @@
 //
-//  File.swift
-//  
+//  NumSwiftC_Float16.swift
+//  NumSwift
 //
+//  Float16 operations with automatic optimization selection
 //  Created by William Vabrinskas on 3/28/22.
 //
 
@@ -11,7 +12,7 @@ import NumSwiftC
 #if arch(arm64)
 public extension NumSwiftC {
   
-  public static func tranpose(_ a: [[Float16]], size: (rows: Int, columns: Int)) -> [[Float16]] {
+  static func tranpose(_ a: [[Float16]], size: (rows: Int, columns: Int)) -> [[Float16]] {
     let result: [[Float16]] = NumSwift.zerosLike((rows: size.columns, columns: size.rows))
     
     result.withUnsafeBufferPointer { rBuff in
@@ -19,22 +20,20 @@ public extension NumSwiftC {
       
       a.withUnsafeBufferPointer { aBuff in
         let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
-        nsc_transpose_2d_16(aPoint,
-                            &rPoint,
-                            .init(rows: Int32(size.rows),
-                                  columns: Int32(size.columns)))
+        nsc_transpose_2d_16_optimized(aPoint,
+                                      &rPoint,
+                                      .init(rows: Int32(size.rows),
+                                            columns: Int32(size.columns)))
       }
-      
     }
     
     return result
   }
   
-  public static func matmul(_ a: [[Float16]],
+  static func matmul(_ a: [[Float16]],
                             b: [[Float16]],
                             aSize: (rows: Int, columns: Int),
                             bSize: (rows: Int, columns: Int)) -> [[Float16]] {
-    
     let results: [[Float16]] = NumSwift.zerosLike((rows: aSize.rows,
                                                    columns: bSize.columns))
     
@@ -45,11 +44,12 @@ public extension NumSwiftC {
         b.withUnsafeBufferPointer { bBuff in
           let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
           let bPoint: [UnsafeMutablePointer<Float16>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
-          nsc_matmul_16(NSC_Size(rows: Int32(aSize.rows), columns: Int32(aSize.columns)),
-                        NSC_Size(rows: Int32(bSize.rows), columns: Int32(bSize.columns)),
-                        aPoint,
-                        bPoint,
-                        &rPoint)
+          
+          nsc_matmul_16_optimized(NSC_Size(rows: Int32(aSize.rows), columns: Int32(aSize.columns)),
+                                  NSC_Size(rows: Int32(bSize.rows), columns: Int32(bSize.columns)),
+                                  aPoint,
+                                  bPoint,
+                                  &rPoint)
         }
       }
     }
@@ -57,7 +57,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func flatten(_ input: [[Float16]], inputSize: (rows: Int, columns: Int)? = nil) -> [Float16] {
+  static func flatten(_ input: [[Float16]], inputSize: (rows: Int, columns: Int)? = nil) -> [Float16] {
     
     let shape = input.shape
     var rows = shape[safe: 1, 0]
@@ -79,7 +79,7 @@ public extension NumSwiftC {
     return results
   }
 
-  public static func stridePad(signal: [[Float16]],
+  static func stridePad(signal: [[Float16]],
                                strides: (rows: Int, columns: Int)) -> [[Float16]] {
     
     guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else {
@@ -112,7 +112,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func stridePad1D(signal: [Float16],
+  static func stridePad1D(signal: [Float16],
                                strides: (rows: Int, columns: Int)) -> [Float16] {
     
     guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else {
@@ -139,7 +139,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func zeroPad(signal: [[Float16]],
+  static func zeroPad(signal: [[Float16]],
                              padding: NumSwiftPadding) -> [[Float16]] {
     
     guard padding.right > 0 || padding.left > 0 || padding.top > 0 || padding.bottom > 0 else {
@@ -160,21 +160,21 @@ public extension NumSwiftC {
         var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
         let sPoint: [UnsafeMutablePointer<Float16>?] = sBuff.map { UnsafeMutablePointer(mutating: $0) }
         
-        nsc_specific_zero_pad_2d_f16(sPoint,
-                                     &rPoint,
-                                     NSC_Size(rows: Int32(rows),
-                                              columns: Int32(columns)),
-                                     Int32(padding.top),
-                                     Int32(padding.bottom),
-                                     Int32(padding.left),
-                                     Int32(padding.right))
+        nsc_specific_zero_pad_2d_f16_optimized(sPoint,
+                                           &rPoint,
+                                           NSC_Size(rows: Int32(rows),
+                                                    columns: Int32(columns)),
+                                           Int32(padding.top),
+                                           Int32(padding.bottom),
+                                           Int32(padding.left),
+                                           Int32(padding.right))
       }
     }
     
     return results
   }
   
-  public static func zeroPad(signal: [[Float16]],
+  static func zeroPad(signal: [[Float16]],
                              filterSize: (rows: Int, columns: Int),
                              inputSize: (rows: Int, columns: Int),
                              stride: (Int, Int) = (1,1)) -> [[Float16]] {
@@ -216,41 +216,43 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func conv2d(signal: [[Float16]],
+  static func conv2d(signal: [[Float16]],
                             filter: [[Float16]],
                             strides: (Int, Int) = (1,1),
                             padding: NumSwift.ConvPadding = .valid,
                             filterSize: (rows: Int, columns: Int),
                             inputSize: (rows: Int, columns: Int)) -> [[Float16]] {
     
-    let paddingResult = padding.extra(inputSize: inputSize, filterSize: filterSize, stride: strides)
-    let expectedRows = ((inputSize.rows - filterSize.rows + paddingResult.top + paddingResult.bottom) / strides.0) + 1
-    let expectedColumns = ((inputSize.columns - filterSize.columns + paddingResult.left + paddingResult.right) / strides.1) + 1
+    let outputRows = ((inputSize.rows - filterSize.rows + (padding == .same ? filterSize.rows - 1 : 0)) / strides.0) + 1
+    let outputCols = ((inputSize.columns - filterSize.columns + (padding == .same ? filterSize.columns - 1 : 0)) / strides.1) + 1
     
-    let paddingInt: UInt32 = padding == .valid ? 0 : 1
-    let results: [[Float16]] = NumSwift.zerosLike((expectedRows, expectedColumns))
-      
+    let results: [[Float16]] = NumSwift.zerosLike((rows: outputRows, columns: outputCols))
+    
     results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
       signal.withUnsafeBufferPointer { sBuff in
         filter.withUnsafeBufferPointer { fBuff in
-          var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
-          var sPoint: [UnsafeMutablePointer<Float16>?] = sBuff.map { UnsafeMutablePointer(mutating: $0) }
-          var fPoint: [UnsafeMutablePointer<Float16>?] = fBuff.map { UnsafeMutablePointer(mutating: $0) }
-          nsc_conv2d_f16(sPoint,
-                         fPoint,
-                         &rPoint,
-                         NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
-                         NSC_Padding(rawValue: paddingInt),
-                         NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
-                         NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
+          let sPoint: [UnsafeMutablePointer<Float16>?] = sBuff.map { UnsafeMutablePointer(mutating: $0) }
+          let fPoint: [UnsafeMutablePointer<Float16>?] = fBuff.map { UnsafeMutablePointer(mutating: $0) }
+          
+          let nscPadding: NSC_Padding = padding == .same ? same : valid
+          
+          nsc_conv2d_f16_optimized(sPoint,
+                                   fPoint,
+                                   &rPoint,
+                                   NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
+                                   nscPadding,
+                                   NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
+                                   NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
         }
       }
     }
-  
+    
     return results
   }
   
-  public static func conv1d(signal: [Float16],
+  static func conv1d(signal: [Float16],
                             filter: [Float16],
                             strides: (Int, Int) = (1,1),
                             padding: NumSwift.ConvPadding = .valid,
@@ -275,7 +277,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func transConv2d(signal: [[Float16]],
+  static func transConv2d(signal: [[Float16]],
                                  filter: [[Float16]],
                                  strides: (Int, Int) = (1,1),
                                  padding: NumSwift.ConvPadding = .valid,
@@ -311,7 +313,7 @@ public extension NumSwiftC {
         filter.withUnsafeBufferPointer { bBuff in
           let signalPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
           let filterPoint: [UnsafeMutablePointer<Float16>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
-          nsc_transConv2d_f16(signalPoint,
+          nsc_transConv2d_f16_optimized(signalPoint,
                           filterPoint,
                           &rPoint,
                           NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
@@ -327,7 +329,7 @@ public extension NumSwiftC {
   }
   
   
-  public static func transConv1d(signal: [Float16],
+  static func transConv1d(signal: [Float16],
                                  filter: [Float16],
                                  strides: (Int, Int) = (1,1),
                                  padding: NumSwift.ConvPadding = .valid,
@@ -366,7 +368,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func zeroPad(signal: [Float16],
+  static func zeroPad(signal: [Float16],
                              filterSize: (rows: Int, columns: Int),
                              inputSize: (rows: Int, columns: Int),
                              stride: (Int, Int) = (1,1)) -> [Float16] {

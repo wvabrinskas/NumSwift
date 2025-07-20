@@ -457,7 +457,7 @@ extern void nsc_add_optimized(float *const *a,
   }
 }
 
-// Optimized Float16 convolution
+// Optimized Float16 convolution that matches nsc_conv2d_f16 exactly
 extern void nsc_conv2d_f16_optimized(__fp16 *const *signal,
                                      __fp16 *const *filter,
                                      __fp16 **result,
@@ -465,116 +465,226 @@ extern void nsc_conv2d_f16_optimized(__fp16 *const *signal,
                                      NSC_Padding padding,
                                      NSC_Size filter_size,
                                      NSC_Size input_size) {
+  // Exact same algorithm as original nsc_conv2d_f16
+  int paddingLeft;
+  int paddingRight;
+  int paddingBottom;
+  int paddingTop;
   
-  const int input_h = input_size.rows;
-  const int input_w = input_size.columns;
-  const int filter_h = filter_size.rows;
-  const int filter_w = filter_size.columns;
-  const int stride_h = stride.rows;
-  const int stride_w = stride.columns;
+  int *pad_l_ptr = &paddingLeft;
+  int *pad_r_ptr = &paddingRight;
+  int *pad_b_ptr = &paddingBottom;
+  int *pad_t_ptr = &paddingTop;
   
-  // Calculate output dimensions
-  int pad_h = 0, pad_w = 0;
+  nsc_padding_calculation(stride,
+                          padding,
+                          filter_size,
+                          input_size,
+                          pad_t_ptr,
+                          pad_b_ptr,
+                          pad_l_ptr,
+                          pad_r_ptr);
+  
+  int padded_row_total = input_size.rows + paddingLeft + paddingRight;
+  int padded_col_total = input_size.columns + paddingTop + paddingBottom;
+  
+  // Dynamically allocate memory for the array of pointers (rows)
+  __fp16 **working_signal;
+  
   if (padding == same) {
-    pad_h = filter_h / 2;
-    pad_w = filter_w / 2;
+    int paddingLeft;
+    int paddingRight;
+    int paddingBottom;
+    int paddingTop;
+    
+    int *pad_l_ptr = &paddingLeft;
+    int *pad_r_ptr = &paddingRight;
+    int *pad_b_ptr = &paddingBottom;
+    int *pad_t_ptr = &paddingTop;
+    
+    nsc_padding_calculation(stride,
+                            same,
+                            filter_size,
+                            input_size,
+                            pad_t_ptr,
+                            pad_b_ptr,
+                            pad_l_ptr,
+                            pad_r_ptr);
+    
+    int inputRows = input_size.rows;
+    int inputColumns = input_size.columns;
+    
+    int padded_row_total = inputRows + paddingLeft + paddingRight;
+    int padded_col_total = inputColumns + paddingTop + paddingBottom;
+    
+    working_signal = (__fp16 **)malloc(padded_row_total * sizeof(__fp16 *));
+    
+    // Check if allocation was successful
+    if (working_signal == NULL) {
+      fprintf(stderr, "Memory allocation failed.\n");
+      return; // Exit with an error code
+    }
+    
+    // Dynamically allocate memory for each row (columns)
+    for (int i = 0; i < padded_row_total; ++i) {
+      working_signal[i] = (__fp16 *)malloc(padded_col_total * sizeof(__fp16));
+      
+      // Check if allocation was successful
+      if (working_signal[i] == NULL) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        return; // Exit with an error code
+      }
+    }
+    
+    int length = padded_row_total * padded_col_total;
+    
+    for (int i = 0; i < padded_row_total; i++) {
+      for (int j = 0; j < padded_col_total; j++) {
+        working_signal[i][j] = 0;
+      }
+    }
+    
+    if (result == NULL || signal == NULL)
+      return;
+    
+    for (int r = 0; r < inputRows; r++) {
+      for (int c = 0; c < inputColumns; c++) {
+        int padded_c = c + paddingLeft;
+        int padded_r = r + paddingTop;
+        
+        int index = (padded_r  * padded_row_total) + padded_c;
+        working_signal[padded_r][padded_c] = signal[r][c];
+      }
+    }
   }
   
-  const int output_h = (input_h + 2 * pad_h - filter_h) / stride_h + 1;
-  const int output_w = (input_w + 2 * pad_w - filter_w) / stride_w + 1;
+  int inputRows = input_size.rows;
+  int inputColumns = input_size.columns;
   
-  // Direct convolution with SIMD optimization for Float16
-  for (int out_y = 0; out_y < output_h; out_y++) {
-    for (int out_x = 0; out_x < output_w; out_x++) {
+  int strideR = stride.rows;
+  int strideC = stride.columns;
+  
+  int filterRows = filter_size.rows;
+  int filterColumns = filter_size.columns;
+  
+  if (result == NULL)
+    return;
+  
+  int rf = filterRows;
+  int cf = filterColumns;
+  int rd = inputRows + paddingTop + paddingBottom; //havnt dealt with padding yet
+  int cd = inputColumns + paddingLeft + paddingRight;
+  
+  int max_r = rd - rf + 1;
+  int max_c = cd - cf + 1;
+  
+  int rows = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
+  int columns = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
+  
+  int expected_r = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
+  int expected_c = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
+  
+  int result_index_r = 0;
+  for (int r = 0; r < max_r; r += strideR) {
+    int result_index_c = 0;
+    for (int c = 0; c < max_c; c += strideC) {
+      __fp16 sum = 0;
       
 #ifdef __ARM_NEON__
-      // Use NEON for Float16 accumulation
+      // Process filter elements in chunks of 8 for NEON Float16
       float16x8_t sum_vec = vdupq_n_f16(0.0);
-      int filter_elements = filter_h * filter_w;
-      int simd_end = (filter_elements / 8) * 8;
+      int remaining_elements = filterRows * filterColumns;
+      int processed = 0;
       
-      // Vectorized filter application
-      int vec_idx = 0;
-      for (int fy = 0; fy < filter_h && vec_idx < simd_end; fy++) {
-        for (int fx = 0; fx < filter_w && vec_idx < simd_end; fx += 8) {
-          int remaining = filter_w - fx;
-          if (remaining >= 8) {
-            // Load 8 filter values
-            float16x8_t filter_vec = vld1q_f16(&filter[fy][fx]);
+      // Vectorized inner loop
+      for (int fr = 0; fr < filterRows; fr++) {
+        int fc = 0;
+        
+        // Process 8 elements at a time
+        for (; fc <= filterColumns - 8; fc += 8) {
+          __fp16 signal_vals[8], filter_vals[8];
+          
+          for (int i = 0; i < 8; i++) {
+            int current_data_row = r + fr;
+            int current_data_col = c + fc + i;
             
-            // Load corresponding input values
-            __fp16 input_vals[8];
-            for (int i = 0; i < 8; i++) {
-              int in_y = out_y * stride_h + fy - pad_h;
-              int in_x = out_x * stride_w + (fx + i) - pad_w;
-              
-              if (in_y >= 0 && in_y < input_h && in_x >= 0 && in_x < input_w) {
-                input_vals[i] = signal[in_y][in_x];
-              } else {
-                input_vals[i] = 0.0;
-              }
+            __fp16 s_data = 0; // some checking of size here?
+            
+            if (padding == same) {
+              s_data = working_signal[current_data_row][current_data_col];
+            } else {
+              s_data = signal[current_data_row][current_data_col];
             }
             
-            float16x8_t input_vec = vld1q_f16(input_vals);
-            sum_vec = vfmaq_f16(sum_vec, filter_vec, input_vec);
-            vec_idx += 8;
+            __fp16 f_data = filter[fr][fc + i]; //do some checking of size here?
+            
+            signal_vals[i] = s_data;
+            filter_vals[i] = f_data;
           }
+          
+          float16x8_t s_vec = vld1q_f16(signal_vals);
+          float16x8_t f_vec = vld1q_f16(filter_vals);
+          sum_vec = vfmaq_f16(sum_vec, s_vec, f_vec);
+        }
+        
+        // Handle remaining elements
+        for (; fc < filterColumns; fc++) {
+          int current_data_row = r + fr;
+          int current_data_col = c + fc;
+          
+          __fp16 s_data = 0; // some checking of size here?
+          
+          if (padding == same) {
+            s_data = working_signal[current_data_row][current_data_col];
+          } else {
+            s_data = signal[current_data_row][current_data_col];
+          }
+          
+          __fp16 f_data = filter[fr][fc]; //do some checking of size here?
+          sum += s_data * f_data;
         }
       }
       
-      // Horizontal sum of vector
-      __fp16 sum;
+      // Horizontal sum of Float16 vector
+      float16x4_t sum_low = vget_low_f16(sum_vec);
+      float16x4_t sum_high = vget_high_f16(sum_vec);
+      float16x4_t sum_total = vadd_f16(sum_low, sum_high);
       
-      // Manual horizontal sum - more compatible approach
-      // Convert to float32 first for better compatibility across ARM versions
-      float32x4_t sum_low_f32 = vcvt_f32_f16(vget_low_f16(sum_vec));
-      float32x4_t sum_high_f32 = vcvt_f32_f16(vget_high_f16(sum_vec));
-      float32x4_t sum_f32 = vaddq_f32(sum_low_f32, sum_high_f32);
-      
-      // Horizontal sum in float32
-      float32x2_t sum_2 = vpadd_f32(vget_low_f32(sum_f32), vget_high_f32(sum_f32));
-      float32x2_t sum_1 = vpadd_f32(sum_2, sum_2);
-      
-      // Convert back to fp16
-      sum = (__fp16)vget_lane_f32(sum_1, 0);
-      
-      
-      // Handle remaining elements
-      for (int fy = 0; fy < filter_h; fy++) {
-        for (int fx = 0; fx < filter_w; fx++) {
-          if (fy * filter_w + fx >= simd_end) {
-            int in_y = out_y * stride_h + fy - pad_h;
-            int in_x = out_x * stride_w + fx - pad_w;
-            
-            if (in_y >= 0 && in_y < input_h && in_x >= 0 && in_x < input_w) {
-              sum += filter[fy][fx] * signal[in_y][in_x];
-            }
-          }
-        }
-      }
-      
+      // Further reduce to scalar
+      sum += vget_lane_f16(sum_total, 0) + vget_lane_f16(sum_total, 1) +
+             vget_lane_f16(sum_total, 2) + vget_lane_f16(sum_total, 3);
 #else
-      // Scalar fallback with loop unrolling
-      __fp16 sum = 0.0;
-      
-      // Unroll inner loops for better performance
-      for (int fy = 0; fy < filter_h; fy++) {
-        for (int fx = 0; fx < filter_w; fx += 4) {
-          // Process 4 elements at a time
-          for (int unroll = 0; unroll < 4 && (fx + unroll) < filter_w; unroll++) {
-            int in_y = out_y * stride_h + fy - pad_h;
-            int in_x = out_x * stride_w + (fx + unroll) - pad_w;
-            
-            if (in_y >= 0 && in_y < input_h && in_x >= 0 && in_x < input_w) {
-              sum += filter[fy][fx + unroll] * signal[in_y][in_x];
-            }
+      // Scalar version - exact same as original
+      for (int fr = 0; fr < filterRows; fr++) {
+        for (int fc = 0; fc < filterColumns; fc++) {
+          int current_data_row = r + fr;
+          int current_data_col = c + fc;
+          
+          __fp16 s_data = 0; // some checking of size here?
+          
+          if (padding == same) {
+            s_data = working_signal[current_data_row][current_data_col];
+          } else {
+            s_data = signal[current_data_row][current_data_col];
           }
+          
+          __fp16 f_data = filter[fr][fc]; //do some checking of size here?
+          sum += s_data * f_data;
         }
       }
 #endif
       
-      result[out_y][out_x] = sum;
+      result[result_index_r][result_index_c] = sum;
+      result_index_c++;
     }
+    result_index_r++;
+  }
+
+  if (padding == same) {
+    for (int i = 0; i < padded_row_total; ++i) {
+      free(working_signal[i]);
+    }
+    free(working_signal);
   }
 }
 

@@ -280,5 +280,248 @@ extern void nsc_mult2d(NSC_Size size,
   }
 }
 
+// 2D arithmetic with scalar operations
+/// Float32 2D with scalar
+extern void nsc_add2d_scalar(NSC_Size size,
+                             float *const *a,
+                             float scalar,
+                             float **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] + scalar;
+    }
+  }
+}
+
+extern void nsc_add2d_array_scalar(NSC_Size size,
+                                   float *const *a,
+                                   const float *scalar_array,
+                                   float **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] + scalar_array[i];
+    }
+  }
+}
+
+extern void nsc_sub2d_scalar(NSC_Size size,
+                             float *const *a,
+                             float scalar,
+                             float **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] - scalar;
+    }
+  }
+}
+
+extern void nsc_sub2d_array_scalar(NSC_Size size,
+                                   float *const *a,
+                                   const float *scalar_array,
+                                   float **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] - scalar_array[i];
+    }
+  }
+}
+
+extern void nsc_mult2d_scalar(NSC_Size size,
+                              float *const *a,
+                              float scalar,
+                              float **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] * scalar;
+    }
+  }
+}
+
+extern void nsc_mult2d_array_scalar(NSC_Size size,
+                                    float *const *a,
+                                    const float *scalar_array,
+                                    float **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] * scalar_array[i];
+    }
+  }
+}
+
+extern void nsc_divide2d_scalar(NSC_Size size,
+                                float *const *a,
+                                float scalar,
+                                float **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] / scalar;
+    }
+  }
+}
+
+extern void nsc_divide2d_array_scalar(NSC_Size size,
+                                      float *const *a,
+                                      const float *scalar_array,
+                                      float **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] / scalar_array[i];
+    }
+  }
+}
+
+/// Float16 2D with scalar
+extern void nsc_add2d_scalar_f16(NSC_Size size,
+                                 _Float16 *const *a,
+                                 _Float16 scalar,
+                                 _Float16 **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] + scalar;
+    }
+  }
+}
+
+extern void nsc_add2d_array_scalar_f16(NSC_Size size,
+                                       _Float16 *const *a,
+                                       const _Float16 *scalar_array,
+                                       _Float16 **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] + scalar_array[i];
+    }
+  }
+}
+
+extern void nsc_sub2d_scalar_f16(NSC_Size size,
+                                 _Float16 *const *a,
+                                 _Float16 scalar,
+                                 _Float16 **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] - scalar;
+    }
+  }
+}
+
+extern void nsc_sub2d_array_scalar_f16(NSC_Size size,
+                                       _Float16 *const *a,
+                                       const _Float16 *scalar_array,
+                                       _Float16 **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] - scalar_array[i];
+    }
+  }
+}
+
+extern void nsc_mult2d_scalar_f16(NSC_Size size,
+                                  _Float16 *const *a,
+                                  _Float16 scalar,
+                                  _Float16 **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] * scalar;
+    }
+  }
+}
+
+extern void nsc_mult2d_array_scalar_f16(NSC_Size size,
+                                        _Float16 *const *a,
+                                        const _Float16 *scalar_array,
+                                        _Float16 **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] * scalar_array[i];
+    }
+  }
+}
+
+extern void nsc_divide2d_scalar_f16(NSC_Size size,
+                                    _Float16 *const *a,
+                                    _Float16 scalar,
+                                    _Float16 **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] / scalar;
+    }
+  }
+}
+
+extern void nsc_divide2d_array_scalar_f16(NSC_Size size,
+                                          _Float16 *const *a,
+                                          const _Float16 *scalar_array,
+                                          _Float16 **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] / scalar_array[i];
+    }
+  }
+}
+
 
 

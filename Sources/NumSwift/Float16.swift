@@ -376,60 +376,10 @@ public extension Array where Element == [[Float16]] {
     return result
   }
   
-  static func *(lhs: Self, rhs: [Float16]) -> Self {
-    let left = lhs
-    
-    var result: Self = []
-    for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 * rhs[d] }
-      result.append(new2d)
-    }
-    
-    return result
-  }
-  
-  static func +(lhs: Self, rhs: [Float16]) -> Self {
-    let left = lhs
-    
-    var result: Self = []
-    for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 + rhs[d] }
-      result.append(new2d)
-    }
-    
-    return result
-  }
-  
-  static func /(lhs: Self, rhs: [Float16]) -> Self {
-    let left = lhs
-    
-    var result: Self = []
-    for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 / rhs[d] }
-      result.append(new2d)
-    }
-    
-    return result
-  }
-  
-  static func -(lhs: Self, rhs: [Float16]) -> Self {
-    let left = lhs
-    
-    var result: Self = []
-    for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 - rhs[d] }
-      result.append(new2d)
-    }
-    
-    return result
-  }
-  
   static func *(lhs: Self, rhs: Float16) -> Self {
-    let left = lhs
-    
     var result: Self = []
     for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 * rhs }
+      let new2d = NumSwiftC.mult(lhs[d], scalar: rhs)
       result.append(new2d)
     }
     
@@ -439,7 +389,7 @@ public extension Array where Element == [[Float16]] {
   static func *(lhs: Float16, rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
-      let new2d: Element = rhs[d].map { $0 * lhs }
+      let new2d = NumSwiftC.mult(rhs[d], scalar: lhs)
       result.append(new2d)
     }
     
@@ -447,11 +397,9 @@ public extension Array where Element == [[Float16]] {
   }
   
   static func /(lhs: Self, rhs: Float16) -> Self {
-    let left = lhs
-    
     var result: Self = []
     for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 / rhs }
+      let new2d = NumSwiftC.divide(lhs[d], scalar: rhs)
       result.append(new2d)
     }
     
@@ -459,11 +407,9 @@ public extension Array where Element == [[Float16]] {
   }
   
   static func /(lhs: Float16, rhs: Self) -> Self {
-    let left = lhs
-    
     var result: Self = []
     for d in 0..<rhs.count {
-      let new2d: Element = rhs[d].map { left / $0 }
+      let new2d: Element = rhs[d].map { lhs / $0 }
       result.append(new2d)
     }
     
@@ -471,11 +417,9 @@ public extension Array where Element == [[Float16]] {
   }
   
   static func +(lhs: Self, rhs: Float16) -> Self {
-    let left = lhs
-    
     var result: Self = []
     for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 + rhs }
+      let new2d = NumSwiftC.add(lhs[d], scalar: rhs)
       result.append(new2d)
     }
     
@@ -485,7 +429,7 @@ public extension Array where Element == [[Float16]] {
   static func +(lhs: Float16, rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
-      let new2d: Element = rhs[d].map { $0 + lhs }
+      let new2d = NumSwiftC.add(rhs[d], scalar: lhs)
       result.append(new2d)
     }
     
@@ -493,11 +437,9 @@ public extension Array where Element == [[Float16]] {
   }
   
   static func -(lhs: Float16, rhs: Self) -> Self {
-    let left = lhs
-    
     var result: Self = []
     for d in 0..<rhs.count {
-      let new2d: Element = rhs[d].map { left - $0 }
+      let new2d: Element = rhs[d].map { lhs - $0 }
       result.append(new2d)
     }
     
@@ -505,11 +447,9 @@ public extension Array where Element == [[Float16]] {
   }
   
   static func -(lhs: Self, rhs: Float16) -> Self {
-    let left = lhs
-    
     var result: Self = []
     for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 - rhs }
+      let new2d = NumSwiftC.sub(lhs[d], scalar: rhs)
       result.append(new2d)
     }
     
@@ -565,6 +505,94 @@ public extension Array where Element == [[Float16]] {
       let b = rhs[i]
       result.append(NumSwiftC.add(a, b))
     }
+    return result
+  }
+  
+  // MARK: - Array Broadcasting Operations
+  
+  static func +(lhs: Self, rhs: [Float16]) -> Self {
+    var result: Self = []
+    for d in 0..<lhs.count {
+      let new2d = NumSwiftC.add(lhs[d], array: rhs)
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func +(lhs: [Float16], rhs: Self) -> Self {
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d = NumSwiftC.add(rhs[d], array: lhs)
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func -(lhs: Self, rhs: [Float16]) -> Self {
+    var result: Self = []
+    for d in 0..<lhs.count {
+      let new2d = NumSwiftC.sub(lhs[d], array: rhs)
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func -(lhs: [Float16], rhs: Self) -> Self {
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d: Element = rhs[d].enumerated().map { (index, value) in
+        let scalarValue = lhs[safe: index] ?? 0.0
+        return scalarValue - value
+      }
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func *(lhs: Self, rhs: [Float16]) -> Self {
+    var result: Self = []
+    for d in 0..<lhs.count {
+      let new2d = NumSwiftC.mult(lhs[d], array: rhs)
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func *(lhs: [Float16], rhs: Self) -> Self {
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d = NumSwiftC.mult(rhs[d], array: lhs)
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func /(lhs: Self, rhs: [Float16]) -> Self {
+    var result: Self = []
+    for d in 0..<lhs.count {
+      let new2d = NumSwiftC.divide(lhs[d], array: rhs)
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func /(lhs: [Float16], rhs: Self) -> Self {
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d: Element = rhs[d].enumerated().map { (index, value) in
+        let scalarValue = lhs[safe: index] ?? 0.0
+        return scalarValue / value
+      }
+      result.append(new2d)
+    }
+    
     return result
   }
 }

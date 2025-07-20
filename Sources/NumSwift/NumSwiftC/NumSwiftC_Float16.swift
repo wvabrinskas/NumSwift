@@ -119,6 +119,200 @@ public extension NumSwiftC {
     return results
   }
   
+  // MARK: - 2D Arithmetic with Scalar Operations
+  
+  public static func add(_ a: [[Float16]], scalar: Float16) -> [[Float16]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float16]] = NumSwift.zerosLike((rows: rows,
+                                                   columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+        nsc_add2d_scalar_f16(NSC_Size(rows: Int32(rows),
+                                      columns: Int32(columns)),
+                             aPoint,
+                             scalar,
+                             &rPoint)
+      }
+    }
+    
+    return results
+  }
+  
+  public static func add(_ a: [[Float16]], array: [Float16]) -> [[Float16]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float16]] = NumSwift.zerosLike((rows: rows,
+                                                   columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+        nsc_add2d_array_scalar_f16(NSC_Size(rows: Int32(rows),
+                                            columns: Int32(columns)),
+                                   aPoint,
+                                   array,
+                                   &rPoint)
+      }
+    }
+    
+    return results
+  }
+  
+  public static func sub(_ a: [[Float16]], scalar: Float16) -> [[Float16]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float16]] = NumSwift.zerosLike((rows: rows,
+                                                   columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+        nsc_sub2d_scalar_f16(NSC_Size(rows: Int32(rows),
+                                      columns: Int32(columns)),
+                             aPoint,
+                             scalar,
+                             &rPoint)
+      }
+    }
+    
+    return results
+  }
+  
+  public static func sub(_ a: [[Float16]], array: [Float16]) -> [[Float16]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float16]] = NumSwift.zerosLike((rows: rows,
+                                                   columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+        nsc_sub2d_array_scalar_f16(NSC_Size(rows: Int32(rows),
+                                            columns: Int32(columns)),
+                                   aPoint,
+                                   array,
+                                   &rPoint)
+      }
+    }
+    
+    return results
+  }
+  
+  public static func mult(_ a: [[Float16]], scalar: Float16) -> [[Float16]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float16]] = NumSwift.zerosLike((rows: rows,
+                                                   columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+        nsc_mult2d_scalar_f16(NSC_Size(rows: Int32(rows),
+                                       columns: Int32(columns)),
+                              aPoint,
+                              scalar,
+                              &rPoint)
+      }
+    }
+    
+    return results
+  }
+  
+  public static func mult(_ a: [[Float16]], array: [Float16]) -> [[Float16]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float16]] = NumSwift.zerosLike((rows: rows,
+                                                   columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+        nsc_mult2d_array_scalar_f16(NSC_Size(rows: Int32(rows),
+                                             columns: Int32(columns)),
+                                    aPoint,
+                                    array,
+                                    &rPoint)
+      }
+    }
+    
+    return results
+  }
+  
+  public static func divide(_ a: [[Float16]], scalar: Float16) -> [[Float16]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float16]] = NumSwift.zerosLike((rows: rows,
+                                                   columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+        nsc_divide2d_scalar_f16(NSC_Size(rows: Int32(rows),
+                                         columns: Int32(columns)),
+                                aPoint,
+                                scalar,
+                                &rPoint)
+      }
+    }
+    
+    return results
+  }
+  
+  public static func divide(_ a: [[Float16]], array: [Float16]) -> [[Float16]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float16]] = NumSwift.zerosLike((rows: rows,
+                                                   columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+        nsc_divide2d_array_scalar_f16(NSC_Size(rows: Int32(rows),
+                                               columns: Int32(columns)),
+                                      aPoint,
+                                      array,
+                                      &rPoint)
+      }
+    }
+    
+    return results
+  }
+  
   public static func tranpose(_ a: [[Float16]], size: (rows: Int, columns: Int)) -> [[Float16]] {
     let result: [[Float16]] = NumSwift.zerosLike((rows: size.columns, columns: size.rows))
     

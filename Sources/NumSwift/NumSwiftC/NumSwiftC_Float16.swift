@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by William Vabrinskas on 3/28/22.
 //
@@ -10,6 +10,114 @@ import NumSwiftC
 
 #if arch(arm64)
 public extension NumSwiftC {
+  
+  public static func add(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float16]] = NumSwift.zerosLike((rows: rows,
+                                                   columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        b.withUnsafeBufferPointer { bBuff in
+          let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+          let bPoint: [UnsafeMutablePointer<Float16>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
+          nsc_add2d_f16(NSC_Size(rows: Int32(rows),
+                                 columns: Int32(columns)),
+                        aPoint,
+                        bPoint,
+                        &rPoint)
+        }
+      }
+    }
+    
+    return results
+  }
+  
+  public static func sub(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float16]] = NumSwift.zerosLike((rows: rows,
+                                                   columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        b.withUnsafeBufferPointer { bBuff in
+          let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+          let bPoint: [UnsafeMutablePointer<Float16>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
+          nsc_sub2d_f16(NSC_Size(rows: Int32(rows),
+                                 columns: Int32(columns)),
+                        aPoint,
+                        bPoint,
+                        &rPoint)
+        }
+      }
+    }
+    
+    return results
+  }
+  
+  public static func divide(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float16]] = NumSwift.zerosLike((rows: rows,
+                                                   columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        b.withUnsafeBufferPointer { bBuff in
+          let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+          let bPoint: [UnsafeMutablePointer<Float16>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
+          nsc_divide2d_f16(NSC_Size(rows: Int32(rows),
+                                    columns: Int32(columns)),
+                           aPoint,
+                           bPoint,
+                           &rPoint)
+        }
+      }
+    }
+    
+    return results
+  }
+  
+  public static func mult(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float16]] = NumSwift.zerosLike((rows: rows,
+                                                   columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+      
+      a.withUnsafeBufferPointer { aBuff in
+        b.withUnsafeBufferPointer { bBuff in
+          let aPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+          let bPoint: [UnsafeMutablePointer<Float16>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
+          nsc_mult2d_f16(NSC_Size(rows: Int32(rows),
+                                  columns: Int32(columns)),
+                         aPoint,
+                         bPoint,
+                         &rPoint)
+        }
+      }
+    }
+    
+    return results
+  }
   
   public static func tranpose(_ a: [[Float16]], size: (rows: Int, columns: Int)) -> [[Float16]] {
     let result: [[Float16]] = NumSwift.zerosLike((rows: size.columns, columns: size.rows))
@@ -78,7 +186,7 @@ public extension NumSwiftC {
     
     return results
   }
-
+  
   public static func stridePad(signal: [[Float16]],
                                strides: (rows: Int, columns: Int)) -> [[Float16]] {
     
@@ -94,7 +202,7 @@ public extension NumSwiftC {
     let newColumns = columns + ((strides.columns - 1) * (columns - 1))
     
     var results: [[Float16]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
-        
+    
     results.withUnsafeBufferPointer { rBuff in
       signal.withUnsafeBufferPointer { sBuff in
         var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
@@ -107,13 +215,13 @@ public extension NumSwiftC {
                                        columns: Int32(strides.columns)))
       }
     }
-
+    
     
     return results
   }
   
   public static func stridePad1D(signal: [Float16],
-                               strides: (rows: Int, columns: Int)) -> [Float16] {
+                                 strides: (rows: Int, columns: Int)) -> [Float16] {
     
     guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else {
       return signal
@@ -229,7 +337,7 @@ public extension NumSwiftC {
     
     let paddingInt: UInt32 = padding == .valid ? 0 : 1
     let results: [[Float16]] = NumSwift.zerosLike((expectedRows, expectedColumns))
-      
+    
     results.withUnsafeBufferPointer { rBuff in
       signal.withUnsafeBufferPointer { sBuff in
         filter.withUnsafeBufferPointer { fBuff in
@@ -246,7 +354,7 @@ public extension NumSwiftC {
         }
       }
     }
-  
+    
     return results
   }
   
@@ -306,23 +414,23 @@ public extension NumSwiftC {
     
     results.withUnsafeBufferPointer { rBuff in
       var rPoint: [UnsafeMutablePointer<Float16>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
-
+      
       signal.withUnsafeBufferPointer { aBuff in
         filter.withUnsafeBufferPointer { bBuff in
           let signalPoint: [UnsafeMutablePointer<Float16>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
           let filterPoint: [UnsafeMutablePointer<Float16>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
           nsc_transConv2d_f16(signalPoint,
-                          filterPoint,
-                          &rPoint,
-                          NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
-                          NSC_Padding(rawValue: paddingInt),
-                          NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
-                          NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
+                              filterPoint,
+                              &rPoint,
+                              NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
+                              NSC_Padding(rawValue: paddingInt),
+                              NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
+                              NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
         }
       }
     }
     
-
+    
     return results
   }
   
@@ -354,15 +462,15 @@ public extension NumSwiftC {
     let rows = (inputSize.rows - 1) * strides.0 + filterSize.rows
     let columns = (inputSize.columns - 1) * strides.1 + filterSize.columns
     var results: [Float16] = [Float16](repeating: 0,
-                                   count: (rows - (padTop + padBottom)) * (columns - (padLeft + padRight)))
+                                       count: (rows - (padTop + padBottom)) * (columns - (padLeft + padRight)))
     
     nsc_transConv1d_f16(signal,
-                    filter,
-                    &results,
-                    NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
-                    NSC_Padding(rawValue: paddingInt),
-                    NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
-                    NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
+                        filter,
+                        &results,
+                        NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
+                        NSC_Padding(rawValue: paddingInt),
+                        NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
+                        NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
     return results
   }
   
@@ -380,16 +488,16 @@ public extension NumSwiftC {
     let count = (inputSize.rows + padding.top + padding.bottom) * (inputSize.columns + padding.left + padding.right)
     
     var results: [Float16] = [Float16](repeating: 0,
-                                   count: count)
+                                       count: count)
     
     nsc_zero_pad_f16(signal,
-                 &results,
-                 NSC_Size(rows: Int32(filterSize.rows),
-                          columns: Int32(filterSize.columns)),
-                 NSC_Size(rows: Int32(inputSize.rows),
-                          columns: Int32(inputSize.columns)),
-                 NSC_Size(rows: Int32(stride.0),
-                          columns: Int32(stride.1)))
+                     &results,
+                     NSC_Size(rows: Int32(filterSize.rows),
+                              columns: Int32(filterSize.columns)),
+                     NSC_Size(rows: Int32(inputSize.rows),
+                              columns: Int32(inputSize.columns)),
+                     NSC_Size(rows: Int32(stride.0),
+                              columns: Int32(stride.1)))
     
     return results
   }

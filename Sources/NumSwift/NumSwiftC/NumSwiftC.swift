@@ -38,6 +38,114 @@ public struct NoiseC {
 
 public struct NumSwiftC {
   
+  public static func add(_ a: [[Float]], _ b: [[Float]]) -> [[Float]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float]] = NumSwift.zerosLike((rows: rows,
+                                                 columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+
+      a.withUnsafeBufferPointer { aBuff in
+        b.withUnsafeBufferPointer { bBuff in
+          let aPoint: [UnsafeMutablePointer<Float>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+          let bPoint: [UnsafeMutablePointer<Float>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
+          nsc_add2d(NSC_Size(rows: Int32(rows),
+                             columns: Int32(columns)),
+                     aPoint,
+                     bPoint,
+                     &rPoint)
+        }
+      }
+    }
+    
+    return results
+  }
+  
+  public static func sub(_ a: [[Float]], _ b: [[Float]]) -> [[Float]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float]] = NumSwift.zerosLike((rows: rows,
+                                                 columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+
+      a.withUnsafeBufferPointer { aBuff in
+        b.withUnsafeBufferPointer { bBuff in
+          let aPoint: [UnsafeMutablePointer<Float>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+          let bPoint: [UnsafeMutablePointer<Float>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
+          nsc_sub2d(NSC_Size(rows: Int32(rows),
+                             columns: Int32(columns)),
+                     aPoint,
+                     bPoint,
+                     &rPoint)
+        }
+      }
+    }
+    
+    return results
+  }
+  
+  public static func divide(_ a: [[Float]], _ b: [[Float]]) -> [[Float]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float]] = NumSwift.zerosLike((rows: rows,
+                                                 columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+
+      a.withUnsafeBufferPointer { aBuff in
+        b.withUnsafeBufferPointer { bBuff in
+          let aPoint: [UnsafeMutablePointer<Float>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+          let bPoint: [UnsafeMutablePointer<Float>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
+          nsc_divide2d(NSC_Size(rows: Int32(rows),
+                             columns: Int32(columns)),
+                     aPoint,
+                     bPoint,
+                     &rPoint)
+        }
+      }
+    }
+    
+    return results
+  }
+  
+  public static func mult(_ a: [[Float]], _ b: [[Float]]) -> [[Float]] {
+    let shape = a.shape
+    let rows = shape[safe: 1] ?? 0
+    let columns = shape[safe: 0] ?? 0
+    
+    let results: [[Float]] = NumSwift.zerosLike((rows: rows,
+                                                 columns: columns))
+    
+    results.withUnsafeBufferPointer { rBuff in
+      var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+
+      a.withUnsafeBufferPointer { aBuff in
+        b.withUnsafeBufferPointer { bBuff in
+          let aPoint: [UnsafeMutablePointer<Float>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+          let bPoint: [UnsafeMutablePointer<Float>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
+          nsc_mult2d(NSC_Size(rows: Int32(rows),
+                             columns: Int32(columns)),
+                     aPoint,
+                     bPoint,
+                     &rPoint)
+        }
+      }
+    }
+    
+    return results
+  }
+  
   public static func tranpose(_ a: [[Float]], size: (rows: Int, columns: Int)) -> [[Float]] {
     let result: [[Float]] = NumSwift.zerosLike((rows: size.columns, columns: size.rows))
     

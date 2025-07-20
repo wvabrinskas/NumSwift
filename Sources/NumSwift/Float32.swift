@@ -600,14 +600,11 @@ public extension Array where Element == [[Float]] {
     let right = rhs
     
     var result: Self = []
-    for d in 0..<lhs.count {
-      var new2d: Element = []
-      for r in 0..<lhs[d].count {
-        new2d.append(left[d][r] * right[d][r])
-      }
-      result.append(new2d)
+    for i in 0..<lhs.count {
+      let a = lhs[i]
+      let b = rhs[i]
+      result.append(NumSwiftC.mult(a, b))
     }
-    
     return result
   }
   
@@ -616,30 +613,24 @@ public extension Array where Element == [[Float]] {
     let right = rhs
     
     var result: Self = []
-    for d in 0..<lhs.count {
-      var new2d: Element = []
-      for r in 0..<lhs[d].count {
-        new2d.append(left[d][r] / right[d][r])
-      }
-      result.append(new2d)
+    for i in 0..<lhs.count {
+      let a = lhs[i]
+      let b = rhs[i]
+      result.append(NumSwiftC.divide(a, b))
     }
-    
     return result
   }
   
   static func -(lhs: Self, rhs: Self) -> Self {
     let left = lhs
     let right = rhs
-
-    var result: Self = []
-    for d in 0..<lhs.count {
-      var new2d: Element = []
-      for r in 0..<lhs[d].count {
-        new2d.append(left[d][r] - right[d][r])
-      }
-      result.append(new2d)
-    }
     
+    var result: Self = []
+    for i in 0..<lhs.count {
+      let a = lhs[i]
+      let b = rhs[i]
+      result.append(NumSwiftC.sub(a, b))
+    }
     return result
   }
   
@@ -648,12 +639,10 @@ public extension Array where Element == [[Float]] {
     let right = rhs
     
     var result: Self = []
-    for d in 0..<lhs.count {
-      var new2d: Element = []
-      for r in 0..<lhs[d].count {
-        new2d.append(left[d][r] + right[d][r])
-      }
-      result.append(new2d)
+    for i in 0..<lhs.count {
+      let a = lhs[i]
+      let b = rhs[i]
+      result.append(NumSwiftC.add(a, b))
     }
     return result
   }

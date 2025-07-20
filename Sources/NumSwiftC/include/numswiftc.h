@@ -4,11 +4,6 @@
 #include <string.h>
 #include <numswiftc_base.h>
 
-typedef struct {
-  int rows;
-  int columns;
-} NSC_Size;
-
 typedef enum {
   valid = 0,
   same = 1

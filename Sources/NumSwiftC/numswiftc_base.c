@@ -156,3 +156,129 @@ extern void nsc_div_array_scalar(const _Float16 lhs[], const _Float16 rhs, _Floa
     result[i] = lhs[i] / rhs;
   }
 }
+
+extern void nsc_add2d_f16(NSC_Size size,
+                          _Float16 *const *a,
+                          _Float16 *const *b,
+                          _Float16 **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] + b[i][j];
+    }
+  }
+}
+
+extern void nsc_sub2d_f16(NSC_Size size,
+                          _Float16 *const *a,
+                          _Float16 *const *b,
+                          _Float16 **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] - b[i][j];
+    }
+  }
+}
+
+extern void nsc_divide2d_f16(NSC_Size size,
+                             _Float16 *const *a,
+                             _Float16 *const *b,
+                             _Float16 **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] / b[i][j];
+    }
+  }
+}
+
+extern void nsc_mult2d_f16(NSC_Size size,
+                           _Float16 *const *a,
+                           _Float16 *const *b,
+                           _Float16 **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] * b[i][j];
+    }
+  }
+}
+
+
+/// Float 32
+
+extern void nsc_add2d(NSC_Size size,
+                      float *const *a,
+                      float *const *b,
+                      float **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] + b[i][j];
+    }
+  }
+}
+
+extern void nsc_sub2d(NSC_Size size,
+                      float *const *a,
+                      float *const *b,
+                      float **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] - b[i][j];
+    }
+  }
+}
+
+extern void nsc_divide2d(NSC_Size size,
+                      float *const *a,
+                      float *const *b,
+                      float **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] / b[i][j];
+    }
+  }
+}
+
+extern void nsc_mult2d(NSC_Size size,
+                      float *const *a,
+                      float *const *b,
+                      float **result) {
+  
+  int rows = size.rows;
+  int columns = size.columns;
+
+  for(int i = 0; i < rows; ++i) {
+    for(int j = 0; j < columns; ++j) {
+      result[i][j] = a[i][j] * b[i][j];
+    }
+  }
+}
+
+
+

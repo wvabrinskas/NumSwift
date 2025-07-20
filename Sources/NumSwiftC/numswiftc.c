@@ -22,7 +22,6 @@ extern void nsc_matmul_16(NSC_Size a_size,
   }
 }
 
-
 extern void nsc_matmul(NSC_Size a_size,
                        NSC_Size b_size,
                        float *const *a,
@@ -691,25 +690,6 @@ extern void nsc_conv2d_f16(__fp16 *const *signal,
   __fp16 **working_signal;
   
   if (padding == same) {
-    int paddingLeft;
-    int paddingRight;
-    int paddingBottom;
-    int paddingTop;
-    
-    int *pad_l_ptr = &paddingLeft;
-    int *pad_r_ptr = &paddingRight;
-    int *pad_b_ptr = &paddingBottom;
-    int *pad_t_ptr = &paddingTop;
-    
-    nsc_padding_calculation(stride,
-                            same,
-                            filter_size,
-                            input_size,
-                            pad_t_ptr,
-                            pad_b_ptr,
-                            pad_l_ptr,
-                            pad_r_ptr);
-    
     int inputRows = input_size.rows;
     int inputColumns = input_size.columns;
     
@@ -854,25 +834,6 @@ extern void nsc_conv2d(float *const *signal,
   float **working_signal;
   
   if (padding == same) {
-    int paddingLeft;
-    int paddingRight;
-    int paddingBottom;
-    int paddingTop;
-    
-    int *pad_l_ptr = &paddingLeft;
-    int *pad_r_ptr = &paddingRight;
-    int *pad_b_ptr = &paddingBottom;
-    int *pad_t_ptr = &paddingTop;
-    
-    nsc_padding_calculation(stride,
-                            same,
-                            filter_size,
-                            input_size,
-                            pad_t_ptr,
-                            pad_b_ptr,
-                            pad_l_ptr,
-                            pad_r_ptr);
-    
     int inputRows = input_size.rows;
     int inputColumns = input_size.columns;
     

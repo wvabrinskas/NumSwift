@@ -34,4 +34,25 @@ final class Benchmarks: XCTestCase {
     }
   }
   
+  func test_speedConv2D() {
+    guard isGithubCI == false else { return }
+    
+    let signalShape = (256,256)
+
+    let filter: [[Float]] = [[0, 0, 1],
+                             [0, 0, 1],
+                             [0, 0, 1]]
+    
+    let signal: [[Float]] = NumSwift.onesLike(signalShape)
+    
+    measure {
+      let _ = NumSwiftC.conv2d(signal: signal,
+                                  filter: filter,
+                                  strides: (1,1),
+                                  padding: .same,
+                                  filterSize: (3,3),
+                                  inputSize: signalShape)
+    }
+  }
+  
 }

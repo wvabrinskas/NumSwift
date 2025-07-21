@@ -3,6 +3,12 @@
 #include "time.h"
 #ifdef __ARM_NEON
 #include <arm_neon.h>
+
+// Forward declarations for Winograd functions
+static inline void winograd_matmul_blocked_f32(float *const *a, float *const *b, float **result,
+                                              int rows, int cols_a, int cols_b);
+static inline void winograd_matmul_blocked_f16(__fp16 *const *a, __fp16 *const *b, __fp16 **result,
+                                              int rows, int cols_a, int cols_b);
 #endif
 
 extern void nsc_matmul_16(NSC_Size a_size,
@@ -15,7 +21,15 @@ extern void nsc_matmul_16(NSC_Size a_size,
   int columnFirst = a_size.columns;
   int columnSecond = b_size.columns;
   
-  // Multiplying firstMatrix and secondMatrix and storing in result.
+#ifdef __ARM_NEON
+  // Use Winograd blocked multiplication for larger matrices
+  if (rowFirst >= 4 && columnFirst >= 4 && columnSecond >= 4) {
+    winograd_matmul_blocked_f16(a, b, result, rowFirst, columnFirst, columnSecond);
+    return;
+  }
+#endif
+  
+  // Standard matrix multiplication for small matrices or non-ARM platforms
   for(int i = 0; i < rowFirst; ++i) {
     for(int j = 0; j < columnSecond; ++j) {
       for(int k = 0; k < columnFirst; ++k) {
@@ -35,7 +49,15 @@ extern void nsc_matmul(NSC_Size a_size,
   int columnFirst = a_size.columns;
   int columnSecond = b_size.columns;
   
-  // Multiplying firstMatrix and secondMatrix and storing in result.
+#ifdef __ARM_NEON
+  // Use Winograd blocked multiplication for larger matrices
+  if (rowFirst >= 4 && columnFirst >= 4 && columnSecond >= 4) {
+    winograd_matmul_blocked_f32(a, b, result, rowFirst, columnFirst, columnSecond);
+    return;
+  }
+#endif
+  
+  // Standard matrix multiplication for small matrices or non-ARM platforms
   for(int i = 0; i < rowFirst; ++i) {
     for(int j = 0; j < columnSecond; ++j) {
       for(int k = 0; k < columnFirst; ++k) {
@@ -1211,6 +1233,204 @@ static inline __fp16 winograd_3x3_f16_single(__fp16 *const *signal,
   return d[0]*g[0] + d[1]*g[1] + d[2]*g[2] +
          d[3]*g[3] + d[4]*g[4] + d[5]*g[5] +
          d[6]*g[6] + d[7]*g[7] + d[8]*g[8];
+}
+
+// Winograd 2x2 matrix multiplication for float32
+// Computes C = A * B where A, B, C are 2x2 matrices
+// Uses 7 multiplications instead of 8
+static inline void winograd_matmul_2x2_f32(const float A[4], const float B[4], float C[4]) {
+  // A = [a11 a12]  B = [b11 b12]  C = [c11 c12]
+  //     [a21 a22]      [b21 b22]      [c21 c22]
+  //
+  // Standard: 8 multiplications
+  // Winograd: 7 multiplications + more additions
+  
+  float a11 = A[0], a12 = A[1], a21 = A[2], a22 = A[3];
+  float b11 = B[0], b12 = B[1], b21 = B[2], b22 = B[3];
+  
+  // Winograd's 7 multiplications
+  float m1 = (a11 + a22) * (b11 + b22);
+  float m2 = (a21 + a22) * b11;
+  float m3 = a11 * (b12 - b22);
+  float m4 = a22 * (b21 - b11);
+  float m5 = (a11 + a12) * b22;
+  float m6 = (a21 - a11) * (b11 + b12);
+  float m7 = (a12 - a22) * (b21 + b22);
+  
+  // Compute result
+  C[0] = m1 + m4 - m5 + m7; // c11
+  C[1] = m3 + m5;           // c12
+  C[2] = m2 + m4;           // c21
+  C[3] = m1 - m2 + m3 + m6; // c22
+}
+
+// Winograd 2x2 matrix multiplication for float16
+static inline void winograd_matmul_2x2_f16(const __fp16 A[4], const __fp16 B[4], __fp16 C[4]) {
+  __fp16 a11 = A[0], a12 = A[1], a21 = A[2], a22 = A[3];
+  __fp16 b11 = B[0], b12 = B[1], b21 = B[2], b22 = B[3];
+  
+  // Winograd's 7 multiplications
+  __fp16 m1 = (a11 + a22) * (b11 + b22);
+  __fp16 m2 = (a21 + a22) * b11;
+  __fp16 m3 = a11 * (b12 - b22);
+  __fp16 m4 = a22 * (b21 - b11);
+  __fp16 m5 = (a11 + a12) * b22;
+  __fp16 m6 = (a21 - a11) * (b11 + b12);
+  __fp16 m7 = (a12 - a22) * (b21 + b22);
+  
+  // Compute result
+  C[0] = m1 + m4 - m5 + m7; // c11
+  C[1] = m3 + m5;           // c12
+  C[2] = m2 + m4;           // c21
+  C[3] = m1 - m2 + m3 + m6; // c22
+}
+
+// Optimized matrix multiplication using Winograd 2x2 blocks for float32
+static inline void winograd_matmul_blocked_f32(float *const *a, float *const *b, float **result,
+                                               int rows_a, int cols_a, int cols_b) {
+  // Process in 2x2 blocks where possible
+  int block_rows = (rows_a / 2) * 2;
+  int block_cols_a = (cols_a / 2) * 2;
+  int block_cols_b = (cols_b / 2) * 2;
+  
+  for (int i = 0; i < block_rows; i += 2) {
+    for (int j = 0; j < block_cols_b; j += 2) {
+      // Initialize 2x2 result block
+      float C_block[4] = {0, 0, 0, 0};
+      
+      for (int k = 0; k < block_cols_a; k += 2) {
+        // Load 2x2 blocks from A and B
+        float A_block[4] = {
+          a[i][k], a[i][k+1],
+          a[i+1][k], a[i+1][k+1]
+        };
+        float B_block[4] = {
+          b[k][j], b[k][j+1],
+          b[k+1][j], b[k+1][j+1]
+        };
+        
+        // Compute partial result using Winograd
+        float partial_C[4];
+        winograd_matmul_2x2_f32(A_block, B_block, partial_C);
+        
+        // Accumulate to result block
+        C_block[0] += partial_C[0];
+        C_block[1] += partial_C[1];
+        C_block[2] += partial_C[2];
+        C_block[3] += partial_C[3];
+      }
+      
+      // Store result block
+      result[i][j] += C_block[0];
+      result[i][j+1] += C_block[1];
+      result[i+1][j] += C_block[2];
+      result[i+1][j+1] += C_block[3];
+      
+      // Handle remaining columns in this block row
+      for (int jj = block_cols_b; jj < cols_b; jj++) {
+        for (int k = 0; k < block_cols_a; k += 2) {
+          result[i][jj] += a[i][k] * b[k][jj] + a[i][k+1] * b[k+1][jj];
+          result[i+1][jj] += a[i+1][k] * b[k][jj] + a[i+1][k+1] * b[k+1][jj];
+        }
+        // Handle remaining k
+        for (int k = block_cols_a; k < cols_a; k++) {
+          result[i][jj] += a[i][k] * b[k][jj];
+          result[i+1][jj] += a[i+1][k] * b[k][jj];
+        }
+      }
+      
+      // Handle remaining k for processed columns
+      for (int k = block_cols_a; k < cols_a; k++) {
+        result[i][j] += a[i][k] * b[k][j];
+        result[i][j+1] += a[i][k] * b[k][j+1];
+        result[i+1][j] += a[i+1][k] * b[k][j];
+        result[i+1][j+1] += a[i+1][k] * b[k][j+1];
+      }
+    }
+  }
+  
+  // Handle remaining rows
+  for (int i = block_rows; i < rows_a; i++) {
+    for (int j = 0; j < cols_b; j++) {
+      for (int k = 0; k < cols_a; k++) {
+        result[i][j] += a[i][k] * b[k][j];
+      }
+    }
+  }
+}
+
+// Optimized matrix multiplication using Winograd 2x2 blocks for float16
+static inline void winograd_matmul_blocked_f16(__fp16 *const *a, __fp16 *const *b, __fp16 **result,
+                                               int rows_a, int cols_a, int cols_b) {
+  // Process in 2x2 blocks where possible
+  int block_rows = (rows_a / 2) * 2;
+  int block_cols_a = (cols_a / 2) * 2;
+  int block_cols_b = (cols_b / 2) * 2;
+  
+  for (int i = 0; i < block_rows; i += 2) {
+    for (int j = 0; j < block_cols_b; j += 2) {
+      // Initialize 2x2 result block
+      __fp16 C_block[4] = {0, 0, 0, 0};
+      
+      for (int k = 0; k < block_cols_a; k += 2) {
+        // Load 2x2 blocks from A and B
+        __fp16 A_block[4] = {
+          a[i][k], a[i][k+1],
+          a[i+1][k], a[i+1][k+1]
+        };
+        __fp16 B_block[4] = {
+          b[k][j], b[k][j+1],
+          b[k+1][j], b[k+1][j+1]
+        };
+        
+        // Compute partial result using Winograd
+        __fp16 partial_C[4];
+        winograd_matmul_2x2_f16(A_block, B_block, partial_C);
+        
+        // Accumulate to result block
+        C_block[0] += partial_C[0];
+        C_block[1] += partial_C[1];
+        C_block[2] += partial_C[2];
+        C_block[3] += partial_C[3];
+      }
+      
+      // Store result block
+      result[i][j] += C_block[0];
+      result[i][j+1] += C_block[1];
+      result[i+1][j] += C_block[2];
+      result[i+1][j+1] += C_block[3];
+      
+      // Handle remaining columns in this block row
+      for (int jj = block_cols_b; jj < cols_b; jj++) {
+        for (int k = 0; k < block_cols_a; k += 2) {
+          result[i][jj] += a[i][k] * b[k][jj] + a[i][k+1] * b[k+1][jj];
+          result[i+1][jj] += a[i+1][k] * b[k][jj] + a[i+1][k+1] * b[k+1][jj];
+        }
+        // Handle remaining k
+        for (int k = block_cols_a; k < cols_a; k++) {
+          result[i][jj] += a[i][k] * b[k][jj];
+          result[i+1][jj] += a[i+1][k] * b[k][jj];
+        }
+      }
+      
+      // Handle remaining k for processed columns
+      for (int k = block_cols_a; k < cols_a; k++) {
+        result[i][j] += a[i][k] * b[k][j];
+        result[i][j+1] += a[i][k] * b[k][j+1];
+        result[i+1][j] += a[i+1][k] * b[k][j];
+        result[i+1][j+1] += a[i+1][k] * b[k][j+1];
+      }
+    }
+  }
+  
+  // Handle remaining rows
+  for (int i = block_rows; i < rows_a; i++) {
+    for (int j = 0; j < cols_b; j++) {
+      for (int k = 0; k < cols_a; k++) {
+        result[i][j] += a[i][k] * b[k][j];
+      }
+    }
+  }
 }
 #endif
 

@@ -55,4 +55,28 @@ final class Benchmarks: XCTestCase {
     }
   }
   
+  func test_speedMatmul() {
+    guard isGithubCI == false else { return }
+    
+    // Test with 128x128 matrices to trigger Winograd optimization
+    let a: [[Float]] = NumSwift.onesLike((128, 128))
+    let b: [[Float]] = NumSwift.onesLike((128, 128))
+    
+    measure {
+      let _ = NumSwiftC.matmul(a, b: b, aSize: (128, 128), bSize: (128, 128))
+    }
+  }
+  
+  func test_speedMatmulSmall() {
+    guard isGithubCI == false else { return }
+    
+    // Test with 3x3 matrices - should use standard multiplication
+    let a: [[Float]] = NumSwift.onesLike((3, 3))
+    let b: [[Float]] = NumSwift.onesLike((3, 3))
+    
+    measure {
+      let _ = NumSwiftC.matmul(a, b: b, aSize: (3, 3), bSize: (3, 3))
+    }
+  }
+  
 }

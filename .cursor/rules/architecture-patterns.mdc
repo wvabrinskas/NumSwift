@@ -1,0 +1,107 @@
+# Architecture Patterns for NumSwift
+
+## Multi-Target Architecture
+
+### Target Separation
+- **NumSwift**: High-level Swift APIs, operator overloads, protocol extensions
+- **NumSwiftC**: Low-level C implementations for performance-critical operations
+- **NumSwiftMetal**: GPU-accelerated operations using Metal framework
+
+### Target Dependencies
+- NumSwift depends on NumSwiftC
+- NumSwiftMetal is optional and can be conditionally imported
+- Avoid circular dependencies between targets
+
+## Swift/C Integration
+
+### C Function Wrapper Pattern
+```swift
+// Swift wrapper in NumSwiftC/NumSwiftC.swift
+public func convolution2D<T: Numeric>(_ input: [T], ...) -> [T] {
+    // Parameter validation
+    // Call C function
+    // Handle result
+}
+```
+
+### C Implementation Guidelines
+- All C functions use `numswiftc_` prefix
+- Header declarations in `include/numswiftc.h` must match implementations
+- Use consistent parameter ordering: input, dimensions, output
+- Return error codes for validation failures
+
+## Header/Implementation Synchronization
+
+### Critical Requirements
+- Function signatures in header files MUST match implementations exactly
+- Parameter names should be consistent between header and implementation
+- All public C functions must be declared in headers
+- Use proper C calling conventions
+
+### Example Pattern
+```c
+// In numswiftc.h
+int numswiftc_convolution2d(const float* input, int input_height, int input_width, 
+                           const float* kernel, int kernel_height, int kernel_width,
+                           float* output, int stride_h, int stride_w);
+
+// In numswiftc.c - signature must match exactly
+int numswiftc_convolution2d(const float* input, int input_height, int input_width, 
+                           const float* kernel, int kernel_height, int kernel_width,
+                           float* output, int stride_h, int stride_w) {
+    // Implementation
+}
+```
+
+## Platform-Specific Code
+
+### Preprocessor Conditions
+- Use `#if arch(arm64)` for ARM64-specific optimizations
+- Use `#if os(iOS)` for iOS-specific functionality
+- Always provide fallback implementations
+
+### Float16 Architecture Handling
+```swift
+#if arch(arm64)
+// Float16 implementation
+extension Float16: BaseNumeric {
+    // ARM64-specific Float16 code
+}
+#endif
+```
+
+## Module Organization
+
+### File Structure Patterns
+- Group related functionality in dedicated files
+- Keep protocol extensions separate from concrete implementations
+- Organize C code by functionality (convolution, matrix ops, etc.)
+
+### Public API Design
+- Expose only necessary types and functions as public
+- Keep implementation details internal
+- Use consistent naming across all targets
+
+## Error Handling Architecture
+
+### C Layer Error Handling
+- C functions return integer error codes
+- 0 = success, negative values = specific errors
+- Swift layer translates error codes to Swift errors
+
+### Swift Layer Error Handling
+```swift
+public enum NumSwiftError: Error {
+    case dimensionMismatch
+    case invalidParameter
+    case allocationFailure
+}
+```
+
+## Memory Management
+
+### Cross-Language Memory Handling
+- Swift manages high-level object lifecycle
+- C functions work with raw pointers
+- No memory allocation in C layer - Swift provides buffers
+- Use `withUnsafeBufferPointer` for safe C interop

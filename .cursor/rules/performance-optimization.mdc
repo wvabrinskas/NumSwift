@@ -1,0 +1,76 @@
+# Performance Optimization Guidelines
+
+## Performance Hierarchy
+
+Always prioritize performance implementations in this order:
+
+1. **Apple Accelerate Framework** - Use when available for standard mathematical operations
+2. **Custom C Implementation** - For specialized operations not covered by Accelerate
+3. **Metal GPU Acceleration** - For large-scale computations that benefit from parallelization
+4. **Swift Implementation** - Only as fallback when other options aren't suitable
+
+## Apple Accelerate Framework
+
+### When to Use
+- Vector and matrix operations
+- Standard mathematical functions
+- Signal processing operations
+- BLAS and LAPACK routines
+
+### Implementation Pattern
+```swift
+import Accelerate
+
+// Prefer vDSP functions for vector operations
+vDSP_vadd(input1, 1, input2, 1, &result, 1, vDSP_Length(count))
+```
+
+## C Backend Optimization
+
+### Performance-Critical Operations
+- Convolution operations (1D, 2D, transposed)
+- Matrix multiplication for specific cases
+- Custom algorithms not available in Accelerate
+
+### C Function Guidelines
+- Use `numswiftc_` prefix for all C functions
+- Optimize for cache locality
+- Consider SIMD instructions for ARM64
+- Minimize memory allocations
+
+## Metal GPU Acceleration
+
+### When to Use Metal
+- Large matrix operations (>1000x1000)
+- Batch operations on multiple arrays
+- Operations that can be parallelized effectively
+
+### Metal Implementation
+- Use Metal Performance Shaders (MPS) when possible
+- Custom compute shaders for specialized operations
+- Consider memory transfer overhead vs computation time
+
+## Float16 Optimizations
+
+### ARM64-Specific Considerations
+- Float16 is only available on ARM64 architectures
+- Use `#if arch(arm64)` for Float16-specific code
+- Leverage ARM64 NEON instructions for SIMD operations
+- Consider memory bandwidth benefits of half-precision
+
+## Memory Management
+
+### Optimization Strategies
+- Reuse buffers when possible
+- Minimize memory allocations in hot paths
+- Use unsafe pointers for C interop when necessary
+- Consider memory alignment for SIMD operations
+
+## Benchmarking
+
+### Performance Testing
+- Always benchmark new implementations
+- Compare against existing implementations
+- Test with various data sizes
+- Profile memory usage and allocations
+- Use Instruments for detailed performance analysis

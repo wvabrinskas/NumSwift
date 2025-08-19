@@ -1,0 +1,110 @@
+# Development Workflow for NumSwift
+
+## Build and Test Commands
+
+### Building the Package
+```bash
+# Build with verbose output
+swift build -v
+
+# Build specific target
+swift build --target NumSwift
+swift build --target NumSwiftC
+```
+
+### Running Tests
+```bash
+# Run all tests with verbose output
+swift test -v
+
+# Run specific test
+swift test --filter NumSwiftTests
+
+# Run Float16 tests (ARM64 only)
+swift test --filter NumSwiftTestsFloat16
+```
+
+### Single Test Execution
+```bash
+# Run a specific test case
+swift test --filter <TestName>
+```
+
+## Development Process
+
+### Making Changes to C Code
+1. Update header declarations in `include/numswiftc.h`
+2. Implement function in `numswiftc.c`
+3. Ensure header and implementation signatures match exactly
+4. Create Swift wrapper in `NumSwiftC/NumSwiftC.swift`
+5. Add tests for the new functionality
+
+### Adding New Numeric Operations
+1. Add protocol extension in `BaseNumeric.swift` for shared functionality
+2. Add type-specific optimizations in respective files (`Float32.swift`, `Double.swift`, `Float16.swift`)
+3. Consider performance optimizations (Accelerate, C, Metal)
+4. Write comprehensive tests including edge cases
+
+## Testing Strategy
+
+### Test Coverage Requirements
+- Unit tests for all mathematical operations
+- Edge case testing for boundary conditions
+- Performance benchmarks for critical operations
+- Cross-platform testing when applicable
+
+### Benchmark Integration
+- Use `Benchmarks.swift` for performance testing
+- Compare different implementation approaches
+- Test with various data sizes
+- Document performance characteristics
+
+## C Integration Best Practices
+
+### Header File Management
+- Keep all public C function declarations in headers
+- Use consistent parameter naming
+- Document function parameters and return values
+- Maintain header/implementation synchronization
+
+### Memory Safety
+- Swift provides all memory buffers to C functions
+- C functions should never allocate memory
+- Use `withUnsafeBufferPointer` for safe pointer access
+- Validate array bounds before C function calls
+
+## Platform-Specific Development
+
+### Float16 Development (ARM64)
+- Wrap Float16 code in `#if arch(arm64)` conditions
+- Test on actual ARM64 devices when possible
+- Provide fallbacks for non-ARM64 platforms
+- Document ARM64-specific optimizations
+
+### Metal GPU Development
+- Test Metal code on devices with appropriate GPU capabilities
+- Handle Metal device availability gracefully
+- Provide CPU fallbacks for all Metal operations
+- Consider memory transfer overhead in performance calculations
+
+## Code Review Guidelines
+
+### Performance Considerations
+- Always consider performance implications of changes
+- Benchmark critical path modifications
+- Document why specific implementation approaches were chosen
+- Review memory allocation patterns
+
+### Cross-Target Impact
+- Consider how changes affect all three targets
+- Ensure C/Swift interface remains stable
+- Test that header changes don't break compilation
+- Verify that new dependencies are appropriate
+
+## Debugging and Profiling
+
+### Using Instruments
+- Profile memory allocations for optimization opportunities
+- Use Time Profiler for performance bottlenecks
+- Monitor Metal GPU usage when applicable
+- Check for memory leaks in C/Swift boundaries

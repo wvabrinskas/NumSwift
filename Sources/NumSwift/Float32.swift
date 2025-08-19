@@ -454,61 +454,11 @@ public extension Array where Element == [[Float]] {
     
     return result
   }
-  
-  static func *(lhs: Self, rhs: [Float]) -> Self {
-    let left = lhs
-            
-    var result: Self = []
-    for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 * rhs[d] }
-      result.append(new2d)
-    }
-    
-    return result
-  }
-  
-  static func +(lhs: Self, rhs: [Float]) -> Self {
-    let left = lhs
-            
-    var result: Self = []
-    for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 + rhs[d] }
-      result.append(new2d)
-    }
-    
-    return result
-  }
-  
-  static func /(lhs: Self, rhs: [Float]) -> Self {
-    let left = lhs
-            
-    var result: Self = []
-    for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 / rhs[d] }
-      result.append(new2d)
-    }
-    
-    return result
-  }
-  
-  static func -(lhs: Self, rhs: [Float]) -> Self {
-    let left = lhs
-            
-    var result: Self = []
-    for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 - rhs[d] }
-      result.append(new2d)
-    }
-    
-    return result
-  }
-  
+
   static func *(lhs: Self, rhs: Float) -> Self {
-    let left = lhs
-            
     var result: Self = []
     for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 * rhs }
+      let new2d = NumSwiftC.mult(lhs[d], scalar: rhs)
       result.append(new2d)
     }
     
@@ -518,7 +468,7 @@ public extension Array where Element == [[Float]] {
   static func *(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
-      let new2d: Element = rhs[d].map { $0 * lhs }
+      let new2d = NumSwiftC.mult(rhs[d], scalar: lhs)
       result.append(new2d)
     }
     
@@ -526,11 +476,9 @@ public extension Array where Element == [[Float]] {
   }
   
   static func /(lhs: Self, rhs: Float) -> Self {
-    let left = lhs
-            
     var result: Self = []
     for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 / rhs }
+      let new2d = NumSwiftC.divide(lhs[d], scalar: rhs)
       result.append(new2d)
     }
     
@@ -538,11 +486,9 @@ public extension Array where Element == [[Float]] {
   }
   
   static func /(lhs: Float, rhs: Self) -> Self {
-    let left = lhs
-            
     var result: Self = []
     for d in 0..<rhs.count {
-      let new2d: Element = rhs[d].map { left / $0 }
+      let new2d: Element = rhs[d].map { lhs / $0 }
       result.append(new2d)
     }
     
@@ -550,11 +496,9 @@ public extension Array where Element == [[Float]] {
   }
   
   static func +(lhs: Self, rhs: Float) -> Self {
-    let left = lhs
-            
     var result: Self = []
     for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 + rhs }
+      let new2d = NumSwiftC.add(lhs[d], scalar: rhs)
       result.append(new2d)
     }
     
@@ -564,7 +508,7 @@ public extension Array where Element == [[Float]] {
   static func +(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
-      let new2d: Element = rhs[d].map { $0 + lhs }
+      let new2d = NumSwiftC.add(rhs[d], scalar: lhs)
       result.append(new2d)
     }
     
@@ -572,11 +516,9 @@ public extension Array where Element == [[Float]] {
   }
   
   static func -(lhs: Float, rhs: Self) -> Self {
-    let left = lhs
-            
     var result: Self = []
     for d in 0..<rhs.count {
-      let new2d: Element = rhs[d].map { left - $0 }
+      let new2d: Element = rhs[d].map { lhs - $0 }
       result.append(new2d)
     }
     
@@ -584,11 +526,9 @@ public extension Array where Element == [[Float]] {
   }
   
   static func -(lhs: Self, rhs: Float) -> Self {
-    let left = lhs
-            
     var result: Self = []
     for d in 0..<lhs.count {
-      let new2d: Element = left[d].map { $0 - rhs }
+      let new2d = NumSwiftC.sub(lhs[d], scalar: rhs)
       result.append(new2d)
     }
     
@@ -600,14 +540,11 @@ public extension Array where Element == [[Float]] {
     let right = rhs
     
     var result: Self = []
-    for d in 0..<lhs.count {
-      var new2d: Element = []
-      for r in 0..<lhs[d].count {
-        new2d.append(left[d][r] * right[d][r])
-      }
-      result.append(new2d)
+    for i in 0..<lhs.count {
+      let a = lhs[i]
+      let b = rhs[i]
+      result.append(NumSwiftC.mult(a, b))
     }
-    
     return result
   }
   
@@ -616,30 +553,24 @@ public extension Array where Element == [[Float]] {
     let right = rhs
     
     var result: Self = []
-    for d in 0..<lhs.count {
-      var new2d: Element = []
-      for r in 0..<lhs[d].count {
-        new2d.append(left[d][r] / right[d][r])
-      }
-      result.append(new2d)
+    for i in 0..<lhs.count {
+      let a = lhs[i]
+      let b = rhs[i]
+      result.append(NumSwiftC.divide(a, b))
     }
-    
     return result
   }
   
   static func -(lhs: Self, rhs: Self) -> Self {
     let left = lhs
     let right = rhs
-
-    var result: Self = []
-    for d in 0..<lhs.count {
-      var new2d: Element = []
-      for r in 0..<lhs[d].count {
-        new2d.append(left[d][r] - right[d][r])
-      }
-      result.append(new2d)
-    }
     
+    var result: Self = []
+    for i in 0..<lhs.count {
+      let a = lhs[i]
+      let b = rhs[i]
+      result.append(NumSwiftC.sub(a, b))
+    }
     return result
   }
   
@@ -648,13 +579,99 @@ public extension Array where Element == [[Float]] {
     let right = rhs
     
     var result: Self = []
+    for i in 0..<lhs.count {
+      let a = lhs[i]
+      let b = rhs[i]
+      result.append(NumSwiftC.add(a, b))
+    }
+    return result
+  }
+  
+  // MARK: - Array Broadcasting Operations
+  
+  static func +(lhs: Self, rhs: [Float]) -> Self {
+    var result: Self = []
     for d in 0..<lhs.count {
-      var new2d: Element = []
-      for r in 0..<lhs[d].count {
-        new2d.append(left[d][r] + right[d][r])
+      let new2d = NumSwiftC.add(lhs[d], array: rhs)
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func +(lhs: [Float], rhs: Self) -> Self {
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d = NumSwiftC.add(rhs[d], array: lhs)
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func -(lhs: Self, rhs: [Float]) -> Self {
+    var result: Self = []
+    for d in 0..<lhs.count {
+      let new2d = NumSwiftC.sub(lhs[d], array: rhs)
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func -(lhs: [Float], rhs: Self) -> Self {
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d: Element = rhs[d].enumerated().map { (index, value) in
+        let scalarValue = lhs[safe: index] ?? 0.0
+        return scalarValue - value
       }
       result.append(new2d)
     }
+    
+    return result
+  }
+  
+  static func *(lhs: Self, rhs: [Float]) -> Self {
+    var result: Self = []
+    for d in 0..<lhs.count {
+      let new2d = NumSwiftC.mult(lhs[d], array: rhs)
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func *(lhs: [Float], rhs: Self) -> Self {
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d = NumSwiftC.mult(rhs[d], array: lhs)
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func /(lhs: Self, rhs: [Float]) -> Self {
+    var result: Self = []
+    for d in 0..<lhs.count {
+      let new2d = NumSwiftC.divide(lhs[d], array: rhs)
+      result.append(new2d)
+    }
+    
+    return result
+  }
+  
+  static func /(lhs: [Float], rhs: Self) -> Self {
+    var result: Self = []
+    for d in 0..<rhs.count {
+      let new2d: Element = rhs[d].enumerated().map { (index, value) in
+        let scalarValue = lhs[safe: index] ?? 0.0
+        return scalarValue / value
+      }
+      result.append(new2d)
+    }
+    
     return result
   }
 }

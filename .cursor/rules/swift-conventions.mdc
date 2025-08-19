@@ -1,0 +1,101 @@
+---
+alwaysApply: true
+---
+
+# Swift Conventions for NumSwift
+
+## Naming Conventions
+
+### Swift Standard Conventions
+- Use `camelCase` for variables, functions, and properties
+- Use `PascalCase` for types, protocols, and enums
+- Use descriptive names that clearly indicate purpose
+
+### NumSwift-Specific Patterns
+- Matrix/array operation functions should be descriptive: `matrixMultiply`, `convolution2D`
+- Type-specific extensions follow pattern: `Float32.swift`, `Double.swift`, `Float16.swift`
+- C wrapper functions use prefix: `numswiftc_` (e.g., `numswiftc_convolution`)
+
+## Code Organization
+
+### Protocol Extensions
+- Use protocol extensions for shared functionality across numeric types
+- Implement common array operations in `BaseNumeric.swift`
+- Keep type-specific optimizations in dedicated files
+
+### Operator Overloading
+- Follow existing patterns for arithmetic operators (`+`, `-`, `*`, `/`)
+- Support both element-wise and broadcast operations
+- Ensure operators work consistently across all supported types
+
+## Swift Package Manager
+
+### Module Structure
+- Keep public APIs in the main `NumSwift` target
+- Performance-critical C code in `NumSwiftC` target
+- Metal GPU operations in `NumSwiftMetal` (when applicable)
+
+### Dependencies
+- Minimize external dependencies
+- Prefer Apple's built-in frameworks (Accelerate, Metal)
+- Document any new dependencies in Package.swift
+
+## Type Safety
+
+### Numeric Type Handling
+- Use generics where appropriate for type flexibility
+- Provide explicit type conversions when needed
+- Handle Float16 availability with `#if arch(arm64)` conditionals
+
+### Error Handling
+- Use Swift's error handling for operations that can fail
+- Provide clear error messages for dimension mismatches
+- Validate input parameters before passing to C functions# Swift Conventions for NumSwift
+
+## Naming Conventions
+
+### Swift Standard Conventions
+- Use `camelCase` for variables, functions, and properties
+- Use `PascalCase` for types, protocols, and enums
+- Use descriptive names that clearly indicate purpose
+
+### NumSwift-Specific Patterns
+- Matrix/array operation functions should be descriptive: `matrixMultiply`, `convolution2D`
+- Type-specific extensions follow pattern: `Float32.swift`, `Double.swift`, `Float16.swift`
+- C wrapper functions use prefix: `numswiftc_` (e.g., `numswiftc_convolution`)
+
+## Code Organization
+
+### Protocol Extensions
+- Use protocol extensions for shared functionality across numeric types
+- Implement common array operations in `BaseNumeric.swift`
+- Keep type-specific optimizations in dedicated files
+
+### Operator Overloading
+- Follow existing patterns for arithmetic operators (`+`, `-`, `*`, `/`)
+- Support both element-wise and broadcast operations
+- Ensure operators work consistently across all supported types
+
+## Swift Package Manager
+
+### Module Structure
+- Keep public APIs in the main `NumSwift` target
+- Performance-critical C code in `NumSwiftC` target
+- Metal GPU operations in `NumSwiftMetal` (when applicable)
+
+### Dependencies
+- Minimize external dependencies
+- Prefer Apple's built-in frameworks (Accelerate, Metal)
+- Document any new dependencies in Package.swift
+
+## Type Safety
+
+### Numeric Type Handling
+- Use generics where appropriate for type flexibility
+- Provide explicit type conversions when needed
+- Handle Float16 availability with `#if arch(arm64)` conditionals
+
+### Error Handling
+- Use Swift's error handling for operations that can fail
+- Provide clear error messages for dimension mismatches
+- Validate input parameters before passing to C functions

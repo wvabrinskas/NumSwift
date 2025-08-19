@@ -86,25 +86,85 @@ public class NumSwift {
   }
   
   public static func onesLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float]]] {
-    var result: [[[Float]]]  = []
+    let totalElements = size.rows * size.columns * size.depth
     
-    for _ in 0..<size.depth {
-      var row: [[Float]] = []
-      for _ in 0..<size.rows {
-        row.append([Float](repeating: 1.0, count: size.columns))
+    if totalElements > 10000 {
+      var result = ContiguousArray<ContiguousArray<ContiguousArray<Float>>>()
+      result.reserveCapacity(size.depth)
+      
+      for _ in 0..<size.depth {
+        var depthSlice = ContiguousArray<ContiguousArray<Float>>()
+        depthSlice.reserveCapacity(size.rows)
+        
+        for _ in 0..<size.rows {
+          let row = ContiguousArray<Float>(unsafeUninitializedCapacity: size.columns) { buffer, initializedCount in
+            var one: Float = 1.0
+            vDSP_vfill(&one, buffer.baseAddress!, 1, vDSP_Length(size.columns))
+            initializedCount = size.columns
+          }
+          depthSlice.append(row)
+        }
+        result.append(depthSlice)
       }
-      result.append(row)
-    }
+      
+      return Array(result.map { depthSlice in Array(depthSlice.map { row in Array(row) }) })
+    } else {
+      var result: [[[Float]]]  = []
+      
+      for _ in 0..<size.depth {
+        var row: [[Float]] = []
+        for _ in 0..<size.rows {
+          row.append([Float](repeating: 1.0, count: size.columns))
+        }
+        result.append(row)
+      }
 
-    return result
+      return result
+    }
   }
 
   public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Double]] {
-    Array((0..<size.rows).map { _ in [Double](repeating: 1.0, count: size.columns) })
+    let totalElements = size.rows * size.columns
+    
+    if totalElements > 1000 {
+      var result = ContiguousArray<ContiguousArray<Double>>()
+      result.reserveCapacity(size.rows)
+      
+      for _ in 0..<size.rows {
+        let row = ContiguousArray<Double>(unsafeUninitializedCapacity: size.columns) { buffer, initializedCount in
+          var one: Double = 1.0
+          vDSP_vfillD(&one, buffer.baseAddress!, 1, vDSP_Length(size.columns))
+          initializedCount = size.columns
+        }
+        result.append(row)
+      }
+      
+      return Array(result.map { Array($0) })
+    } else {
+      return Array((0..<size.rows).map { _ in [Double](repeating: 1.0, count: size.columns) })
+    }
   }
   
   public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Float]] {
-    Array((0..<size.rows).map { _ in [Float](repeating: 1.0, count: size.columns) })
+    let totalElements = size.rows * size.columns
+    
+    if totalElements > 1000 {
+      var result = ContiguousArray<ContiguousArray<Float>>()
+      result.reserveCapacity(size.rows)
+      
+      for _ in 0..<size.rows {
+        let row = ContiguousArray<Float>(unsafeUninitializedCapacity: size.columns) { buffer, initializedCount in
+          var one: Float = 1.0
+          vDSP_vfill(&one, buffer.baseAddress!, 1, vDSP_Length(size.columns))
+          initializedCount = size.columns
+        }
+        result.append(row)
+      }
+      
+      return Array(result.map { Array($0) })
+    } else {
+      return Array((0..<size.rows).map { _ in [Float](repeating: 1.0, count: size.columns) })
+    }
   }
   
   public static func onesLike<T: Collection>(_ array: T) -> Array<AnyHashable> {
@@ -122,26 +182,84 @@ public class NumSwift {
   }
   
   public static func zerosLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float]]] {
-    var result: [[[Float]]]  = []
+    let totalElements = size.rows * size.columns * size.depth
     
-    for _ in 0..<size.depth {
-      var row: [[Float]] = []
-      for _ in 0..<size.rows {
-        row.append([Float](repeating: 0, count: size.columns))
+    if totalElements > 10000 {
+      var result = ContiguousArray<ContiguousArray<ContiguousArray<Float>>>()
+      result.reserveCapacity(size.depth)
+      
+      for _ in 0..<size.depth {
+        var depthSlice = ContiguousArray<ContiguousArray<Float>>()
+        depthSlice.reserveCapacity(size.rows)
+        
+        for _ in 0..<size.rows {
+          var row = ContiguousArray<Float>(unsafeUninitializedCapacity: size.columns) { buffer, initializedCount in
+            vDSP_vclr(buffer.baseAddress!, 1, vDSP_Length(size.columns))
+            initializedCount = size.columns
+          }
+          depthSlice.append(row)
+        }
+        result.append(depthSlice)
       }
-      result.append(row)
-    }
+      
+      return Array(result.map { depthSlice in Array(depthSlice.map { row in Array(row) }) })
+    } else {
+      var result: [[[Float]]]  = []
+      
+      for _ in 0..<size.depth {
+        var row: [[Float]] = []
+        for _ in 0..<size.rows {
+          row.append([Float](repeating: 0, count: size.columns))
+        }
+        result.append(row)
+      }
 
-    return result
+      return result
+    }
   }
   
   public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Double]] {
-    Array((0..<size.rows).map { _ in [Double](repeating: 0.0, count: size.columns) })
+    let totalElements = size.rows * size.columns
+    
+    if totalElements > 1000 {
+      var result = ContiguousArray<ContiguousArray<Double>>()
+      result.reserveCapacity(size.rows)
+      
+      for _ in 0..<size.rows {
+        let row = ContiguousArray<Double>(unsafeUninitializedCapacity: size.columns) { buffer, initializedCount in
+          vDSP_vclrD(buffer.baseAddress!, 1, vDSP_Length(size.columns))
+          initializedCount = size.columns
+        }
+        result.append(row)
+      }
+      
+      return Array(result.map { Array($0) })
+    } else {
+      return Array((0..<size.rows).map { _ in [Double](repeating: 0.0, count: size.columns) })
+    }
   }
   
   public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Float]] {
-    Array((0..<size.rows).map { _ in [Float](repeating: 0.0, count: size.columns) })
+    let totalElements = size.rows * size.columns
+    
+    if totalElements > 1000 {
+      var result = ContiguousArray<ContiguousArray<Float>>()
+      result.reserveCapacity(size.rows)
+      
+      for _ in 0..<size.rows {
+        let row = ContiguousArray<Float>(unsafeUninitializedCapacity: size.columns) { buffer, initializedCount in
+          vDSP_vclr(buffer.baseAddress!, 1, vDSP_Length(size.columns))
+          initializedCount = size.columns
+        }
+        result.append(row)
+      }
+      
+      return Array(result.map { Array($0) })
+    } else {
+      return Array((0..<size.rows).map { _ in [Float](repeating: 0.0, count: size.columns) })
+    }
   }
+  
   
   public static func zerosLike<T: Collection>(_ array: T) -> Array<AnyHashable> {
     let shape = array.shapeOf
@@ -481,31 +599,71 @@ public extension NumSwift {
 extension NumSwift {
   
   public static func zerosLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float16]]] {
-    var result: [[[Float16]]]  = []
+    let totalElements = size.rows * size.columns * size.depth
     
-    for _ in 0..<size.depth {
-      var row: [[Float16]] = []
-      for _ in 0..<size.rows {
-        row.append([Float16](repeating: 0, count: size.columns))
+    if totalElements > 10000 {
+      var result = ContiguousArray<ContiguousArray<ContiguousArray<Float16>>>()
+      result.reserveCapacity(size.depth)
+      
+      for _ in 0..<size.depth {
+        var depthSlice = ContiguousArray<ContiguousArray<Float16>>()
+        depthSlice.reserveCapacity(size.rows)
+        
+        for _ in 0..<size.rows {
+          let row = ContiguousArray<Float16>(repeating: 0.0, count: size.columns)
+          depthSlice.append(row)
+        }
+        result.append(depthSlice)
       }
-      result.append(row)
-    }
+      
+      return Array(result.map { depthSlice in Array(depthSlice.map { row in Array(row) }) })
+    } else {
+      var result: [[[Float16]]]  = []
+      
+      for _ in 0..<size.depth {
+        var row: [[Float16]] = []
+        for _ in 0..<size.rows {
+          row.append([Float16](repeating: 0, count: size.columns))
+        }
+        result.append(row)
+      }
 
-    return result
+      return result
+    }
   }
   
   public static func onesLike(_ size: (rows: Int, columns: Int, depth: Int)) -> [[[Float16]]] {
-    var result: [[[Float16]]]  = []
+    let totalElements = size.rows * size.columns * size.depth
     
-    for _ in 0..<size.depth {
-      var row: [[Float16]] = []
-      for _ in 0..<size.rows {
-        row.append([Float16](repeating: 1.0, count: size.columns))
+    if totalElements > 10000 {
+      var result = ContiguousArray<ContiguousArray<ContiguousArray<Float16>>>()
+      result.reserveCapacity(size.depth)
+      
+      for _ in 0..<size.depth {
+        var depthSlice = ContiguousArray<ContiguousArray<Float16>>()
+        depthSlice.reserveCapacity(size.rows)
+        
+        for _ in 0..<size.rows {
+          let row = ContiguousArray<Float16>(repeating: 1.0, count: size.columns)
+          depthSlice.append(row)
+        }
+        result.append(depthSlice)
       }
-      result.append(row)
-    }
+      
+      return Array(result.map { depthSlice in Array(depthSlice.map { row in Array(row) }) })
+    } else {
+      var result: [[[Float16]]]  = []
+      
+      for _ in 0..<size.depth {
+        var row: [[Float16]] = []
+        for _ in 0..<size.rows {
+          row.append([Float16](repeating: 1.0, count: size.columns))
+        }
+        result.append(row)
+      }
 
-    return result
+      return result
+    }
   }
   
   
@@ -536,8 +694,41 @@ extension NumSwift {
   
   
   public static func zerosLike(_ size: (rows: Int, columns: Int)) -> [[Float16]] {
-    Array((0..<size.rows).map { _ in [Float16](repeating: 0.0, count: size.columns) })
+    let totalElements = size.rows * size.columns
+    
+    if totalElements > 1000 {
+      var result = ContiguousArray<ContiguousArray<Float16>>()
+      result.reserveCapacity(size.rows)
+      
+      for _ in 0..<size.rows {
+        let row = ContiguousArray<Float16>(repeating: 0.0, count: size.columns)
+        result.append(row)
+      }
+      
+      return Array(result.map { Array($0) })
+    } else {
+      return Array((0..<size.rows).map { _ in [Float16](repeating: 0.0, count: size.columns) })
+    }
   }
+  
+  public static func onesLike(_ size: (rows: Int, columns: Int)) -> [[Float16]] {
+    let totalElements = size.rows * size.columns
+    
+    if totalElements > 1000 {
+      var result = ContiguousArray<ContiguousArray<Float16>>()
+      result.reserveCapacity(size.rows)
+      
+      for _ in 0..<size.rows {
+        let row = ContiguousArray<Float16>(repeating: 1.0, count: size.columns)
+        result.append(row)
+      }
+      
+      return Array(result.map { Array($0) })
+    } else {
+      return Array((0..<size.rows).map { _ in [Float16](repeating: 1.0, count: size.columns) })
+    }
+  }
+  
 }
 
 #endif

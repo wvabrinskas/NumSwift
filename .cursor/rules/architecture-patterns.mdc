@@ -5,14 +5,21 @@
 ### Target Separation
 - **NumSwift**: High-level Swift APIs, operator overloads, protocol extensions
 - **NumSwiftC**: Low-level C implementations for performance-critical operations
-- **NumSwiftMetal**: GPU-accelerated operations using Metal framework
+- **NumSwiftMetal**: GPU-accelerated operations using Metal framework (embedded within NumSwift)
 
 ### Target Dependencies
-- NumSwift depends on NumSwiftC
-- NumSwiftMetal is optional and can be conditionally imported
+- NumSwift depends on NumSwiftC for CPU operations
+- NumSwiftMetal is embedded within NumSwift target for seamless integration
+- Metal backend provides automatic fallback to CPU when GPU is unavailable
 - Avoid circular dependencies between targets
 
-## Swift/C Integration
+### Metal Backend Architecture
+The Metal implementation follows a three-layer architecture:
+1. **Metal Shaders** (`NumSwiftMetal.metal`): GPU compute kernels for all operations
+2. **Swift Wrapper** (`NumSwiftMetal.swift`): Automatic backend selection and Metal resource management
+3. **Unified API**: Same interface for CPU and GPU operations with transparent switching
+
+## Swift/C/Metal Integration
 
 ### C Function Wrapper Pattern
 ```swift
@@ -23,6 +30,25 @@ public func convolution2D<T: Numeric>(_ input: [T], ...) -> [T] {
     // Handle result
 }
 ```
+
+### Metal Backend Integration Pattern
+```swift
+// Metal backend wrapper in NumSwiftMetal.swift
+public func convolution2D(_ input: [[Float16]], _ filter: [[Float16]]) -> [[Float16]] {
+    if shouldUseMetal(for: input.count * input[0].count) {
+        return metalConv2D(input, filter)
+    } else {
+        return cpuConv2D(input, filter) // Falls back to C implementation
+    }
+}
+```
+
+### Backend Selection Architecture
+The Metal backend uses intelligent switching:
+- **Problem Size Analysis**: Evaluates array size to determine optimal backend
+- **Hardware Detection**: Considers GPU capabilities and availability
+- **Automatic Fallback**: Seamlessly falls back to CPU if Metal fails
+- **Performance Monitoring**: Can adapt thresholds based on runtime performance
 
 ### C Implementation Guidelines
 - All C functions use `numswiftc_` prefix
@@ -105,3 +131,26 @@ public enum NumSwiftError: Error {
 - C functions work with raw pointers
 - No memory allocation in C layer - Swift provides buffers
 - Use `withUnsafeBufferPointer` for safe C interop
+
+### Metal Memory Management
+- Use `storageModeShared` for CPU-GPU data sharing
+- Implement buffer pooling for frequent operations
+- Manage Metal resource lifecycle properly
+- Handle GPU memory pressure with automatic fallback
+
+### Buffer Management Pattern
+```swift
+// Efficient Metal buffer creation and reuse
+private func createBuffer<T>(from data: [T], type: T.Type) -> MTLBuffer? {
+    let size = data.count * MemoryLayout<T>.stride
+    
+    // Try to reuse buffer from pool
+    if let buffer = getBufferFromPool(size: size) {
+        copyDataToBuffer(data, buffer)
+        return buffer
+    }
+    
+    // Create new buffer with shared storage
+    return device.makeBuffer(bytes: data, length: size, options: .storageModeShared)
+}
+```

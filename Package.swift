@@ -25,7 +25,10 @@ let package = Package(
       .target(
           name: "NumSwiftC",
           dependencies: [],
-          resources: []),
+          cSettings: [
+            .define("__ARM_FEATURE_FP16_VECTOR_ARITHMETIC", .when(platforms: [.iOS, .tvOS, .watchOS])),
+            .unsafeFlags(["-march=armv8.2-a+fp16"], .when(platforms: [.iOS, .tvOS, .watchOS]))
+          ]),
       .target(
             name: "NumSwift",
             dependencies: ["NumSwiftC"],

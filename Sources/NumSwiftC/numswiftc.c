@@ -732,6 +732,7 @@ static inline float neon_conv_3x3(float *const *signal,
 }
 
 // Optimized 3x3 convolution kernel for float16 - bounds safe
+__attribute__((target("arch=armv8.2-a+fp16")))
 static inline __fp16 neon_conv_3x3_f16(__fp16 *const *signal,
                                       __fp16 *const *filter,
                                       int sig_row, int sig_col) {
@@ -822,6 +823,7 @@ static inline float neon_conv_5x5(float *const *signal,
 }
 
 // Optimized 5x5 convolution kernel for float16
+__attribute__((target("arch=armv8.2-a+fp16")))
 static inline __fp16 neon_conv_5x5_f16(__fp16 *const *signal,
                                       __fp16 *const *filter,
                                       int sig_row, int sig_col) {
@@ -911,6 +913,7 @@ static inline float neon_conv_kernel(float *const *signal,
 }
 
 // SIMD optimized convolution kernel for float16
+__attribute__((target("arch=armv8.2-a+fp16")))
 static inline __fp16 neon_conv_kernel_f16(__fp16 *const *signal,
                                          __fp16 *const *filter,
                                          int sig_row, int sig_col,

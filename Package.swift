@@ -31,12 +31,12 @@ let package = Package(
           ]),
       .target(
             name: "NumSwift",
-            dependencies: ["NumSwiftC", "NumSwiftMetal",
+            dependencies: ["NumSwiftC",
               .product(name: "Numerics", package: "swift-numerics")],
             resources: [.process("Resources")]),
         .testTarget(
             name: "NumSwiftTests",
-            dependencies: ["NumSwift", "NumSwiftC", "NumSwiftMetal"]),
+            dependencies: ["NumSwift", "NumSwiftC"]),
 
     ]
 )

@@ -54,23 +54,109 @@ public struct MetalConfiguration {
   
   public init?(device: MTLDevice? = nil) {
     guard let device = device ?? MTLCreateSystemDefaultDevice() else {
+      print("Failed to create Metal device")
       return nil
     }
     
     self.device = device
     
     var library: MTLLibrary?
-    let bundle = Bundle.module
     
-    library = try? device.makeDefaultLibrary(bundle: bundle)
-
+    // Strategy 1: Try Bundle.module (works in Swift Package Manager)
+    let bundle = Bundle.module
+    if let bundleLibrary = try? device.makeDefaultLibrary(bundle: bundle) {
+      library = bundleLibrary
+    }
+    
+    // Strategy 2: Try default library (works when Metal shaders are compiled into app)
     if library == nil {
       library = device.makeDefaultLibrary()
     }
     
+    // Strategy 3: Try loading from main bundle (works in app contexts)
+    if library == nil {
+      if let mainBundle = Bundle.main.path(forResource: "NumSwiftMetal", ofType: "metallib") {
+        library = try? device.makeLibrary(filepath: mainBundle)
+      }
+    }
+    
+    // Strategy 4: Try loading Metal source directly (fallback for development/testing)
+    if library == nil {
+      // Try multiple ways to find the Metal source file
+      var metalSourcePath: String?
+      
+      // Try Bundle.module first
+      if let path = bundle.path(forResource: "NumSwiftMetal", ofType: "metal") {
+        metalSourcePath = path
+      }
+      
+      // Try searching in Resources directory relative to bundle
+      if metalSourcePath == nil {
+        let resourcesPath = bundle.resourcePath ?? bundle.bundlePath
+        let candidatePath = (resourcesPath as NSString).appendingPathComponent("NumSwiftMetal.metal")
+        if FileManager.default.fileExists(atPath: candidatePath) {
+          metalSourcePath = candidatePath
+        }
+      }
+      
+      // Try searching all bundles for the Metal file
+      if metalSourcePath == nil {
+        for searchBundle in Bundle.allBundles {
+          if let path = searchBundle.path(forResource: "NumSwiftMetal", ofType: "metal") {
+            metalSourcePath = path
+            break
+          }
+        }
+      }
+      
+      // Try direct path search in common locations
+      if metalSourcePath == nil {
+        let possiblePaths = [
+          (bundle.bundlePath as NSString).appendingPathComponent("Resources/NumSwiftMetal.metal"),
+          (bundle.bundlePath as NSString).appendingPathComponent("NumSwiftMetal.metal"),
+          (bundle.resourcePath ?? "").appending("/NumSwiftMetal.metal")
+        ]
+        for path in possiblePaths {
+          if FileManager.default.fileExists(atPath: path) {
+            metalSourcePath = path
+            break
+          }
+        }
+      }
+      
+      if let path = metalSourcePath,
+         let metalSource = try? String(contentsOfFile: path, encoding: .utf8) {
+        library = try? device.makeLibrary(source: metalSource, options: nil)
+      }
+    }
+    
+    // Strategy 5: Try finding bundle by identifier (for test environments)
+    if library == nil {
+      if let testBundle = Bundle(identifier: "com.numswift.NumSwift") {
+        library = try? device.makeDefaultLibrary(bundle: testBundle)
+      }
+    }
+    
+    // Strategy 6: Try to find bundle dynamically by searching all bundles
+    if library == nil {
+      for loadedBundle in Bundle.allBundles {
+        let bundlePath = loadedBundle.bundlePath
+        if bundlePath.contains("NumSwift") || bundlePath.contains("numswift") {
+          if let foundLibrary = try? device.makeDefaultLibrary(bundle: loadedBundle) {
+            library = foundLibrary
+            break
+          }
+        }
+      }
+    }
+    
     guard let metalLibrary = library else {
-      print("Failed to load Metal library")
       return nil
+    }
+    
+    // Verify the library has functions (basic sanity check)
+    if metalLibrary.functionNames.isEmpty {
+      print("Warning: Metal library loaded but contains no functions")
     }
     
     self.library = metalLibrary
@@ -1725,7 +1811,7 @@ public class NumSwiftMetal {
     }
     
     if shouldUseTiledMatmul(aRows: aRows, aCols: aCols, bCols: bCols) {
-      guard let pipeline = computePipeline(for: "nsc_tiled_matmul_float_kernel") else {
+      guard let pipeline = computePipeline(for: "nsc_tiled_matmul_kernel") else {
         fatalError("Failed to create tiled matmul pipeline")
       }
       
@@ -1866,7 +1952,7 @@ public class NumSwiftMetal {
     }
     
     // Initialize result buffer to zero
-    var resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: outputRows * outputCols)
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float.self, capacity: outputRows * outputCols)
     for i in 0..<(outputRows * outputCols) {
       resultPointer[i] = 0.0
     }
@@ -1993,7 +2079,7 @@ public class NumSwiftMetal {
     }
     
     // Initialize result buffer to zero
-    var resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: outputRows * outputCols)
+    let resultPointer = resultBuffer.contents().bindMemory(to: Float16.self, capacity: outputRows * outputCols)
     for i in 0..<(outputRows * outputCols) {
       resultPointer[i] = 0.0
     }

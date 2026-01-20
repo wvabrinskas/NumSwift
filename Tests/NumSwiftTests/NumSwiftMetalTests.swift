@@ -18,7 +18,6 @@ final class NumSwiftMetalTests: XCTestCase {
   
   func testMetalConv2D() {
     let signalShape = (5,5)
-    
 
     let filter: [[Float]] = [[0, 1, 0],
                              [0, 1, 0],

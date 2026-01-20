@@ -1087,6 +1087,28 @@ enum NSC_Padding {
     result[id] = lhs[id] / *rhs;
   }
   
+  // Legacy simple matrix multiplication (for small matrices)
+  kernel void nsc_matmul_float16_kernel(device const half* a [[ buffer(0) ]],
+                                        device const half* b [[ buffer(1) ]],
+                                        device half* result [[ buffer(2) ]],
+                                        device const NSC_Size* a_size [[ buffer(3) ]],
+                                        device const NSC_Size* b_size [[ buffer(4) ]],
+                                        uint2 id [[ thread_position_in_grid ]]) {
+    uint row = id.y;
+    uint col = id.x;
+    
+    if (row >= a_size->rows || col >= b_size->columns) return;
+    
+    float sum = 0.0f;
+    for (uint k = 0; k < a_size->columns; k++) {
+      float a_val = a[row * a_size->columns + k];
+      float b_val = b[k * b_size->columns + col];
+      sum += a_val * b_val;
+    }
+    
+    result[row * b_size->columns + col] = sum;
+  }
+  
   // MARK: - Matrix Operations (Float32)
   
   // Legacy simple matrix multiplication (for small matrices)

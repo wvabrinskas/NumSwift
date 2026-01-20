@@ -1200,6 +1200,11 @@ public class NumSwiftMetal {
   // MARK: - Element-wise Operations
   
   public func add(_ lhs: [Float], _ rhs: [Float]) -> [Float] {
+    
+    guard lhs.count > 0, rhs.count > 0 else {
+      return []
+    }
+    
     let elementCount = lhs.count
     guard elementCount == rhs.count else {
       fatalError("Array sizes must match")
@@ -1731,19 +1736,19 @@ public class NumSwiftMetal {
         aRows: aRows,
         aCols: aCols,
         bCols: bCols,
-        type: Float.self
+        type: Float16.self
       )
       
     } else {
       // Use simple matrix multiplication for smaller matrices
-      guard let pipeline = computePipeline(for: "nsc_matmul_float_kernel") else {
+      guard let pipeline = computePipeline(for: "nsc_matmul_float16_kernel") else {
         fatalError("Failed to create matmul pipeline")
       }
       
       let aSize = NSC_Size(rows: Int32(aRows), columns: Int32(aCols))
       let bSize = NSC_Size(rows: Int32(bRows), columns: Int32(bCols))
       
-      guard let buffer = createBuffer(count: aRows * bCols, type: Float.self),
+      guard let buffer = createBuffer(count: aRows * bCols, type: Float16.self),
             let aSizeBuffer = createBuffer(from: [aSize], type: NSC_Size.self),
             let bSizeBuffer = createBuffer(from: [bSize], type: NSC_Size.self) else {
         fatalError("Failed to create buffers")
@@ -1782,7 +1787,6 @@ public class NumSwiftMetal {
     }
     
     // Execute with GPU pipeline optimization
-
 
     if isAsyncMode == false {
       commandBuffer.commit()

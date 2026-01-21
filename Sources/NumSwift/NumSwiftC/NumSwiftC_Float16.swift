@@ -359,6 +359,37 @@ public extension NumSwiftC {
     return results
   }
   
+  public static func flatten(_ input: [[[Float16]]], inputSize: (rows: Int, columns: Int, depth: Int)? = nil) -> [Float16] {
+    
+    let shape = input.shape
+    var rows = shape[safe: 1, 0]
+    var columns = shape[safe: 0, 0]
+    var depth = shape[safe: 2, 0]
+
+    
+    if let inputSize = inputSize {
+      rows = inputSize.rows
+      columns = inputSize.columns
+      depth = inputSize.depth
+    }
+    
+    var results: [Float16] = [Float16](repeating: 0, count: rows * columns * depth)
+
+    // Convert each 2D slice to a flat array of row pointers
+    var slicePointers: [[UnsafeMutablePointer<Float16>?]] = input.map { slice in
+      slice.map { UnsafeMutablePointer(mutating: $0) }
+    }
+    
+    // Create an array of pointers to each slice's pointer array
+    slicePointers.withUnsafeBufferPointer { sliceBuffer in
+      let inPuts: [UnsafePointer<UnsafeMutablePointer<Float16>?>?] = sliceBuffer.map { UnsafePointer($0) }
+      
+      nsc_flatten3d_16(NSC_Size(rows: Int32(rows), columns: Int32(columns), depth: Int32(depth)), inPuts, &results)
+    }
+    
+    return results
+  }
+  
   public static func flatten(_ input: [[Float16]], inputSize: (rows: Int, columns: Int)? = nil) -> [Float16] {
     
     let shape = input.shape

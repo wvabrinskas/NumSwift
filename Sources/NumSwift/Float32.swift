@@ -15,8 +15,8 @@ public extension Array where Element == [Float] {
     return [cols, rows]
   }
   
-  func flatten(inputSize: (rows: Int, columns: Int)? = nil) -> [Self.Element.Element] {
-    NumSwiftC.flatten(self, inputSize: inputSize)
+  func flatten() -> [Self.Element.Element] {
+    flatMap { $0 }
   }
   
   func transpose2d() -> Self {
@@ -414,6 +414,10 @@ public extension Array where Element == [[Float]] {
     return r
   }
   
+  func flatten() -> [Float] {
+    flatMap { $0.flatMap { $0 } }
+  }
+  
   /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
   /// - Returns: The transposed array
   func transpose2d() -> Self {
@@ -487,102 +491,83 @@ public extension Array where Element == [[Float]] {
   
   static func /(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
+    result.reserveCapacity(rhs.count)
     for d in 0..<rhs.count {
       let new2d: Element = rhs[d].map { lhs / $0 }
       result.append(new2d)
     }
-    
     return result
   }
-  
+
   static func +(lhs: Self, rhs: Float) -> Self {
     var result: Self = []
+    result.reserveCapacity(lhs.count)
     for d in 0..<lhs.count {
-      let new2d = NumSwiftC.add(lhs[d], scalar: rhs)
-      result.append(new2d)
+      result.append(NumSwiftC.add(lhs[d], scalar: rhs))
     }
-    
     return result
   }
-  
+
   static func +(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
+    result.reserveCapacity(rhs.count)
     for d in 0..<rhs.count {
-      let new2d = NumSwiftC.add(rhs[d], scalar: lhs)
-      result.append(new2d)
+      result.append(NumSwiftC.add(rhs[d], scalar: lhs))
     }
-    
     return result
   }
-  
+
   static func -(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
+    result.reserveCapacity(rhs.count)
     for d in 0..<rhs.count {
       let new2d: Element = rhs[d].map { lhs - $0 }
       result.append(new2d)
     }
-    
     return result
   }
-  
+
   static func -(lhs: Self, rhs: Float) -> Self {
     var result: Self = []
+    result.reserveCapacity(lhs.count)
     for d in 0..<lhs.count {
-      let new2d = NumSwiftC.sub(lhs[d], scalar: rhs)
-      result.append(new2d)
+      result.append(NumSwiftC.sub(lhs[d], scalar: rhs))
     }
-    
     return result
   }
   
   static func *(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
     var result: Self = []
+    result.reserveCapacity(lhs.count)
     for i in 0..<lhs.count {
-      let a = lhs[i]
-      let b = rhs[i]
-      result.append(NumSwiftC.mult(a, b))
+      result.append(NumSwiftC.mult(lhs[i], rhs[i]))
     }
     return result
   }
-  
+
   static func /(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
     var result: Self = []
+    result.reserveCapacity(lhs.count)
     for i in 0..<lhs.count {
-      let a = lhs[i]
-      let b = rhs[i]
-      result.append(NumSwiftC.divide(a, b))
+      result.append(NumSwiftC.divide(lhs[i], rhs[i]))
     }
     return result
   }
-  
+
   static func -(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
     var result: Self = []
+    result.reserveCapacity(lhs.count)
     for i in 0..<lhs.count {
-      let a = lhs[i]
-      let b = rhs[i]
-      result.append(NumSwiftC.sub(a, b))
+      result.append(NumSwiftC.sub(lhs[i], rhs[i]))
     }
     return result
   }
-  
+
   static func +(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
     var result: Self = []
+    result.reserveCapacity(lhs.count)
     for i in 0..<lhs.count {
-      let a = lhs[i]
-      let b = rhs[i]
-      result.append(NumSwiftC.add(a, b))
+      result.append(NumSwiftC.add(lhs[i], rhs[i]))
     }
     return result
   }
@@ -999,78 +984,42 @@ public extension Array where Element == [Float] {
   }
   
   static func *(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
-    let leftShape = left.shape
-    let rightShape = right.shape
-    
-    precondition(leftShape == rightShape)
-    
-    let depth = left.count
-    
+    precondition(lhs.shape == rhs.shape)
     var result: Self = []
-    for d in 0..<depth {
-      result.append(left[d] * right[d])
+    result.reserveCapacity(lhs.count)
+    for d in 0..<lhs.count {
+      result.append(lhs[d] * rhs[d])
     }
-    
     return result
   }
-  
+
   static func /(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
-    let leftShape = left.shape
-    let rightShape = right.shape
-    
-    precondition(leftShape == rightShape)
-    
-    let depth = left.count
-    
+    precondition(lhs.shape == rhs.shape)
     var result: Self = []
-    for d in 0..<depth {
-      result.append(left[d] / right[d])
+    result.reserveCapacity(lhs.count)
+    for d in 0..<lhs.count {
+      result.append(lhs[d] / rhs[d])
     }
-    
     return result
   }
-  
+
   static func -(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
-    let leftShape = left.shape
-    let rightShape = right.shape
-    
-    precondition(leftShape == rightShape)
-    
-    let depth = left.count
-    
+    precondition(lhs.shape == rhs.shape)
     var result: Self = []
-    for d in 0..<depth {
-      result.append(left[d] - right[d])
+    result.reserveCapacity(lhs.count)
+    for d in 0..<lhs.count {
+      result.append(lhs[d] - rhs[d])
     }
-    
     return result
   }
-  
+
   static func +(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
-    let leftShape = left.shape
-    let rightShape = right.shape
-    
-    precondition(leftShape == rightShape)
-    
-    let depth = left.count
-    
+    precondition(lhs.shape == rhs.shape)
     var result: Self = []
-    for d in 0..<depth {
-      result.append(left[d] + right[d])
+    result.reserveCapacity(lhs.count)
+    for d in 0..<lhs.count {
+      result.append(lhs[d] + rhs[d])
     }
-    
     return result
   }
 }

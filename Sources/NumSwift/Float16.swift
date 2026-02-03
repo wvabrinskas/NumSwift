@@ -16,8 +16,8 @@ public extension Array where Element == [Float16] {
     return [cols, rows]
   }
   
-  func flatten(inputSize: (rows: Int, columns: Int)? = nil) -> [Self.Element.Element] {
-    NumSwiftC.flatten(self, inputSize: inputSize)
+  func flatten() -> [Self.Element.Element] {
+     flatMap { $0 }
   }
   
   func transpose2d() -> Self {
@@ -333,6 +333,10 @@ public extension Array where Element == [[Float16]] {
     }
     
     return r
+  }
+  
+  func flatten() -> [Float16] {
+    flatMap { $0.flatMap { $0 } }
   }
   
   /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array

@@ -34,6 +34,7 @@ typedef struct {
 typedef struct {
   int rows;
   int columns;
+  int depth;
 } NSC_Size;
 
 extern NSC_IndexedValue nsc_index_of_min(const _Float16 array[]);

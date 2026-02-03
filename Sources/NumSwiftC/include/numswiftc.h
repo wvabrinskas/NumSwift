@@ -68,8 +68,16 @@ extern void nsc_flatten2d(NSC_Size input_size,
                           float *const *input,
                           float *result);
 
+extern void nsc_flatten3d(NSC_Size input_size,
+                          float *const *const *input,
+                          float *result);
+
 extern void nsc_flatten2d_16(NSC_Size input_size,
                           __fp16 *const *input,
+                          __fp16 *result);
+
+extern void nsc_flatten3d_16(NSC_Size input_size,
+                          __fp16 *const *const *input,
                           __fp16 *result);
 
 extern void random_array(const int size, double *result);

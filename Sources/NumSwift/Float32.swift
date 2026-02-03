@@ -984,7 +984,7 @@ public extension Array where Element == [Float] {
   }
   
   static func *(lhs: Self, rhs: Self) -> Self {
-    assert(lhs.shape == rhs.shape)
+    precondition(lhs.shape == rhs.shape)
     var result: Self = []
     result.reserveCapacity(lhs.count)
     for d in 0..<lhs.count {
@@ -994,7 +994,7 @@ public extension Array where Element == [Float] {
   }
 
   static func /(lhs: Self, rhs: Self) -> Self {
-    assert(lhs.shape == rhs.shape)
+    precondition(lhs.shape == rhs.shape)
     var result: Self = []
     result.reserveCapacity(lhs.count)
     for d in 0..<lhs.count {
@@ -1004,7 +1004,7 @@ public extension Array where Element == [Float] {
   }
 
   static func -(lhs: Self, rhs: Self) -> Self {
-    assert(lhs.shape == rhs.shape)
+    precondition(lhs.shape == rhs.shape)
     var result: Self = []
     result.reserveCapacity(lhs.count)
     for d in 0..<lhs.count {
@@ -1014,7 +1014,7 @@ public extension Array where Element == [Float] {
   }
 
   static func +(lhs: Self, rhs: Self) -> Self {
-    assert(lhs.shape == rhs.shape)
+    precondition(lhs.shape == rhs.shape)
     var result: Self = []
     result.reserveCapacity(lhs.count)
     for d in 0..<lhs.count {

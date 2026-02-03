@@ -16,7 +16,7 @@ public extension Array where Element == [Float] {
   }
   
   func flatten(inputSize: (rows: Int, columns: Int)? = nil) -> [Self.Element.Element] {
-    NumSwiftC.flatten(self, inputSize: inputSize)
+    flatMap { $0 }
   }
   
   func transpose2d() -> Self {
@@ -415,7 +415,7 @@ public extension Array where Element == [[Float]] {
   }
   
   func flatten(inputSize: (rows: Int, columns: Int, depth: Int)? = nil) -> [Float] {
-    NumSwiftC.flatten(self, inputSize: inputSize)
+    flatMap { $0.flatMap { $0 } }
   }
   
   /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array

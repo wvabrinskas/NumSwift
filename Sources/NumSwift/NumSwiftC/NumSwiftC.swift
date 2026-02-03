@@ -392,6 +392,7 @@ public struct NumSwiftC {
     return results
   }
   
+  // expects the array to be fully symetrical with each dimension containing the smae number of elements
   public static func flatten(_ input: [[[Float]]], inputSize: (rows: Int, columns: Int, depth: Int)? = nil) -> [Float] {
     
     let shape = input.shape
@@ -423,6 +424,7 @@ public struct NumSwiftC {
     return results
   }
   
+  // expects the array to be fully symetrical with each dimension containing the smae number of elements
   public static func flatten(_ input: [[Float]], inputSize: (rows: Int, columns: Int)? = nil) -> [Float] {
     
     let shape = input.shape

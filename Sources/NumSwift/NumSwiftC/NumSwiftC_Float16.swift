@@ -11,7 +11,7 @@ import NumSwiftC
 #if arch(arm64)
 public extension NumSwiftC {
   
-  public static func add(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
+  static func add(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
     let shape = a.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -38,7 +38,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func sub(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
+  static func sub(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
     let shape = a.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -65,7 +65,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func divide(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
+  static func divide(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
     let shape = a.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -92,7 +92,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func mult(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
+  static func mult(_ a: [[Float16]], _ b: [[Float16]]) -> [[Float16]] {
     let shape = a.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -121,7 +121,7 @@ public extension NumSwiftC {
   
   // MARK: - 2D Arithmetic with Scalar Operations
   
-  public static func add(_ a: [[Float16]], scalar: Float16) -> [[Float16]] {
+  static func add(_ a: [[Float16]], scalar: Float16) -> [[Float16]] {
     let shape = a.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -145,7 +145,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func add(_ a: [[Float16]], array: [Float16]) -> [[Float16]] {
+  static func add(_ a: [[Float16]], array: [Float16]) -> [[Float16]] {
     let shape = a.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -169,7 +169,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func sub(_ a: [[Float16]], scalar: Float16) -> [[Float16]] {
+  static func sub(_ a: [[Float16]], scalar: Float16) -> [[Float16]] {
     let shape = a.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -193,7 +193,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func sub(_ a: [[Float16]], array: [Float16]) -> [[Float16]] {
+  static func sub(_ a: [[Float16]], array: [Float16]) -> [[Float16]] {
     let shape = a.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -217,7 +217,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func mult(_ a: [[Float16]], scalar: Float16) -> [[Float16]] {
+  static func mult(_ a: [[Float16]], scalar: Float16) -> [[Float16]] {
     let shape = a.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -241,7 +241,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func mult(_ a: [[Float16]], array: [Float16]) -> [[Float16]] {
+  static func mult(_ a: [[Float16]], array: [Float16]) -> [[Float16]] {
     let shape = a.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -265,7 +265,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func divide(_ a: [[Float16]], scalar: Float16) -> [[Float16]] {
+  static func divide(_ a: [[Float16]], scalar: Float16) -> [[Float16]] {
     let shape = a.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -289,7 +289,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func divide(_ a: [[Float16]], array: [Float16]) -> [[Float16]] {
+  static func divide(_ a: [[Float16]], array: [Float16]) -> [[Float16]] {
     let shape = a.shape
     let rows = shape[safe: 1] ?? 0
     let columns = shape[safe: 0] ?? 0
@@ -313,7 +313,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func tranpose(_ a: [[Float16]], size: (rows: Int, columns: Int)) -> [[Float16]] {
+  static func tranpose(_ a: [[Float16]], size: (rows: Int, columns: Int)) -> [[Float16]] {
     let result: [[Float16]] = NumSwift.zerosLike((rows: size.columns, columns: size.rows))
     
     result.withUnsafeBufferPointer { rBuff in
@@ -332,7 +332,7 @@ public extension NumSwiftC {
     return result
   }
   
-  public static func matmul(_ a: [[Float16]],
+  static func matmul(_ a: [[Float16]],
                             b: [[Float16]],
                             aSize: (rows: Int, columns: Int),
                             bSize: (rows: Int, columns: Int)) -> [[Float16]] {
@@ -359,14 +359,13 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func flatten(_ input: [[[Float16]]], inputSize: (rows: Int, columns: Int, depth: Int)? = nil) -> [Float16] {
+  static func flatten(_ input: [[[Float16]]], inputSize: (rows: Int, columns: Int, depth: Int)? = nil) -> [Float16] {
     
     let shape = input.shape
     var rows = shape[safe: 1, 0]
     var columns = shape[safe: 0, 0]
     var depth = shape[safe: 2, 0]
 
-    
     if let inputSize = inputSize {
       rows = inputSize.rows
       columns = inputSize.columns
@@ -390,7 +389,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func flatten(_ input: [[Float16]], inputSize: (rows: Int, columns: Int)? = nil) -> [Float16] {
+  static func flatten(_ input: [[Float16]], inputSize: (rows: Int, columns: Int)? = nil) -> [Float16] {
     
     let shape = input.shape
     var rows = shape[safe: 1, 0]
@@ -412,7 +411,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func stridePad(signal: [[Float16]],
+  static func stridePad(signal: [[Float16]],
                                strides: (rows: Int, columns: Int)) -> [[Float16]] {
     
     guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else {
@@ -445,7 +444,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func stridePad1D(signal: [Float16],
+  static func stridePad1D(signal: [Float16],
                                  strides: (rows: Int, columns: Int)) -> [Float16] {
     
     guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else {
@@ -472,7 +471,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func zeroPad(signal: [[Float16]],
+  static func zeroPad(signal: [[Float16]],
                              padding: NumSwiftPadding) -> [[Float16]] {
     
     guard padding.right > 0 || padding.left > 0 || padding.top > 0 || padding.bottom > 0 else {
@@ -507,7 +506,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func zeroPad(signal: [[Float16]],
+  static func zeroPad(signal: [[Float16]],
                              filterSize: (rows: Int, columns: Int),
                              inputSize: (rows: Int, columns: Int),
                              stride: (Int, Int) = (1,1)) -> [[Float16]] {
@@ -549,7 +548,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func conv2d(signal: [[Float16]],
+  static func conv2d(signal: [[Float16]],
                             filter: [[Float16]],
                             strides: (Int, Int) = (1,1),
                             padding: NumSwift.ConvPadding = .valid,
@@ -583,7 +582,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func conv1d(signal: [Float16],
+  static func conv1d(signal: [Float16],
                             filter: [Float16],
                             strides: (Int, Int) = (1,1),
                             padding: NumSwift.ConvPadding = .valid,
@@ -608,7 +607,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func transConv2d(signal: [[Float16]],
+  static func transConv2d(signal: [[Float16]],
                                  filter: [[Float16]],
                                  strides: (Int, Int) = (1,1),
                                  padding: NumSwift.ConvPadding = .valid,
@@ -660,7 +659,7 @@ public extension NumSwiftC {
   }
   
   
-  public static func transConv1d(signal: [Float16],
+  static func transConv1d(signal: [Float16],
                                  filter: [Float16],
                                  strides: (Int, Int) = (1,1),
                                  padding: NumSwift.ConvPadding = .valid,
@@ -699,7 +698,7 @@ public extension NumSwiftC {
     return results
   }
   
-  public static func zeroPad(signal: [Float16],
+  static func zeroPad(signal: [Float16],
                              filterSize: (rows: Int, columns: Int),
                              inputSize: (rows: Int, columns: Int),
                              stride: (Int, Int) = (1,1)) -> [Float16] {

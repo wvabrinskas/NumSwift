@@ -8,6 +8,12 @@
 import Foundation
 import NumSwiftC
 
+public extension NSC_Size {
+  init(rows: Int32, columns: Int32) {
+    self.init(rows: rows, columns: columns, depth: 1)
+  }
+}
+
 public struct NoiseC {
   public var octaves = 4
   public var amplitude = 0.5
@@ -386,6 +392,39 @@ public struct NumSwiftC {
     return results
   }
   
+  // expects the array to be fully symetrical with each dimension containing the smae number of elements
+  public static func flatten(_ input: [[[Float]]], inputSize: (rows: Int, columns: Int, depth: Int)? = nil) -> [Float] {
+    
+    let shape = input.shape
+    var rows = shape[safe: 1, 0]
+    var columns = shape[safe: 0, 0]
+    var depth = shape[safe: 2, 0]
+
+    
+    if let inputSize = inputSize {
+      rows = inputSize.rows
+      columns = inputSize.columns
+      depth = inputSize.depth
+    }
+    
+    var results: [Float] = [Float](repeating: 0, count: rows * columns * depth)
+
+    // Convert each 2D slice to a flat array of row pointers
+    var slicePointers: [[UnsafeMutablePointer<Float>?]] = input.map { slice in
+      slice.map { UnsafeMutablePointer(mutating: $0) }
+    }
+    
+    // Create an array of pointers to each slice's pointer array
+    slicePointers.withUnsafeBufferPointer { sliceBuffer in
+      let inPuts: [UnsafePointer<UnsafeMutablePointer<Float>?>?] = sliceBuffer.map { UnsafePointer($0) }
+      
+      nsc_flatten3d(NSC_Size(rows: Int32(rows), columns: Int32(columns), depth: Int32(depth)), inPuts, &results)
+    }
+    
+    return results
+  }
+  
+  // expects the array to be fully symetrical with each dimension containing the smae number of elements
   public static func flatten(_ input: [[Float]], inputSize: (rows: Int, columns: Int)? = nil) -> [Float] {
     
     let shape = input.shape

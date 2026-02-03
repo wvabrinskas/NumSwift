@@ -185,7 +185,7 @@ extern void nsc_flatten3d_16(NSC_Size input_size,
   for (int d = 0; d < input_size.depth; d++) {
     for (int r = 0; r < input_size.rows; r++) {
       for (int c = 0; c < input_size.columns; c++) {
-        float value = input[d][r][c];
+        __fp16 value = input[d][r][c];
         int index = c + r * input_size.columns + d * input_size.columns * input_size.rows;
         padded[index] = value;
       }

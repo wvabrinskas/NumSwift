@@ -16,8 +16,8 @@ public extension Array where Element == [Float16] {
     return [cols, rows]
   }
   
-  func flatten(inputSize: (rows: Int, columns: Int)? = nil) -> [Self.Element.Element] {
-    return self.flatMap { $0 }
+  func flatten() -> [Self.Element.Element] {
+     flatMap { $0 }
   }
   
   func transpose2d() -> Self {
@@ -335,7 +335,7 @@ public extension Array where Element == [[Float16]] {
     return r
   }
   
-  func flatten(inputSize: (rows: Int, columns: Int, depth: Int)? = nil) -> [Float16] {
+  func flatten() -> [Float16] {
     flatMap { $0.flatMap { $0 } }
   }
   

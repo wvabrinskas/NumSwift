@@ -15,7 +15,7 @@ public extension Array where Element == [Float] {
     return [cols, rows]
   }
   
-  func flatten(inputSize: (rows: Int, columns: Int)? = nil) -> [Self.Element.Element] {
+  func flatten() -> [Self.Element.Element] {
     flatMap { $0 }
   }
   
@@ -414,7 +414,7 @@ public extension Array where Element == [[Float]] {
     return r
   }
   
-  func flatten(inputSize: (rows: Int, columns: Int, depth: Int)? = nil) -> [Float] {
+  func flatten() -> [Float] {
     flatMap { $0.flatMap { $0 } }
   }
   

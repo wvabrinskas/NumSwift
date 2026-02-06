@@ -9,6 +9,7 @@ import Foundation
 import Accelerate
 
 public extension Array where Element == [Float] {
+  @inline(__always)
   var shape: [Int] {
     let rows = self.count
     let cols = self[safe: 0]?.count ?? 0
@@ -217,39 +218,46 @@ public extension Array where Element == [Float] {
 
 //use accelerate
 public extension Array where Element == Float {
+  @inline(__always)
   var sum: Element {
     vDSP.sum(self)
   }
-  
+
+  @inline(__always)
   var sumOfSquares: Element {
     let stride = vDSP_Stride(1)
     let n = vDSP_Length(self.count)
-    
+
     var c: Element = .nan
-    
+
     vDSP_svesq(self,
                stride,
                &c,
                n)
     return c
   }
-  
+
+  @inline(__always)
   var indexOfMin: (UInt, Element) {
     vDSP.indexOfMinimum(self)
   }
-  
+
+  @inline(__always)
   var indexOfMax: (UInt, Element) {
     vDSP.indexOfMaximum(self)
   }
-  
+
+  @inline(__always)
   var max: Element {
     vDSP.maximum(self)
   }
-  
+
+  @inline(__always)
   var min: Element {
     vDSP.minimum(self)
   }
-  
+
+  @inline(__always)
   var mean: Element {
     vDSP.mean(self)
   }
@@ -317,42 +325,52 @@ public extension Array where Element == Float {
     return C
   }
 
+  @inline(__always)
   static func +(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.add(rhs, lhs)
   }
-  
+
+  @inline(__always)
   static func +(lhs: Element, rhs: [Element]) -> [Element] {
     return vDSP.add(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func +(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.add(rhs, lhs)
   }
-  
+
+  @inline(__always)
   static func -(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.subtract(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func *(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.multiply(rhs, lhs)
   }
-  
+
+  @inline(__always)
   static func *(lhs: Element, rhs: [Element]) -> [Element] {
     return vDSP.multiply(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func *(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.multiply(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func /(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.divide(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func /(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.divide(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func /(lhs: Element, rhs: [Element]) -> [Element] {
     return vDSP.divide(lhs, rhs)
   }
@@ -360,12 +378,13 @@ public extension Array where Element == Float {
 }
 
 public extension Array where Element == [[Float]] {
+  @inline(__always)
   var shape: [Int] {
     let depth = self.count
-    
+
     let rows = self[safe: 0]?.count ?? 0
     let cols = self[safe: 0]?[safe: 0]?.count ?? 0
-    
+
     return [cols, rows, depth]
   }
   
@@ -661,6 +680,90 @@ public extension Array where Element == [[Float]] {
   }
 }
 
+public extension ContiguousArray {
+  subscript(safe safeIndex: Int, default: Element) -> Element {
+    if safeIndex < 0 {
+      return `default`
+    }
+    
+    return self[safe: safeIndex] ?? `default`
+  }
+  
+  subscript(_ multiple: [Int], default: Element) -> Self {
+    var result: Self = []
+    result.reserveCapacity(multiple.count)
+    
+    multiple.forEach { i in
+      result.append(self[safe: i, `default`])
+    }
+    
+    return result
+  }
+  
+  subscript(range multiple: Range<Int>, default: Element) -> Self {
+    var result: Self = []
+    result.reserveCapacity(multiple.count)
+    
+    multiple.forEach { i in
+      result.append(self[safe: i, `default`])
+    }
+    
+    return result
+  }
+
+  subscript(range multiple: Range<Int>, dialate: Int, default: Element) -> Self {
+    var result: Self = []
+    result.reserveCapacity(multiple.count)
+    
+    var i: Int = 0
+    var dialateTotal: Int = 0
+    
+    let range = [Int](multiple)
+
+    while i < multiple.count {
+      if i > 0 && dialateTotal < dialate {
+        result.append(self[safe: -1, `default`])
+        dialateTotal += 1
+      } else {
+        result.append(self[safe: range[i], `default`])
+        i += 1
+        dialateTotal = 0
+      }
+    }
+
+    return result
+  }
+  
+  subscript(range multiple: Range<Int>, padding: Int, dialate: Int, default: Element) -> Self {
+    var result: Self = []
+    //result.reserveCapacity(multiple.count)
+    
+    var i: Int = 0
+    var dialateTotal: Int = 0
+    var paddingTotal: Int = 0
+    
+    let range = [Int](multiple)
+    
+    while i < (multiple.count + padding * 4) {
+      if (i > multiple.count || i == 0) && paddingTotal < padding {
+        result.append(self[safe: -1, `default`])
+        paddingTotal += 1
+      } else if i > 0 && i < multiple.count && dialateTotal < dialate {
+        result.append(self[safe: -1, `default`])
+        dialateTotal += 1
+      } else {
+        if i < multiple.count {
+          result.append(self[safe: range[i], `default`])
+          paddingTotal = 0
+          dialateTotal = 0
+        }
+        i += 1
+      }
+    }
+
+    return result
+  }
+}
 
 public extension Array {
   func as3D() -> [[[Element]]] {
@@ -677,11 +780,12 @@ public extension Array {
     return result
   }
   
+  @inline(__always)
   subscript(safe safeIndex: Int, default: Element) -> Element {
     if safeIndex < 0 {
       return `default`
     }
-    
+
     return self[safe: safeIndex] ?? `default`
   }
   
@@ -1023,3 +1127,4 @@ public extension Array where Element == [Float] {
     return result
   }
 }
+

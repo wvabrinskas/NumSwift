@@ -9,7 +9,8 @@ import Foundation
 import Accelerate
 
 public extension Array where Element == [Double] {
-  
+
+  @inline(__always)
   var shape: [Int] {
     let rows = self.count
     let cols = self[safe: 0]?.count ?? 0
@@ -124,39 +125,46 @@ public extension Array where Element == [Double] {
 
 //use accelerate
 public extension Array where Element == Double {
+  @inline(__always)
   var sum: Element {
     vDSP.sum(self)
   }
-  
+
+  @inline(__always)
   var sumOfSquares: Element {
     let stride = vDSP_Stride(1)
     let n = vDSP_Length(self.count)
-    
+
     var c: Element = .nan
-    
+
     vDSP_svesqD(self,
                 stride,
                 &c,
                 n)
     return c
   }
-  
+
+  @inline(__always)
   var indexOfMin: (UInt, Element) {
     vDSP.indexOfMinimum(self)
   }
-  
+
+  @inline(__always)
   var indexOfMax: (UInt, Element) {
     vDSP.indexOfMaximum(self)
   }
-  
+
+  @inline(__always)
   var mean: Element {
     vDSP.mean(self)
   }
-  
+
+  @inline(__always)
   var max: Element {
     vDSP.maximum(self)
   }
-  
+
+  @inline(__always)
   var min: Element {
     vDSP.minimum(self)
   }
@@ -265,42 +273,52 @@ public extension Array where Element == Double {
     return result
   }
   
+  @inline(__always)
   static func +(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.add(rhs, lhs)
   }
-  
+
+  @inline(__always)
   static func +(lhs: Element, rhs: [Element]) -> [Element] {
     return vDSP.add(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func +(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.add(rhs, lhs)
   }
-  
+
+  @inline(__always)
   static func -(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.subtract(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func *(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.multiply(rhs, lhs)
   }
-  
+
+  @inline(__always)
   static func *(lhs: Element, rhs: [Element]) -> [Element] {
     return vDSP.multiply(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func *(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.multiply(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func /(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.divide(lhs, rhs)
   }
   
+  @inline(__always)
   static func /(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.divide(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func /(lhs: Element, rhs: [Element]) -> [Element] {
     return vDSP.divide(rhs, lhs)
   }

@@ -4,6 +4,7 @@ import Accelerate
 //3D
 
 public extension Collection where Self.Element: Sequence, Element.Element: Sequence {
+  @inline(__always)
   func flatten() -> [Self.Element.Element.Element] {
     return self.flatMap { $0.flatMap { $0 } }
   }
@@ -54,7 +55,8 @@ public extension Collection where Self.Iterator.Element: RandomAccessCollection 
   // PRECONDITION: `self` must be rectangular, i.e. every row has equal size.
   
   /// Transposes an array. Does not use the vDSP library for fast transpose
-  /// - Returns: transposed array 
+  /// - Returns: transposed array
+  @inline(__always)
   func transposed() -> [[Self.Iterator.Element.Iterator.Element]] {
     guard let firstRow = self.first else { return [] }
     return firstRow.indices.map { index in
@@ -64,8 +66,7 @@ public extension Collection where Self.Iterator.Element: RandomAccessCollection 
 }
 
 
-public extension Array {
-  
+public extension ContiguousArray {
   var shape: [Int] {
     return shapeOf
   }
@@ -83,6 +84,23 @@ public extension Array {
     }
     
     return nil
+  }
+  
+  subscript(safe safeIndex: Range<Int>, default: Element) -> Self {
+    let lowerBound = Swift.max(0, safeIndex.lowerBound)
+    let upperBound = Swift.min(self.count, safeIndex.upperBound)
+    
+    let expectedTotal = safeIndex.upperBound - safeIndex.lowerBound
+    let totalWeHave = upperBound - lowerBound
+    
+    var result = self[lowerBound..<upperBound]
+    
+    // this doesnt take into account negative indicies...
+    if totalWeHave < expectedTotal {
+      result.append(contentsOf: Array(repeating: `default`, count: expectedTotal - totalWeHave))
+    }
+        
+    return Self(result)
   }
   
   func concurrentBatchedForEach(workers: Int,
@@ -124,16 +142,98 @@ public extension Array {
     group.wait()
   }
   
+}
+
+public extension Array {
+  
+  var shape: [Int] {
+    return shapeOf
+  }
+  
+  @inline(__always)
+  func batched(into size: Int) -> [[Element]] {
+    return stride(from: 0, to: count, by: size).map {
+      Array(self[$0 ..< Swift.min($0 + size, count)])
+    }
+  }
+
+  @inline(__always)
+  subscript(safe safeIndex: Int) -> Element? {
+    if safeIndex >= 0,
+       safeIndex < self.count {
+      return self[safeIndex]
+    }
+
+    return nil
+  }
+  
+  subscript(safe safeIndex: Range<Int>, default: Element) -> Self {
+    let lowerBound = Swift.max(0, safeIndex.lowerBound)
+    let upperBound = Swift.min(self.count, safeIndex.upperBound)
+    
+    let expectedTotal = safeIndex.upperBound - safeIndex.lowerBound
+    let totalWeHave = upperBound - lowerBound
+    
+    var result = self[lowerBound..<upperBound]
+    
+    // this doesnt take into account negative indicies...
+    if totalWeHave < expectedTotal {
+      result.append(contentsOf: Array(repeating: `default`, count: expectedTotal - totalWeHave))
+    }
+        
+    return Self(result)
+  }
+  
+  func concurrentBatchedForEach(workers: Int,
+                                priority: DispatchQoS.QoSClass = .default,
+                                _ block: @escaping (_ elements: [Element],
+                                                    _ workerIndex: Int,
+                                                    _ indexRange: CountableRange<Int>,
+                                                    _ processingCount: Int,
+                                                    _ workerId: UUID) -> ()) {
+    
+    DispatchQueue.concurrentBatchedPerform(units: self.count,
+                                           workers: workers,
+                                           priority: priority) { range, workerIndex, count, workerId in
+      block(Array(self[range]), workerIndex, range, count, workerId)
+    }
+  }
+
+  func concurrentForEach(workers: Int, priority: DispatchQoS.QoSClass = .default, _ block: @escaping (_ element: Element, _ index: Int, _ processingCount: Int, _ workerId: UUID) -> ()) {
+    DispatchQueue.concurrentPerform(units: self.count, workers: workers, priority: priority) { i, count, workerId in
+      block(self[i], i, count, workerId)
+    }
+  }
+  
+  func concurrentForEach(workers: Int, priority: DispatchQoS.QoSClass = .default, _ block: @escaping (_ element: Element, _ index: Int) -> ()) {
+    DispatchQueue.concurrentPerform(units: self.count, workers: workers, priority: priority) { i in
+      block(self[i], i)
+    }
+  }
+  
+  func concurrentForEach(_ block: (_ element: Element, _ index: Int) -> ()) {
+    let group = DispatchGroup()
+
+    DispatchQueue.concurrentPerform(iterations: self.count) { i in
+      group.enter()
+      block(self[i], i)
+      group.leave()
+    }
+    
+    group.wait()
+  }
+  
+  @inline(__always)
   func reshape(columns: Int) -> [[Element]] {
     var twoDResult: [[Element]] = []
-          
+
     for c in stride(from: 0, through: self.count, by: columns) {
       if c + columns <= self.count {
         let row = Array(self[c..<c + columns]) // copying to array is slow
         twoDResult.append(row)
       }
     }
-    
+
     return twoDResult
   }
 }

@@ -1034,6 +1034,11 @@ public enum NumSwiftFlat {
   
   /// Element-wise addition using vDSP_vadd
   public static func add(_ a: ContiguousArray<Float>, _ b: ContiguousArray<Float>) -> ContiguousArray<Float> {
+    guard a.count == b.count else {
+      assertionFailure("Array counts must match")
+      return ContiguousArray<Float>()
+    }
+    
     let count = a.count
     var c = ContiguousArray<Float>(repeating: 0, count: count)
     a.withUnsafeBufferPointer { aBuf in
@@ -1048,6 +1053,11 @@ public enum NumSwiftFlat {
   
   /// Element-wise subtraction (a - b) using vDSP_vsub
   public static func subtract(_ a: ContiguousArray<Float>, _ b: ContiguousArray<Float>) -> ContiguousArray<Float> {
+    guard a.count == b.count else {
+      assertionFailure("Array counts must match")
+      return ContiguousArray<Float>()
+    }
+
     let count = a.count
     var c = ContiguousArray<Float>(repeating: 0, count: count)
     a.withUnsafeBufferPointer { aBuf in
@@ -1063,6 +1073,11 @@ public enum NumSwiftFlat {
   
   /// Element-wise multiplication using vDSP_vmul
   public static func multiply(_ a: ContiguousArray<Float>, _ b: ContiguousArray<Float>) -> ContiguousArray<Float> {
+    guard a.count == b.count else {
+      assertionFailure("Array counts must match")
+      return ContiguousArray<Float>()
+    }
+    
     let count = a.count
     var c = ContiguousArray<Float>(repeating: 0, count: count)
     a.withUnsafeBufferPointer { aBuf in
@@ -1077,6 +1092,11 @@ public enum NumSwiftFlat {
   
   /// Element-wise division (a / b) using vDSP_vdiv
   public static func divide(_ a: ContiguousArray<Float>, _ b: ContiguousArray<Float>) -> ContiguousArray<Float> {
+    guard a.count == b.count else {
+      assertionFailure("Array counts must match")
+      return ContiguousArray<Float>()
+    }
+    
     let count = a.count
     var c = ContiguousArray<Float>(repeating: 0, count: count)
     a.withUnsafeBufferPointer { aBuf in
@@ -1230,7 +1250,7 @@ public enum NumSwiftFlat {
     var c = ContiguousArray<Float>(repeating: 0, count: rows * columns)
     a.withUnsafeBufferPointer { aBuf in
       c.withUnsafeMutableBufferPointer { cBuf in
-        vDSP_mtrans(aBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(columns), vDSP_Length(rows))
+        vDSP_mtrans(aBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(rows), vDSP_Length(columns))
       }
     }
     return c

@@ -66,6 +66,84 @@ public extension Collection where Self.Iterator.Element: RandomAccessCollection 
 }
 
 
+public extension ContiguousArray {
+  var shape: [Int] {
+    return shapeOf
+  }
+  
+  func batched(into size: Int) -> [[Element]] {
+    return stride(from: 0, to: count, by: size).map {
+      Array(self[$0 ..< Swift.min($0 + size, count)])
+    }
+  }
+  
+  subscript(safe safeIndex: Int) -> Element? {
+    if safeIndex >= 0,
+       safeIndex < self.count {
+      return self[safeIndex]
+    }
+    
+    return nil
+  }
+  
+  subscript(safe safeIndex: Range<Int>, default: Element) -> Self {
+    let lowerBound = Swift.max(0, safeIndex.lowerBound)
+    let upperBound = Swift.min(self.count, safeIndex.upperBound)
+    
+    let expectedTotal = safeIndex.upperBound - safeIndex.lowerBound
+    let totalWeHave = upperBound - lowerBound
+    
+    var result = self[lowerBound..<upperBound]
+    
+    // this doesnt take into account negative indicies...
+    if totalWeHave < expectedTotal {
+      result.append(contentsOf: Array(repeating: `default`, count: expectedTotal - totalWeHave))
+    }
+        
+    return Self(result)
+  }
+  
+  func concurrentBatchedForEach(workers: Int,
+                                priority: DispatchQoS.QoSClass = .default,
+                                _ block: @escaping (_ elements: [Element],
+                                                    _ workerIndex: Int,
+                                                    _ indexRange: CountableRange<Int>,
+                                                    _ processingCount: Int,
+                                                    _ workerId: UUID) -> ()) {
+    
+    DispatchQueue.concurrentBatchedPerform(units: self.count,
+                                           workers: workers,
+                                           priority: priority) { range, workerIndex, count, workerId in
+      block(Array(self[range]), workerIndex, range, count, workerId)
+    }
+  }
+
+  func concurrentForEach(workers: Int, priority: DispatchQoS.QoSClass = .default, _ block: @escaping (_ element: Element, _ index: Int, _ processingCount: Int, _ workerId: UUID) -> ()) {
+    DispatchQueue.concurrentPerform(units: self.count, workers: workers, priority: priority) { i, count, workerId in
+      block(self[i], i, count, workerId)
+    }
+  }
+  
+  func concurrentForEach(workers: Int, priority: DispatchQoS.QoSClass = .default, _ block: @escaping (_ element: Element, _ index: Int) -> ()) {
+    DispatchQueue.concurrentPerform(units: self.count, workers: workers, priority: priority) { i in
+      block(self[i], i)
+    }
+  }
+  
+  func concurrentForEach(_ block: (_ element: Element, _ index: Int) -> ()) {
+    let group = DispatchGroup()
+
+    DispatchQueue.concurrentPerform(iterations: self.count) { i in
+      group.enter()
+      block(self[i], i)
+      group.leave()
+    }
+    
+    group.wait()
+  }
+  
+}
+
 public extension Array {
   
   var shape: [Int] {
@@ -87,6 +165,23 @@ public extension Array {
     }
 
     return nil
+  }
+  
+  subscript(safe safeIndex: Range<Int>, default: Element) -> Self {
+    let lowerBound = Swift.max(0, safeIndex.lowerBound)
+    let upperBound = Swift.min(self.count, safeIndex.upperBound)
+    
+    let expectedTotal = safeIndex.upperBound - safeIndex.lowerBound
+    let totalWeHave = upperBound - lowerBound
+    
+    var result = self[lowerBound..<upperBound]
+    
+    // this doesnt take into account negative indicies...
+    if totalWeHave < expectedTotal {
+      result.append(contentsOf: Array(repeating: `default`, count: expectedTotal - totalWeHave))
+    }
+        
+    return Self(result)
   }
   
   func concurrentBatchedForEach(workers: Int,

@@ -332,6 +332,23 @@ public extension NumSwiftC {
     return result
   }
   
+  public static func matmul1d(_ a: [Float16],
+                              b: [Float16],
+                              aSize: (rows: Int, columns: Int),
+                              bSize: (rows: Int, columns: Int)) -> [Float16] {
+    
+    var results: [Float16] = [Float16](repeating: 0, count: aSize.rows * bSize.columns)
+    
+    nsc_matmul1d_16(.init(rows: Int32(aSize.rows), columns: Int32(aSize.columns)),
+                    .init(rows: Int32(bSize.rows), columns: Int32(bSize.columns)),
+                    a,
+                    b,
+                    &results)
+    
+    return results
+  }
+  
+  
   static func matmul(_ a: [[Float16]],
                             b: [[Float16]],
                             aSize: (rows: Int, columns: Int),

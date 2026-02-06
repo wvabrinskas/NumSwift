@@ -52,6 +52,18 @@ extern void nsc_conv2d_f16(__fp16 *const *signal,
                        NSC_Size filter_size,
                        NSC_Size input_size);
 
+extern void nsc_matmul1d(NSC_Size a_size,
+                         NSC_Size b_size,
+                         const float a[],
+                         const float b[],
+                         float *result);
+
+extern void nsc_matmul1d_16(NSC_Size a_size,
+                            NSC_Size b_size,
+                            const __fp16 a[],
+                            const __fp16 b[],
+                            __fp16 *result);
+
 extern void nsc_matmul(NSC_Size a_size,
                        NSC_Size b_size,
                        float *const *a,

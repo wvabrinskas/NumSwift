@@ -10,6 +10,7 @@ import Accelerate
 
 #if arch(arm64)
 public extension Array where Element == [Float16] {
+  @inline(__always)
   var shape: [Int] {
     let rows = self.count
     let cols = self[safe: 0]?.count ?? 0
@@ -197,30 +198,37 @@ public extension Array where Element == [Float16] {
 
 //use accelerate
 public extension Array where Element == Float16 {
+  @inline(__always)
   var sum: Element {
     Float16Arithmetic.sum(self)
   }
-  
+
+  @inline(__always)
   var sumOfSquares: Element {
     Float16Arithmetic.sumOfSquares(self)
   }
-  
+
+  @inline(__always)
   var indexOfMin: (UInt, Element) {
     Float16Arithmetic.indexOfMin(self)
   }
-  
+
+  @inline(__always)
   var indexOfMax: (UInt, Element) {
     Float16Arithmetic.indexOfMax(self)
   }
-  
+
+  @inline(__always)
   var max: Element {
     Float16Arithmetic.max(self)
   }
-  
+
+  @inline(__always)
   var min: Element {
     Float16Arithmetic.min(self)
   }
-  
+
+  @inline(__always)
   var mean: Element {
     Float16Arithmetic.mean(self)
   }
@@ -248,42 +256,52 @@ public extension Array where Element == Float16 {
     }
   }
 
+  @inline(__always)
   static func +(lhs: [Element], rhs: Element) -> [Element] {
     Float16Arithmetic.add(lhs: rhs, rhs: lhs)
   }
-  
+
+  @inline(__always)
   static func +(lhs: Element, rhs: [Element]) -> [Element] {
     Float16Arithmetic.add(lhs: lhs, rhs: rhs)
   }
-  
+
+  @inline(__always)
   static func +(lhs: [Element], rhs: [Element]) -> [Element] {
     Float16Arithmetic.add(lhs: lhs, rhs: rhs)
   }
-  
+
+  @inline(__always)
   static func -(lhs: [Element], rhs: [Element]) -> [Element] {
     Float16Arithmetic.sub(lhs: lhs, rhs: rhs)
   }
-  
+
+  @inline(__always)
   static func *(lhs: [Element], rhs: Element) -> [Element] {
     Float16Arithmetic.mult(lhs: lhs, rhs: rhs)
   }
-  
+
+  @inline(__always)
   static func *(lhs: Element, rhs: [Element]) -> [Element] {
     Float16Arithmetic.mult(lhs: lhs, rhs: rhs)
   }
-  
+
+  @inline(__always)
   static func *(lhs: [Element], rhs: [Element]) -> [Element] {
     Float16Arithmetic.mult(lhs: lhs, rhs: rhs)
   }
-  
+
+  @inline(__always)
   static func /(lhs: [Element], rhs: [Element]) -> [Element] {
     Float16Arithmetic.div(lhs: lhs, rhs: rhs)
   }
-  
+
+  @inline(__always)
   static func /(lhs: [Element], rhs: Element) -> [Element] {
     Float16Arithmetic.div(lhs: lhs, rhs: rhs)
   }
-  
+
+  @inline(__always)
   static func /(lhs: Element, rhs: [Element]) -> [Element] {
     Float16Arithmetic.div(lhs: lhs, rhs: rhs)
   }
@@ -291,12 +309,13 @@ public extension Array where Element == Float16 {
 }
 
 public extension Array where Element == [[Float16]] {
+  @inline(__always)
   var shape: [Int] {
     let depth = self.count
-    
+
     let rows = self[safe: 0]?.count ?? 0
     let cols = self[safe: 0]?[safe: 0]?.count ?? 0
-    
+
     return [cols, rows, depth]
   }
   

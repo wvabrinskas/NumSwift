@@ -9,6 +9,7 @@ import Foundation
 import Accelerate
 
 public extension Array where Element == [Float] {
+  @inline(__always)
   var shape: [Int] {
     let rows = self.count
     let cols = self[safe: 0]?.count ?? 0
@@ -217,39 +218,46 @@ public extension Array where Element == [Float] {
 
 //use accelerate
 public extension Array where Element == Float {
+  @inline(__always)
   var sum: Element {
     vDSP.sum(self)
   }
-  
+
+  @inline(__always)
   var sumOfSquares: Element {
     let stride = vDSP_Stride(1)
     let n = vDSP_Length(self.count)
-    
+
     var c: Element = .nan
-    
+
     vDSP_svesq(self,
                stride,
                &c,
                n)
     return c
   }
-  
+
+  @inline(__always)
   var indexOfMin: (UInt, Element) {
     vDSP.indexOfMinimum(self)
   }
-  
+
+  @inline(__always)
   var indexOfMax: (UInt, Element) {
     vDSP.indexOfMaximum(self)
   }
-  
+
+  @inline(__always)
   var max: Element {
     vDSP.maximum(self)
   }
-  
+
+  @inline(__always)
   var min: Element {
     vDSP.minimum(self)
   }
-  
+
+  @inline(__always)
   var mean: Element {
     vDSP.mean(self)
   }
@@ -317,42 +325,52 @@ public extension Array where Element == Float {
     return C
   }
 
+  @inline(__always)
   static func +(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.add(rhs, lhs)
   }
-  
+
+  @inline(__always)
   static func +(lhs: Element, rhs: [Element]) -> [Element] {
     return vDSP.add(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func +(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.add(rhs, lhs)
   }
-  
+
+  @inline(__always)
   static func -(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.subtract(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func *(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.multiply(rhs, lhs)
   }
-  
+
+  @inline(__always)
   static func *(lhs: Element, rhs: [Element]) -> [Element] {
     return vDSP.multiply(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func *(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.multiply(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func /(lhs: [Element], rhs: [Element]) -> [Element] {
     return vDSP.divide(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func /(lhs: [Element], rhs: Element) -> [Element] {
     return vDSP.divide(lhs, rhs)
   }
-  
+
+  @inline(__always)
   static func /(lhs: Element, rhs: [Element]) -> [Element] {
     return vDSP.divide(lhs, rhs)
   }
@@ -360,12 +378,13 @@ public extension Array where Element == Float {
 }
 
 public extension Array where Element == [[Float]] {
+  @inline(__always)
   var shape: [Int] {
     let depth = self.count
-    
+
     let rows = self[safe: 0]?.count ?? 0
     let cols = self[safe: 0]?[safe: 0]?.count ?? 0
-    
+
     return [cols, rows, depth]
   }
   
@@ -677,11 +696,12 @@ public extension Array {
     return result
   }
   
+  @inline(__always)
   subscript(safe safeIndex: Int, default: Element) -> Element {
     if safeIndex < 0 {
       return `default`
     }
-    
+
     return self[safe: safeIndex] ?? `default`
   }
   

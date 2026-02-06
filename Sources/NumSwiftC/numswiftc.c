@@ -11,6 +11,30 @@ static inline void winograd_matmul_blocked_f16(__fp16 *const *a, __fp16 *const *
                                               int rows, int cols_a, int cols_b);
 #endif
 
+extern void nsc_matmul1d_16(NSC_Size a_size,
+                            NSC_Size b_size,
+                            const __fp16 a[],
+                            const __fp16 b[],
+                            __fp16 *result) {
+  int rowFirst = a_size.rows;
+  int columnFirst = a_size.columns;
+  int columnSecond = b_size.columns;
+  
+  // Matrix multiplication for 1D arrays
+  // result[i,j] is at index (i * columnSecond + j)
+  // a[i,k] is at index (i * columnFirst + k)
+  // b[k,j] is at index (k * columnSecond + j)
+  for(int i = 0; i < rowFirst; ++i) {
+    for(int j = 0; j < columnSecond; ++j) {
+      __fp16 sum = 0.0f;
+      for(int k = 0; k < columnFirst; ++k) {
+        sum += a[i * columnFirst + k] * b[k * columnSecond + j];
+      }
+      result[i * columnSecond + j] = sum;
+    }
+  }
+}
+
 extern void nsc_matmul_16(NSC_Size a_size,
                           NSC_Size b_size,
                           __fp16 *const *a,
@@ -35,6 +59,30 @@ extern void nsc_matmul_16(NSC_Size a_size,
       for(int k = 0; k < columnFirst; ++k) {
         result[i][j] += a[i][k] * b[k][j];
       }
+    }
+  }
+}
+
+extern void nsc_matmul1d(NSC_Size a_size,
+                         NSC_Size b_size,
+                         const float a[],
+                         const float b[],
+                         float *result) {
+  int rowFirst = a_size.rows;
+  int columnFirst = a_size.columns;
+  int columnSecond = b_size.columns;
+  
+  // Matrix multiplication for 1D arrays
+  // result[i,j] is at index (i * columnSecond + j)
+  // a[i,k] is at index (i * columnFirst + k)
+  // b[k,j] is at index (k * columnSecond + j)
+  for(int i = 0; i < rowFirst; ++i) {
+    for(int j = 0; j < columnSecond; ++j) {
+      float sum = 0.0f;
+      for(int k = 0; k < columnFirst; ++k) {
+        sum += a[i * columnFirst + k] * b[k * columnSecond + j];
+      }
+      result[i * columnSecond + j] = sum;
     }
   }
 }

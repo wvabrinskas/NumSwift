@@ -236,16 +236,12 @@ public enum NumSwiftFlat  {
                             bRows: Int,
                             bCols: Int) -> [Float] {
     precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
-    var c = [Float](repeating: 0, count: aRows * bCols)
     
-    vDSP_mmul(a, 1,
-              b, 1,
-              &c, 1,
-              vDSP_Length(aRows),
-              vDSP_Length(bCols),
-              vDSP_Length(aCols))
+    let out = NumSwiftC.matmul1d(Array(a), b: Array(b),
+                                 aSize: (aRows, aCols),
+                                 bSize: (bRows, bCols))
     
-    return c
+    return out
   }
   
   // MARK: - Clip
@@ -512,19 +508,12 @@ public enum NumSwiftFlat  {
                             bRows: Int,
                             bCols: Int) -> [Float16] {
     precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
-    var c = [Float16](repeating: 0, count: aRows * bCols)
     
-    for i in 0..<aRows {
-      for j in 0..<bCols {
-        var sum: Float16 = 0
-        for k in 0..<aCols {
-          sum += a[i * aCols + k] * b[k * bCols + j]
-        }
-        c[i * bCols + j] = sum
-      }
-    }
+    let out = NumSwiftC.matmul1d(Array(a), b: Array(b),
+                                 aSize: (aRows, aCols),
+                                 bSize: (bRows, bCols))
     
-    return c
+    return out
   }
   
   // MARK: - Float16 Convolution / Padding
@@ -845,22 +834,12 @@ extension NumSwiftFlat {
                             bRows: Int,
                             bCols: Int) -> ContiguousArray<Float> {
     precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
-    var c = ContiguousArray<Float>(repeating: 0, count: aRows * bCols)
     
-    a.withUnsafeBufferPointer { aBuf in
-      b.withUnsafeBufferPointer { bBuf in
-        c.withUnsafeMutableBufferPointer { cBuf in
-          vDSP_mmul(aBuf.baseAddress!, 1,
-                    bBuf.baseAddress!, 1,
-                    cBuf.baseAddress!, 1,
-                    vDSP_Length(aRows),
-                    vDSP_Length(bCols),
-                    vDSP_Length(aCols))
-        }
-      }
-    }
+    let out = NumSwiftC.matmul1d(Array(a), b: Array(b),
+                                 aSize: (aRows, aCols),
+                                 bSize: (bRows, bCols))
     
-    return c
+    return ContiguousArray(out)
   }
   
   // MARK: - Clip
@@ -1111,19 +1090,12 @@ extension NumSwiftFlat {
                             bRows: Int,
                             bCols: Int) -> ContiguousArray<Float16> {
     precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
-    var c = ContiguousArray<Float16>(repeating: 0, count: aRows * bCols)
     
-    for i in 0..<aRows {
-      for j in 0..<bCols {
-        var sum: Float16 = 0
-        for k in 0..<aCols {
-          sum += a[i * aCols + k] * b[k * bCols + j]
-        }
-        c[i * bCols + j] = sum
-      }
-    }
+    let out = NumSwiftC.matmul1d(Array(a), b: Array(b),
+                                 aSize: (aRows, aCols),
+                                 bSize: (bRows, bCols))
     
-    return c
+    return ContiguousArray(out)
   }
   
   // MARK: - Float16 Convolution / Padding

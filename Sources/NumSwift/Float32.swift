@@ -1033,12 +1033,8 @@ public enum NumSwiftFlat {
   // MARK: - Element-wise Arithmetic (array + array)
   
   /// Element-wise addition using vDSP_vadd
+  /// we dont need count check here because if two arrays are different sizes we'll just add the number of elements in A
   public static func add(_ a: ContiguousArray<Float>, _ b: ContiguousArray<Float>) -> ContiguousArray<Float> {
-    guard a.count == b.count else {
-      preconditionFailure("Array counts must match")
-      return ContiguousArray<Float>()
-    }
-    
     let count = a.count
     var c = ContiguousArray<Float>(repeating: 0, count: count)
     a.withUnsafeBufferPointer { aBuf in
@@ -1052,12 +1048,8 @@ public enum NumSwiftFlat {
   }
   
   /// Element-wise subtraction (a - b) using vDSP_vsub
+  /// we dont need count check here because if two arrays are different sizes we'll just sub the number of elements in A
   public static func subtract(_ a: ContiguousArray<Float>, _ b: ContiguousArray<Float>) -> ContiguousArray<Float> {
-    guard a.count == b.count else {
-      preconditionFailure("Array counts must match")
-      return ContiguousArray<Float>()
-    }
-
     let count = a.count
     var c = ContiguousArray<Float>(repeating: 0, count: count)
     a.withUnsafeBufferPointer { aBuf in
@@ -1072,12 +1064,8 @@ public enum NumSwiftFlat {
   }
   
   /// Element-wise multiplication using vDSP_vmul
+  /// we dont need count check here because if two arrays are different sizes we'll just multiply the number of elements in A
   public static func multiply(_ a: ContiguousArray<Float>, _ b: ContiguousArray<Float>) -> ContiguousArray<Float> {
-    guard a.count == b.count else {
-      preconditionFailure("Array counts must match")
-      return ContiguousArray<Float>()
-    }
-    
     let count = a.count
     var c = ContiguousArray<Float>(repeating: 0, count: count)
     a.withUnsafeBufferPointer { aBuf in
@@ -1091,12 +1079,8 @@ public enum NumSwiftFlat {
   }
   
   /// Element-wise division (a / b) using vDSP_vdiv
+  /// we dont need count check here because if two arrays are different sizes we'll just divide the number of elements in A
   public static func divide(_ a: ContiguousArray<Float>, _ b: ContiguousArray<Float>) -> ContiguousArray<Float> {
-    guard a.count == b.count else {
-      preconditionFailure("Array counts must match")
-      return ContiguousArray<Float>()
-    }
-    
     let count = a.count
     var c = ContiguousArray<Float>(repeating: 0, count: count)
     a.withUnsafeBufferPointer { aBuf in

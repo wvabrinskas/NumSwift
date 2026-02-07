@@ -5,9 +5,16 @@
 Always prioritize performance implementations in this order:
 
 1. **Apple Accelerate Framework** - Use when available for standard mathematical operations
-2. **Custom C Implementation** - For specialized operations not covered by Accelerate
-3. **Metal GPU Acceleration** - For large-scale computations that benefit from parallelization
+2. **Metal GPU Acceleration** - For large-scale computations that benefit from parallelization (>100-1000 elements)
+3. **Custom C Implementation** - For specialized operations not covered by Accelerate or when GPU overhead isn't justified
 4. **Swift Implementation** - Only as fallback when other options aren't suitable
+
+### Automatic Backend Selection
+The NumSwiftMetal backend automatically chooses the optimal implementation:
+- **Problem Size Analysis**: Evaluates computational complexity vs overhead
+- **Hardware Capabilities**: Considers available GPU memory and compute units
+- **Operation Type**: Different thresholds for element-wise vs matrix operations
+- **Dynamic Adaptation**: Can adjust thresholds based on runtime performance
 
 ## Apple Accelerate Framework
 
@@ -41,14 +48,48 @@ vDSP_vadd(input1, 1, input2, 1, &result, 1, vDSP_Length(count))
 ## Metal GPU Acceleration
 
 ### When to Use Metal
-- Large matrix operations (>1000x1000)
-- Batch operations on multiple arrays
-- Operations that can be parallelized effectively
+NumSwiftMetal automatically determines when to use GPU acceleration, but generally benefits:
+- **Matrix operations** with >10,000 elements
+- **Element-wise operations** on arrays >1,000 elements  
+- **Convolution operations** on images >32x32
+- **Batch operations** on multiple arrays
+- **Parallel-friendly algorithms** (reductions, transforms)
 
-### Metal Implementation
-- Use Metal Performance Shaders (MPS) when possible
-- Custom compute shaders for specialized operations
-- Consider memory transfer overhead vs computation time
+### Metal Implementation Strategies
+
+#### Compute Shader Design
+- **Single-threaded kernels** for small reductions (<4096 elements)
+- **Parallel reduction** for large sum/max/min operations
+- **Tiled matrix multiplication** with shared memory for large matrices
+- **Optimized convolution** with im2col transformations
+
+#### Thread Dispatch Optimization
+```metal
+// 2D operations use 2D thread dispatch
+uint2 id = thread_position_in_grid;
+uint row = id.y, col = id.x;
+
+// 1D operations use linear dispatch
+uint id = thread_position_in_grid;
+```
+
+#### Memory Access Patterns
+- Use **coalesced memory access** for optimal GPU performance
+- Implement **shared memory** for data reuse in matrix operations
+- **Buffer pooling** to reduce allocation overhead
+- **Async operations** for overlapping CPU and GPU work
+
+### Performance Thresholds
+The Metal backend uses these general thresholds:
+- **Element-wise operations**: >100 elements
+- **Matrix multiplication**: >1,000 total elements  
+- **Convolution**: >1,024 input pixels
+- **Reductions**: >4,096 elements (for parallel reduction)
+
+### Hardware-Specific Optimizations
+- **Apple Silicon**: Larger thread groups (1024 threads)
+- **Intel/AMD GPUs**: Conservative thread group sizes (256 threads)
+- **Unified Memory**: Take advantage of shared CPU-GPU memory on Apple Silicon
 
 ## Float16 Optimizations
 
@@ -66,11 +107,42 @@ vDSP_vadd(input1, 1, input2, 1, &result, 1, vDSP_Length(count))
 - Use unsafe pointers for C interop when necessary
 - Consider memory alignment for SIMD operations
 
-## Benchmarking
+## Benchmarking and Profiling
 
-### Performance Testing
-- Always benchmark new implementations
-- Compare against existing implementations
-- Test with various data sizes
-- Profile memory usage and allocations
-- Use Instruments for detailed performance analysis
+### Performance Testing Strategy
+- **Always benchmark new implementations** against existing CPU versions
+- **Compare CPU vs Metal performance** across different problem sizes
+- **Test with various data sizes** to find optimal switching thresholds
+- **Profile memory usage and allocations** for both CPU and GPU paths
+- **Use Xcode Instruments** for detailed performance analysis
+- **Monitor GPU utilization** with Metal System Trace
+
+### Metal-Specific Profiling
+- **GPU Timeline**: Track kernel execution times
+- **Memory Bandwidth**: Monitor data transfer overhead
+- **Thread Occupancy**: Ensure optimal GPU utilization
+- **Pipeline Stalls**: Identify bottlenecks in compute shaders
+
+### Performance Validation
+```swift
+// Example benchmark comparing backends
+let metalBackend = NumSwiftMetal()
+let testData = Array(1...10000).map { Float16($0) }
+
+// Test CPU performance
+metalBackend.setBackend(.cpu)
+let cpuTime = measureTime { _ = metalBackend.sum(testData) }
+
+// Test GPU performance  
+metalBackend.setBackend(.metal)
+let gpuTime = measureTime { _ = metalBackend.sum(testData) }
+
+print("CPU: \(cpuTime)ms, GPU: \(gpuTime)ms, Speedup: \(cpuTime/gpuTime)x")
+```
+
+### Optimization Checklist
+- [ ] Verify automatic backend selection chooses optimal implementation
+- [ ] Ensure GPU operations show speedup over CPU for target problem sizes
+- [ ] Check memory usage doesn't exceed GPU limits
+- [ ] Validate numerical accuracy matches CPU implementation
+- [ ] Profile end-to-end performance including data transfer overhead

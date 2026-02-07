@@ -11,7 +11,7 @@ NumSwift is a Swift package that provides complex arithmetic and numerical compu
 ### Multi-Target Structure
 - **NumSwift**: Main Swift module providing high-level APIs and operator overloads
 - **NumSwiftC**: C library for performance-critical operations (convolutions, matrix multiplication)
-- **NumSwiftMetal**: GPU-accelerated operations using Metal framework
+- **NumSwiftMetal**: GPU-accelerated operations using Metal framework (embedded within NumSwift)
 
 ### Supported Data Types
 - `Float` (32-bit floating point)
@@ -35,49 +35,25 @@ The library provides:
 
 ## Performance Strategy
 
-NumSwift prioritizes performance through:
-1. Apple Accelerate framework for standard mathematical operations
-2. Custom C implementations for specialized operations
-3. Metal GPU acceleration for large computations
-4. Concurrent processing utilities in array extensions
+NumSwift prioritizes performance through a multi-tier approach:
+1. **Apple Accelerate framework** for standard mathematical operations
+2. **Metal GPU acceleration** for large-scale computations that benefit from parallelization
+3. **Custom C implementations** for specialized operations not covered by Accelerate or when GPU overhead isn't justified
+4. **Automatic backend selection** that intelligently chooses the optimal implementation
+5. **Concurrent processing utilities** in array extensions for CPU-bound operations
 
-When working on this project, always consider the performance implications and choose the appropriate implementation layer.# NumSwift Project Context
+### Metal GPU Backend Features
+- **Automatic CPU/GPU switching** based on problem size and complexity
+- **Comprehensive compute shaders** covering all core NumSwift operations
+- **Optimized memory management** with buffer pooling and shared storage
+- **Hardware-aware optimizations** for Apple Silicon and discrete GPUs
+- **Graceful fallback** to CPU implementation when Metal is unavailable
 
-NumSwift is a Swift package that provides complex arithmetic and numerical computing capabilities for Swift, with extensive support for array arithmetic and matrix operations. The library leverages Apple's Accelerate framework for optimal performance when available.
+### Backend Selection Logic
+The Metal backend automatically determines the optimal implementation:
+- **Element-wise operations**: GPU for arrays >100 elements
+- **Matrix operations**: GPU for problems >1,000 total elements
+- **Convolution operations**: GPU for inputs >1,024 pixels
+- **Reduction operations**: Parallel GPU reduction for arrays >4,096 elements
 
-## Project Architecture
-
-### Multi-Target Structure
-- **NumSwift**: Main Swift module providing high-level APIs and operator overloads
-- **NumSwiftC**: C library for performance-critical operations (convolutions, matrix multiplication)
-- **NumSwiftMetal**: GPU-accelerated operations using Metal framework
-
-### Supported Data Types
-- `Float` (32-bit floating point)
-- `Double` (64-bit floating point)
-- `Float16` (16-bit half-precision, ARM64 only)
-
-### Platform Support
-- iOS 14+
-- macOS 11+
-- tvOS 14+
-- watchOS 7+
-- ARM64 architecture required for Float16 operations
-
-## Core Functionality
-
-The library provides:
-- Array arithmetic operators (`+`, `-`, `*`, `/`) for element-wise and broadcast operations
-- Matrix operations: multiplication, transpose, dot products
-- Convolution operations: 1D/2D convolutions, transposed convolutions
-- Utility functions: shape analysis, padding, scaling, normalization
-
-## Performance Strategy
-
-NumSwift prioritizes performance through:
-1. Apple Accelerate framework for standard mathematical operations
-2. Custom C implementations for specialized operations
-3. Metal GPU acceleration for large computations
-4. Concurrent processing utilities in array extensions
-
-When working on this project, always consider the performance implications and choose the appropriate implementation layer.
+When working on this project, always consider the performance implications and choose the appropriate implementation layer. The Metal backend handles most optimization decisions automatically, but developers should understand the thresholds and be able to override them when needed.

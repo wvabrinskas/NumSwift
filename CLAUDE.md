@@ -60,6 +60,11 @@ This is a Swift Package Manager (SPM) project. The main configuration is in `Pac
 - `Sources/NumSwift/Extensions.swift`: Collection extensions and helper functions
 - `Sources/NumSwiftC/numswiftc.c`: C implementations for performance operations
 
+### Metal GPU Implementation
+- `Sources/NumSwift/NumSwiftMetal/NumSwiftMetal.swift`: Metal backend wrapper with automatic CPU/GPU selection
+- `Sources/NumSwift/Resources/NumSwiftMetal.metal`: Compute shaders for all GPU operations
+- `Sources/NumSwift/NumSwiftC/NumSwiftC.swift`: Swift wrappers for C functions with Metal integration
+
 ### Type-Specific Files
 - `Sources/NumSwift/Double.swift`: Double-specific extensions
 - `Sources/NumSwift/Float32.swift`: Float32-specific extensions  
@@ -67,8 +72,9 @@ This is a Swift Package Manager (SPM) project. The main configuration is in `Pac
 
 ### Testing
 - `Tests/NumSwiftTests/NumSwiftTests.swift`: Main test suite
-- `Tests/NumSwiftTests/Benchmarks.swift`: Performance benchmarks
+- `Tests/NumSwiftTests/Benchmarks.swift`: Performance benchmarks comparing CPU and GPU implementations
 - `Tests/NumSwiftTests/NumSwiftTestsFloat16.swift`: Float16-specific tests
+- `Tests/NumSwiftTests/NumSwiftMetalTests.swift`: Metal GPU backend tests and validation
 
 ## Development Notes
 
@@ -76,17 +82,38 @@ This is a Swift Package Manager (SPM) project. The main configuration is in `Pac
 The project uses a hybrid Swift/C approach where performance-critical operations are implemented in C (`NumSwiftC` target) and wrapped with Swift APIs. When modifying C code, ensure header declarations in `include/numswiftc.h` match implementations.
 
 ### Metal GPU Operations
-GPU operations are available through the `NumSwift.GPU` class using Metal Performance Shaders. These provide significant performance improvements for large matrix operations.
+NumSwift now includes a comprehensive Metal GPU backend through the `NumSwiftMetal` class and compute shaders. The implementation provides:
+
+- **Automatic Backend Selection**: Intelligently chooses between CPU and GPU based on problem size
+- **Seamless API**: Same interface regardless of backend (CPU/Metal)
+- **Fallback Support**: Automatically falls back to CPU if Metal initialization fails
+- **Comprehensive Operations**: Full suite of array, matrix, and convolution operations
+- **Performance Optimized**: Uses appropriate parallelization strategies for each operation type
+
+Key Metal features:
+- Custom compute shaders in `NumSwiftMetal.metal` for all core operations
+- Swift wrapper class `NumSwiftMetal.swift` for seamless CPU/GPU switching
+- Support for both Float32 and Float16 (half-precision) operations
+- Optimized thread dispatch strategies and memory management
+- Async operation support for better GPU utilization
 
 ### Float16 Considerations
 Float16 operations are only available on ARM64 architectures. Code using Float16 should be wrapped in `#if arch(arm64)` preprocessor conditions.
 
 ### Performance Strategy
-The library prioritizes performance through:
-1. Apple Accelerate framework for standard operations
-2. Custom C implementations for specialized operations
-3. Metal GPU acceleration for large computations
-4. Concurrent processing utilities in array extensions
+The library prioritizes performance through a multi-tier approach:
+1. **Apple Accelerate framework** for standard mathematical operations
+2. **Custom C implementations** for specialized operations not covered by Accelerate
+3. **Metal GPU acceleration** for large-scale computations that benefit from parallelization
+4. **Automatic backend selection** that chooses the optimal implementation based on problem size
+5. **Concurrent processing utilities** in array extensions for CPU-bound operations
+
+The Metal backend includes sophisticated optimizations:
+- Parallel reduction algorithms for sum, max, min operations
+- Tiled matrix multiplication with shared memory optimization
+- Optimized convolution kernels with im2col transformations
+- Smart thread group sizing based on hardware capabilities
+- Memory pooling and buffer reuse for reduced allocation overhead
 
 ### Testing Strategy
 - Unit tests cover all major mathematical operations

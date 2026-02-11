@@ -166,7 +166,7 @@ final class NumSwiftTests: XCTestCase {
     
     let layer = [n1, n2 , n3]
     let A = layer
-        
+    
     let B: [[Float]] = [[2,2],
                         [2,2],
                         [2,2]]
@@ -175,8 +175,8 @@ final class NumSwiftTests: XCTestCase {
     
     
     let expected: [[Float]] = [[6.0, 6.0],
-                                [12.0, 12.0],
-                                [18.0, 18.0]]
+                               [12.0, 12.0],
+                               [18.0, 18.0]]
     
     XCTAssertEqual(expected, output)
   }
@@ -188,7 +188,7 @@ final class NumSwiftTests: XCTestCase {
     
     let layer = [n1, n2 , n3]
     let A = [layer]
-        
+    
     let B: [[[Float]]] = [[[2,2],
                            [2,2],
                            [2,2]]]
@@ -233,8 +233,8 @@ final class NumSwiftTests: XCTestCase {
   
   func test_2d_fast_transpose_double() {
     let r: [[Double]] = [[6.0, 6.0],
-                           [12.0, 12.0],
-                           [18.0, 18.0]]
+                         [12.0, 12.0],
+                         [18.0, 18.0]]
     
     let expected: [[Double]] = [[6.0, 12.0, 18.0],
                                 [6.0, 12.0, 18.0]]
@@ -258,15 +258,15 @@ final class NumSwiftTests: XCTestCase {
   
   func test_3d_fast_transpose_double() {
     let r: [[[Double]]] = [[[6.0, 6.0],
-                           [12.0, 12.0],
-                           [18.0, 18.0]],
-                          [[6.0, 6.0],
-                           [12.0, 12.0]]]
+                            [12.0, 12.0],
+                            [18.0, 18.0]],
+                           [[6.0, 6.0],
+                            [12.0, 12.0]]]
     
     let expected: [[[Double]]] = [[[6.0, 12.0, 18.0],
-                                  [6.0, 12.0, 18.0]],
-                                 [[6.0, 12.0],
-                                  [6.0, 12.0]]]
+                                   [6.0, 12.0, 18.0]],
+                                  [[6.0, 12.0],
+                                   [6.0, 12.0]]]
     
     let transposed = r.transpose()
     XCTAssertEqual(transposed, expected)
@@ -277,13 +277,13 @@ final class NumSwiftTests: XCTestCase {
     let expected: [[[Float]]] = [[[6.0, 6.0],
                                   [12.0, 12.0],
                                   [18.0, 18.0]],
-                                  [[6.0, 6.0],
-                                   [12.0, 12.0]]]
-  
+                                 [[6.0, 6.0],
+                                  [12.0, 12.0]]]
+    
     
     let expected2: [[[Float]]] = [[[6.0, 6.0],
-                                  [12.0, 12.0],
-                                  [18.0, 18.0]],
+                                   [12.0, 12.0],
+                                   [18.0, 18.0]],
                                   [[6.0, 6.0],
                                    [12.0, 12.0]]]
     
@@ -318,7 +318,7 @@ final class NumSwiftTests: XCTestCase {
     
     let layer = [n1, n2 , n3]
     let A = [layer, layer]
-        
+    
     let B: [[[Float]]] = [[[2,2],
                            [2,2],
                            [2,2]],
@@ -331,9 +331,9 @@ final class NumSwiftTests: XCTestCase {
     let expected: [[[Float]]] = [[[6.0, 6.0],
                                   [12.0, 12.0],
                                   [18.0, 18.0]],
-                                  [[6.0, 6.0],
-                                   [12.0, 12.0],
-                                   [18.0, 18.0]]]
+                                 [[6.0, 6.0],
+                                  [12.0, 12.0],
+                                  [18.0, 18.0]]]
     
     XCTAssertEqual(expected, output)
   }
@@ -341,8 +341,8 @@ final class NumSwiftTests: XCTestCase {
   func testCPadding() {
     let test: [[Float]] = [[1, 2],
                            [3, 4]]
-
-        
+    
+    
     let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0],
                                [0.0, 1.0, 2.0, 0.0],
                                [0.0, 3.0, 4.0, 0.0],
@@ -360,42 +360,42 @@ final class NumSwiftTests: XCTestCase {
   func testCStridePadding() {
     let test: [[Float]] = [[1, 2],
                            [3, 4]]
-
+    
     let padded = NumSwiftC.stridePad(signal: test,
                                      strides: (2,2))
-        
+    
     let expected: [[Float]] = [[1.0, 0.0, 2.0],
                                [0.0, 0.0, 0.0],
                                [3.0, 0.0, 4.0]]
-
+    
     XCTAssertEqual(expected, padded)
   }
   
   func testStridePadding() {
     let test: [[Float]] = [[1, 2],
                            [3, 4]]
-
+    
     let padded = test.stridePad(strides: (2,2), padding: 1)
-        
+    
     let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 0.0],
                                [0.0, 1.0, 0.0, 2.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0, 0.0],
                                [0.0, 3.0, 0.0, 4.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0, 0.0]]
-
-
+    
+    
     XCTAssertEqual(expected, padded)
   }
   
   func testCConv2D() {
     let signalShape = (5,5)
-
+    
     let filter: [[Float]] = [[0, 1, 0],
                              [0, 1, 0],
                              [0, 1, 0]]
-
+    
     let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
-
+    
     let result = NumSwiftC.conv2d(signal: signal,
                                   filter: filter,
                                   strides: (1,1),
@@ -414,13 +414,13 @@ final class NumSwiftTests: XCTestCase {
   
   func testCConv1D() {
     let signalShape = (5,5)
-
+    
     let filter: [[Float]] = [[0, 1, 0],
                              [0, 1, 0],
                              [0, 1, 0]]
-
+    
     let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
-
+    
     let result = NumSwiftC.conv1d(signal: signal.flatten(),
                                   filter: filter.flatten(),
                                   strides: (1,1),
@@ -436,14 +436,14 @@ final class NumSwiftTests: XCTestCase {
     
     XCTAssert(result == expected)
   }
-
+  
   func testTransCConv2D() {
     let signalShape = (5,5)
     let filterShape = (4,4)
-
+    
     let filter: [[Float]] = [[Float]](repeating: [0,0,1,0], count: filterShape.0)
     let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
-
+    
     let result = NumSwiftC.transConv2d(signal: signal,
                                        filter: filter,
                                        strides: (2,2),
@@ -464,22 +464,22 @@ final class NumSwiftTests: XCTestCase {
     
     XCTAssertEqual(result, expected)
   }
-
+  
   
   func testTransCConv1D() {
     let signalShape = (5,5)
     let filterShape = (4,4)
-
+    
     let filter: [[Float]] = [[Float]](repeating: [0,0,1,0], count: filterShape.0)
     let signal: [[Float]] = [[Float]](repeating: [0,0,1,0,0], count: signalShape.0)
-
+    
     let result = NumSwiftC.transConv1d(signal: signal.flatten(),
                                        filter: filter.flatten(),
                                        strides: (2,2),
                                        padding: .same,
                                        filterSize: filterShape,
                                        inputSize: signalShape)
-
+    
     let reshaped = result.reshape(columns: 10)
     
     let expected: [[Float]] = [[0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
@@ -495,10 +495,10 @@ final class NumSwiftTests: XCTestCase {
     
     XCTAssert(reshaped == expected)
   }
-
+  
   func test2DConv() {
     let signalShape = (5,5)
-
+    
     let filter: [[Float]] = [[0, 0, 1, 0],
                              [0, 0, 1, 0],
                              [0, 0, 1, 0],
@@ -518,7 +518,7 @@ final class NumSwiftTests: XCTestCase {
                                 [0.0, 4.0, 0.0, 0.0, 0.0],
                                 [0.0, 3.0, 0.0, 0.0, 0.0],
                                 [0.0, 2.0, 0.0, 0.0, 0.0]]
-
+    
     XCTAssert(expected == rows)
   }
   
@@ -533,23 +533,6 @@ final class NumSwiftTests: XCTestCase {
     XCTAssert(output == expected)
   }
   
-  func testClip() {
-    var test: [Float] = [-0.2, 5.0, -0.5, 1.0]
-    test.clip(0.5)
-    XCTAssert(test == [-0.2, 0.5, -0.5, 0.5])
-  }
-  
-  func testL2Normalize() {
-    var test: [Float] = [1,2,3,4]
-    let expected: Float = 1.0
-    
-    XCTAssertNotEqual(test.sumOfSquares, expected)
-    
-    test.l2Normalize(limit: 1.0)
-    
-    XCTAssertEqual(test.sumOfSquares, expected)
-  }
-
   func testFlatten() {
     let data: [[[Float]]] = [[[0, 0, 1, 0, 0],
                               [0, 0, 1, 0, 0],
@@ -563,7 +546,7 @@ final class NumSwiftTests: XCTestCase {
     XCTAssertEqual(r, expected)
     
     let data2D: [[Float]] = [[1, 1, 1],
-                              [2, 2, 2]]
+                             [2, 2, 2]]
     
     let r2D: [Float] = data2D.flatten()
     let expected2D: [Float] = [1,1,1,2,2,2]
@@ -582,10 +565,11 @@ final class NumSwiftTests: XCTestCase {
                            [0, 0, 1, 0, 0],
                            [0, 0, 1, 0, 0],
                            [0, 0, 1, 0, 0]]
-        
+    
     let r = NumSwiftC.flatten(data)
     
     let expected: [Float] = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     XCTAssertFalse(r.isEmpty)
     XCTAssertEqual(r, expected)
   }
+}

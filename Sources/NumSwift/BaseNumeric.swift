@@ -86,6 +86,14 @@ public extension ContiguousArray {
     return nil
   }
   
+  subscript(safe safeIndex: Int, default: Element) -> Element {
+    if safeIndex < 0 {
+      return `default`
+    }
+    
+    return self[safe: safeIndex] ?? `default`
+  }
+  
   subscript(safe safeIndex: Range<Int>, default: Element) -> Self {
     let lowerBound = Swift.max(0, safeIndex.lowerBound)
     let upperBound = Swift.min(self.count, safeIndex.upperBound)
@@ -102,6 +110,82 @@ public extension ContiguousArray {
         
     return Self(result)
   }
+  
+  subscript(_ multiple: [Int], default: Element) -> Self {
+    var result: Self = []
+    result.reserveCapacity(multiple.count)
+    
+    multiple.forEach { i in
+      result.append(self[safe: i, `default`])
+    }
+    
+    return result
+  }
+  
+  subscript(range multiple: Range<Int>, default: Element) -> Self {
+    var result: Self = []
+    result.reserveCapacity(multiple.count)
+    
+    multiple.forEach { i in
+      result.append(self[safe: i, `default`])
+    }
+    
+    return result
+  }
+
+  subscript(range multiple: Range<Int>, dialate: Int, default: Element) -> Self {
+    var result: Self = []
+    result.reserveCapacity(multiple.count)
+    
+    var i: Int = 0
+    var dialateTotal: Int = 0
+    
+    let range = [Int](multiple)
+
+    while i < multiple.count {
+      if i > 0 && dialateTotal < dialate {
+        result.append(self[safe: -1, `default`])
+        dialateTotal += 1
+      } else {
+        result.append(self[safe: range[i], `default`])
+        i += 1
+        dialateTotal = 0
+      }
+    }
+
+    return result
+  }
+  
+  subscript(range multiple: Range<Int>, padding: Int, dialate: Int, default: Element) -> Self {
+    var result: Self = []
+    //result.reserveCapacity(multiple.count)
+    
+    var i: Int = 0
+    var dialateTotal: Int = 0
+    var paddingTotal: Int = 0
+    
+    let range = [Int](multiple)
+    
+    while i < (multiple.count + padding * 4) {
+      if (i > multiple.count || i == 0) && paddingTotal < padding {
+        result.append(self[safe: -1, `default`])
+        paddingTotal += 1
+      } else if i > 0 && i < multiple.count && dialateTotal < dialate {
+        result.append(self[safe: -1, `default`])
+        dialateTotal += 1
+      } else {
+        if i < multiple.count {
+          result.append(self[safe: range[i], `default`])
+          paddingTotal = 0
+          dialateTotal = 0
+        }
+        i += 1
+      }
+    }
+
+    return result
+  }
+  
   
   func concurrentBatchedForEach(workers: Int,
                                 priority: DispatchQoS.QoSClass = .default,
@@ -180,6 +264,25 @@ public extension Array {
     return nil
   }
   
+  subscript(safe safeIndex: Int, default: Element) -> Element {
+    if safeIndex < 0 {
+      return `default`
+    }
+    
+    return self[safe: safeIndex] ?? `default`
+  }
+  
+  subscript(_ multiple: [Int], default: Element) -> Self {
+    var result: Self = []
+    result.reserveCapacity(multiple.count)
+    
+    multiple.forEach { i in
+      result.append(self[safe: i, `default`])
+    }
+    
+    return result
+  }
+  
   subscript(safe safeIndex: Range<Int>, default: Element) -> Self {
     let lowerBound = Swift.max(0, safeIndex.lowerBound)
     let upperBound = Swift.min(self.count, safeIndex.upperBound)
@@ -195,6 +298,70 @@ public extension Array {
     }
         
     return Self(result)
+  }
+  
+  subscript(range multiple: Range<Int>, default: Element) -> Self {
+    var result: Self = []
+    result.reserveCapacity(multiple.count)
+    
+    multiple.forEach { i in
+      result.append(self[safe: i, `default`])
+    }
+    
+    return result
+  }
+
+  subscript(range multiple: Range<Int>, dialate: Int, default: Element) -> Self {
+    var result: Self = []
+    result.reserveCapacity(multiple.count)
+    
+    var i: Int = 0
+    var dialateTotal: Int = 0
+    
+    let range = [Int](multiple)
+
+    while i < multiple.count {
+      if i > 0 && dialateTotal < dialate {
+        result.append(self[safe: -1, `default`])
+        dialateTotal += 1
+      } else {
+        result.append(self[safe: range[i], `default`])
+        i += 1
+        dialateTotal = 0
+      }
+    }
+
+    return result
+  }
+  
+  subscript(range multiple: Range<Int>, padding: Int, dialate: Int, default: Element) -> Self {
+    var result: Self = []
+    //result.reserveCapacity(multiple.count)
+    
+    var i: Int = 0
+    var dialateTotal: Int = 0
+    var paddingTotal: Int = 0
+    
+    let range = [Int](multiple)
+    
+    while i < (multiple.count + padding * 4) {
+      if (i > multiple.count || i == 0) && paddingTotal < padding {
+        result.append(self[safe: -1, `default`])
+        paddingTotal += 1
+      } else if i > 0 && i < multiple.count && dialateTotal < dialate {
+        result.append(self[safe: -1, `default`])
+        dialateTotal += 1
+      } else {
+        if i < multiple.count {
+          result.append(self[safe: range[i], `default`])
+          paddingTotal = 0
+          dialateTotal = 0
+        }
+        i += 1
+      }
+    }
+
+    return result
   }
   
   func concurrentBatchedForEach(workers: Int,

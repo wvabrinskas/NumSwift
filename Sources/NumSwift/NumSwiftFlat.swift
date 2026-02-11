@@ -580,10 +580,6 @@ public extension NumSwiftFlat {
   }
   
   
-  
-  
-  
-  
   public static func transpose(_ a: ContiguousArray<Float16>, rows: Int, columns: Int) -> ContiguousArray<Float16> {
     var c = ContiguousArray<Float16>(repeating: 0, count: rows * columns)
     for r in 0..<rows {

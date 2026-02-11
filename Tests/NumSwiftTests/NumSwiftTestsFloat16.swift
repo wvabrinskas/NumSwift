@@ -491,23 +491,6 @@ final class NumSwiftTestsFloat1616: XCTestCase {
     
     XCTAssert(output == expected)
   }
-  
-  func testClip() {
-    var test: [Float16] = [-0.2, 5.0, -0.5, 1.0]
-    test.clip(0.5)
-    XCTAssert(test == [-0.2, 0.5, -0.5, 0.5])
-  }
-  
-  func testL2Normalize() {
-    var test: [Float16] = [1,2,3,4]
-    let expected: Float16 = 1.0
-    
-    XCTAssertNotEqual(test.sumOfSquares, expected)
-    
-    test.l2Normalize(limit: 1.0)
-    
-    XCTAssertEqual(test.sumOfSquares, expected)
-  }
 
   func testFlatten() {
     let data: [[[Float16]]] = [[[0, 0, 1, 0, 0],

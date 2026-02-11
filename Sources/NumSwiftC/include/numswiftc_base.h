@@ -37,16 +37,16 @@ typedef struct {
   int depth;
 } NSC_Size;
 
-extern NSC_IndexedValue nsc_index_of_min(const _Float16 array[]);
-extern NSC_IndexedValue nsc_index_of_max(const _Float16 array[]);
-extern _Float16 nsc_max(const _Float16 array[]);
-extern _Float16 nsc_min(const _Float16 array[]);
-extern _Float16 nsc_mean(const _Float16 array[]);
-extern _Float16 nsc_sum(const _Float16 array[]);
-extern _Float16 nsc_sum_of_squares(const _Float16 array[]);
+extern NSC_IndexedValue nsc_index_of_min(const _Float16 array[], int size);
+extern NSC_IndexedValue nsc_index_of_max(const _Float16 array[], int size);
+extern _Float16 nsc_max(const _Float16 array[], int size);
+extern _Float16 nsc_min(const _Float16 array[], int size);
+extern _Float16 nsc_mean(const _Float16 array[], int size);
+extern _Float16 nsc_sum(const _Float16 array[], int size);
+extern _Float16 nsc_sum_of_squares(const _Float16 array[], int size);
 
-extern void nsc_add_scalar(const _Float16 lhs, const _Float16 rhs[], _Float16 *result);
-extern void nsc_add(const _Float16 lhs[], const _Float16 rhs[], _Float16 *result);
+extern void nsc_add_scalar(const _Float16 lhs, const _Float16 rhs[], int size, _Float16 *result);
+extern void nsc_add(const _Float16 lhs[], const _Float16 rhs[], int size, _Float16 *result);
 
 extern void nsc_mult2d_f16(NSC_Size size,
                            _Float16 *const *a,
@@ -55,18 +55,21 @@ extern void nsc_mult2d_f16(NSC_Size size,
 
 
 
-extern void nsc_sub(const _Float16 lhs[], const _Float16 rhs[], _Float16 *result);
+extern void nsc_sub(const _Float16 lhs[], const _Float16 rhs[], int size, _Float16 *result);
+extern void nsc_sub_scalar_f16(const _Float16 lhs[], const _Float16 rhs, int size, _Float16 *result);
+extern void nsc_sub_scalar(const float lhs[], const float rhs, int size, float *result);
+extern void nsc_sub_scalar_array_f16(const _Float16 lhs, const _Float16 rhs[], int size, _Float16 *result);
+extern void nsc_sub_scalar_array(const float lhs, const float rhs[], int size, float *result);
+
+extern void nsc_mult_scalar(const _Float16 lhs, const _Float16 rhs[], int size, _Float16 *result);
+extern void nsc_mult(const _Float16 lhs[], const _Float16 rhs[], int size, _Float16 *result);
 
 
-extern void nsc_mult_scalar(const _Float16 lhs, const _Float16 rhs[], _Float16 *result);
-extern void nsc_mult(const _Float16 lhs[], const _Float16 rhs[], _Float16 *result);
+extern void nsc_div_scalar_array(const _Float16 lhs, const _Float16 rhs[], int size, _Float16 *result);
 
+extern void nsc_div_array_scalar(const _Float16 lhs[], const _Float16 rhs, int size, _Float16 *result);
 
-extern void nsc_div_scalar_array(const _Float16 lhs, const _Float16 rhs[], _Float16 *result);
-
-extern void nsc_div_array_scalar(const _Float16 lhs[], const _Float16 rhs, _Float16 *result);
-
-extern void nsc_div(const _Float16 lhs[], const _Float16 rhs[], _Float16 *result);
+extern void nsc_div(const _Float16 lhs[], const _Float16 rhs[], int size, _Float16 *result);
 
 
 // Arithmetic functions

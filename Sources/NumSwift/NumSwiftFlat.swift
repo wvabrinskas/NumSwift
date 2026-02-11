@@ -13,146 +13,6 @@ import Foundation
 /// Provides high-performance flat-array operations on `[Float]` using Apple's Accelerate framework.
 /// These avoid the overhead of nested `[[[Float]]]` arrays and enable direct SIMD/vectorized computation.
 public enum NumSwiftFlat  {
-  
-  // MARK: - Element-wise Arithmetic (array + array)
-  
-  /// Element-wise addition using vDSP_vadd
-  /// we dont need count check here because if two arrays are different sizes we'll just add the number of elements in A
-  public static func add(_ a: [Float], _ b: [Float]) -> [Float] {
-    let count = a.count
-    var c = [Float](repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      b.withUnsafeBufferPointer { bBuf in
-        c.withUnsafeMutableBufferPointer { cBuf in
-          vDSP_vadd(aBuf.baseAddress!, 1, bBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(count))
-        }
-      }
-    }
-    return c
-  }
-  
-  /// Element-wise subtraction (a - b) using vDSP_vsub
-  /// we dont need count check here because if two arrays are different sizes we'll just sub the number of elements in A
-  public static func subtract(_ a: [Float], _ b: [Float]) -> [Float] {
-    let count = a.count
-    var c = [Float](repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      b.withUnsafeBufferPointer { bBuf in
-        c.withUnsafeMutableBufferPointer { cBuf in
-          // vDSP_vsub computes C = B - A (note reversed order)
-          vDSP_vsub(bBuf.baseAddress!, 1, aBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(count))
-        }
-      }
-    }
-    return c
-  }
-  
-  /// Element-wise multiplication using vDSP_vmul
-  /// we dont need count check here because if two arrays are different sizes we'll just multiply the number of elements in A
-  public static func multiply(_ a: [Float], _ b: [Float]) -> [Float] {
-    let count = a.count
-    var c = [Float](repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      b.withUnsafeBufferPointer { bBuf in
-        c.withUnsafeMutableBufferPointer { cBuf in
-          vDSP_vmul(aBuf.baseAddress!, 1, bBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(count))
-        }
-      }
-    }
-    return c
-  }
-  
-  /// Element-wise division (a / b) using vDSP_vdiv
-  /// we dont need count check here because if two arrays are different sizes we'll just divide the number of elements in A
-  public static func divide(_ a: [Float], _ b: [Float]) -> [Float] {
-    let count = a.count
-    var c = [Float](repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      b.withUnsafeBufferPointer { bBuf in
-        c.withUnsafeMutableBufferPointer { cBuf in
-          // vDSP_vdiv computes C = B / A (note reversed order)
-          vDSP_vdiv(bBuf.baseAddress!, 1, aBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(count))
-        }
-      }
-    }
-    return c
-  }
-  
-  // MARK: - Scalar Arithmetic (array op scalar)
-  
-  /// Add scalar to every element using vDSP_vsadd
-  public static func add(_ a: [Float], scalar: Float) -> [Float] {
-    let count = a.count
-    var s = scalar
-    var c = [Float](repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      c.withUnsafeMutableBufferPointer { cBuf in
-        vDSP_vsadd(aBuf.baseAddress!, 1, &s, cBuf.baseAddress!, 1, vDSP_Length(count))
-      }
-    }
-    return c
-  }
-  
-  /// Multiply every element by scalar using vDSP_vsmul
-  public static func multiply(_ a: [Float], scalar: Float) -> [Float] {
-    let count = a.count
-    var s = scalar
-    var c = [Float](repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      c.withUnsafeMutableBufferPointer { cBuf in
-        vDSP_vsmul(aBuf.baseAddress!, 1, &s, cBuf.baseAddress!, 1, vDSP_Length(count))
-      }
-    }
-    return c
-  }
-  
-  /// Divide every element by scalar using vDSP_vsdiv
-  public static func divide(_ a: [Float], scalar: Float) -> [Float] {
-    let count = a.count
-    var s = scalar
-    var c = [Float](repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      c.withUnsafeMutableBufferPointer { cBuf in
-        vDSP_vsdiv(aBuf.baseAddress!, 1, &s, cBuf.baseAddress!, 1, vDSP_Length(count))
-      }
-    }
-    return c
-  }
-  
-  /// Subtract scalar from every element: result = a - scalar
-  public static func subtract(_ a: [Float], scalar: Float) -> [Float] {
-    return add(a, scalar: -scalar)
-  }
-  
-  /// Scalar minus every element: result = scalar - a. Uses vDSP_vneg + vDSP_vsadd.
-  public static func subtract(scalar: Float, _ a: [Float]) -> [Float] {
-    let count = a.count
-    var c = [Float](repeating: 0, count: count)
-    var s = scalar
-    a.withUnsafeBufferPointer { aBuf in
-      c.withUnsafeMutableBufferPointer { cBuf in
-        // negate a
-        vDSP_vneg(aBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(count))
-        // add scalar
-        vDSP_vsadd(cBuf.baseAddress!, 1, &s, cBuf.baseAddress!, 1, vDSP_Length(count))
-      }
-    }
-    return c
-  }
-  
-  /// Scalar divided by every element: result = scalar / a[i]
-  public static func divide(scalar: Float, _ a: [Float]) -> [Float] {
-    let count = a.count
-    var s = scalar
-    var c = [Float](repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      c.withUnsafeMutableBufferPointer { cBuf in
-        vDSP_svdiv(&s, aBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(count))
-      }
-    }
-    return c
-  }
-  
   // MARK: - Negation
   
   /// Negate every element using vDSP_vneg
@@ -168,34 +28,7 @@ public enum NumSwiftFlat  {
   }
   
   // MARK: - Reductions
-  
-  /// Sum of all elements using vDSP_sve
-  public static func sum(_ a: [Float]) -> Float {
-    var result: Float = 0
-    a.withUnsafeBufferPointer { aBuf in
-      vDSP_sve(aBuf.baseAddress!, 1, &result, vDSP_Length(a.count))
-    }
-    return result
-  }
-  
-  /// Sum of squares using vDSP_svesq
-  public static func sumOfSquares(_ a: [Float]) -> Float {
-    var result: Float = 0
-    a.withUnsafeBufferPointer { aBuf in
-      vDSP_svesq(aBuf.baseAddress!, 1, &result, vDSP_Length(a.count))
-    }
-    return result
-  }
-  
-  /// Mean of all elements using vDSP_meanv
-  public static func mean(_ a: [Float]) -> Float {
-    var result: Float = 0
-    a.withUnsafeBufferPointer { aBuf in
-      vDSP_meanv(aBuf.baseAddress!, 1, &result, vDSP_Length(a.count))
-    }
-    return result
-  }
-  
+
   // MARK: - Square Root
   
   /// Element-wise square root using vForce
@@ -386,95 +219,11 @@ public enum NumSwiftFlat  {
   // Float16 versions use manual loops (no Accelerate support for Float16).
   // The compiler can auto-vectorize these for ARM NEON.
   
-  public static func add(_ a: [Float16], _ b: [Float16]) -> [Float16] {
-    let count = a.count
-    var c = [Float16](repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] + b[i] }
-    return c
-  }
-  
-  public static func subtract(_ a: [Float16], _ b: [Float16]) -> [Float16] {
-    let count = a.count
-    var c = [Float16](repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] - b[i] }
-    return c
-  }
-  
-  public static func multiply(_ a: [Float16], _ b: [Float16]) -> [Float16] {
-    let count = a.count
-    var c = [Float16](repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] * b[i] }
-    return c
-  }
-  
-  public static func divide(_ a: [Float16], _ b: [Float16]) -> [Float16] {
-    let count = a.count
-    var c = [Float16](repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] / b[i] }
-    return c
-  }
-  
-  public static func add(_ a: [Float16], scalar: Float16) -> [Float16] {
-    let count = a.count
-    var c = [Float16](repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] + scalar }
-    return c
-  }
-  
-  public static func multiply(_ a: [Float16], scalar: Float16) -> [Float16] {
-    let count = a.count
-    var c = [Float16](repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] * scalar }
-    return c
-  }
-  
-  public static func divide(_ a: [Float16], scalar: Float16) -> [Float16] {
-    let count = a.count
-    var c = [Float16](repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] / scalar }
-    return c
-  }
-  
-  public static func subtract(_ a: [Float16], scalar: Float16) -> [Float16] {
-    return add(a, scalar: -scalar)
-  }
-  
-  public static func subtract(scalar: Float16, _ a: [Float16]) -> [Float16] {
-    let count = a.count
-    var c = [Float16](repeating: 0, count: count)
-    for i in 0..<count { c[i] = scalar - a[i] }
-    return c
-  }
-  
-  public static func divide(scalar: Float16, _ a: [Float16]) -> [Float16] {
-    let count = a.count
-    var c = [Float16](repeating: 0, count: count)
-    for i in 0..<count { c[i] = scalar / a[i] }
-    return c
-  }
-  
   public static func negate(_ a: [Float16]) -> [Float16] {
     let count = a.count
     var c = [Float16](repeating: 0, count: count)
     for i in 0..<count { c[i] = -a[i] }
     return c
-  }
-  
-  public static func sum(_ a: [Float16]) -> Float16 {
-    var result: Float16 = 0
-    for i in 0..<a.count { result += a[i] }
-    return result
-  }
-  
-  public static func sumOfSquares(_ a: [Float16]) -> Float16 {
-    var result: Float16 = 0
-    for i in 0..<a.count { result += a[i] * a[i] }
-    return result
-  }
-  
-  public static func mean(_ a: [Float16]) -> Float16 {
-    guard !a.isEmpty else { return 0 }
-    return sum(a) / Float16(a.count)
   }
   
   public static func sqrt(_ a: [Float16]) -> [Float16] {
@@ -483,6 +232,9 @@ public enum NumSwiftFlat  {
     for i in 0..<count { c[i] = Float16(Foundation.sqrt(Float(a[i]))) }
     return c
   }
+  
+  
+  
   
   public static func transpose(_ a: [Float16], rows: Int, columns: Int) -> [Float16] {
     var c = [Float16](repeating: 0, count: rows * columns)
@@ -612,145 +364,6 @@ public enum NumSwiftFlat  {
 
 extension NumSwiftFlat {
   
-  // MARK: - Element-wise Arithmetic (array + array)
-  
-  /// Element-wise addition using vDSP_vadd
-  /// we dont need count check here because if two arrays are different sizes we'll just add the number of elements in A
-  public static func add(_ a: ContiguousArray<Float>, _ b: ContiguousArray<Float>) -> ContiguousArray<Float> {
-    let count = a.count
-    var c = ContiguousArray<Float>(repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      b.withUnsafeBufferPointer { bBuf in
-        c.withUnsafeMutableBufferPointer { cBuf in
-          vDSP_vadd(aBuf.baseAddress!, 1, bBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(count))
-        }
-      }
-    }
-    return c
-  }
-  
-  /// Element-wise subtraction (a - b) using vDSP_vsub
-  /// we dont need count check here because if two arrays are different sizes we'll just sub the number of elements in A
-  public static func subtract(_ a: ContiguousArray<Float>, _ b: ContiguousArray<Float>) -> ContiguousArray<Float> {
-    let count = a.count
-    var c = ContiguousArray<Float>(repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      b.withUnsafeBufferPointer { bBuf in
-        c.withUnsafeMutableBufferPointer { cBuf in
-          // vDSP_vsub computes C = B - A (note reversed order)
-          vDSP_vsub(bBuf.baseAddress!, 1, aBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(count))
-        }
-      }
-    }
-    return c
-  }
-  
-  /// Element-wise multiplication using vDSP_vmul
-  /// we dont need count check here because if two arrays are different sizes we'll just multiply the number of elements in A
-  public static func multiply(_ a: ContiguousArray<Float>, _ b: ContiguousArray<Float>) -> ContiguousArray<Float> {
-    let count = a.count
-    var c = ContiguousArray<Float>(repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      b.withUnsafeBufferPointer { bBuf in
-        c.withUnsafeMutableBufferPointer { cBuf in
-          vDSP_vmul(aBuf.baseAddress!, 1, bBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(count))
-        }
-      }
-    }
-    return c
-  }
-  
-  /// Element-wise division (a / b) using vDSP_vdiv
-  /// we dont need count check here because if two arrays are different sizes we'll just divide the number of elements in A
-  public static func divide(_ a: ContiguousArray<Float>, _ b: ContiguousArray<Float>) -> ContiguousArray<Float> {
-    let count = a.count
-    var c = ContiguousArray<Float>(repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      b.withUnsafeBufferPointer { bBuf in
-        c.withUnsafeMutableBufferPointer { cBuf in
-          // vDSP_vdiv computes C = B / A (note reversed order)
-          vDSP_vdiv(bBuf.baseAddress!, 1, aBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(count))
-        }
-      }
-    }
-    return c
-  }
-  
-  // MARK: - Scalar Arithmetic (array op scalar)
-  
-  /// Add scalar to every element using vDSP_vsadd
-  public static func add(_ a: ContiguousArray<Float>, scalar: Float) -> ContiguousArray<Float> {
-    let count = a.count
-    var s = scalar
-    var c = ContiguousArray<Float>(repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      c.withUnsafeMutableBufferPointer { cBuf in
-        vDSP_vsadd(aBuf.baseAddress!, 1, &s, cBuf.baseAddress!, 1, vDSP_Length(count))
-      }
-    }
-    return c
-  }
-  
-  /// Multiply every element by scalar using vDSP_vsmul
-  public static func multiply(_ a: ContiguousArray<Float>, scalar: Float) -> ContiguousArray<Float> {
-    let count = a.count
-    var s = scalar
-    var c = ContiguousArray<Float>(repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      c.withUnsafeMutableBufferPointer { cBuf in
-        vDSP_vsmul(aBuf.baseAddress!, 1, &s, cBuf.baseAddress!, 1, vDSP_Length(count))
-      }
-    }
-    return c
-  }
-  
-  /// Divide every element by scalar using vDSP_vsdiv
-  public static func divide(_ a: ContiguousArray<Float>, scalar: Float) -> ContiguousArray<Float> {
-    let count = a.count
-    var s = scalar
-    var c = ContiguousArray<Float>(repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      c.withUnsafeMutableBufferPointer { cBuf in
-        vDSP_vsdiv(aBuf.baseAddress!, 1, &s, cBuf.baseAddress!, 1, vDSP_Length(count))
-      }
-    }
-    return c
-  }
-  
-  /// Subtract scalar from every element: result = a - scalar
-  public static func subtract(_ a: ContiguousArray<Float>, scalar: Float) -> ContiguousArray<Float> {
-    return add(a, scalar: -scalar)
-  }
-  
-  /// Scalar minus every element: result = scalar - a. Uses vDSP_vneg + vDSP_vsadd.
-  public static func subtract(scalar: Float, _ a: ContiguousArray<Float>) -> ContiguousArray<Float> {
-    let count = a.count
-    var c = ContiguousArray<Float>(repeating: 0, count: count)
-    var s = scalar
-    a.withUnsafeBufferPointer { aBuf in
-      c.withUnsafeMutableBufferPointer { cBuf in
-        // negate a
-        vDSP_vneg(aBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(count))
-        // add scalar
-        vDSP_vsadd(cBuf.baseAddress!, 1, &s, cBuf.baseAddress!, 1, vDSP_Length(count))
-      }
-    }
-    return c
-  }
-  
-  /// Scalar divided by every element: result = scalar / a[i]
-  public static func divide(scalar: Float, _ a: ContiguousArray<Float>) -> ContiguousArray<Float> {
-    let count = a.count
-    var s = scalar
-    var c = ContiguousArray<Float>(repeating: 0, count: count)
-    a.withUnsafeBufferPointer { aBuf in
-      c.withUnsafeMutableBufferPointer { cBuf in
-        vDSP_svdiv(&s, aBuf.baseAddress!, 1, cBuf.baseAddress!, 1, vDSP_Length(count))
-      }
-    }
-    return c
-  }
-  
   // MARK: - Negation
   
   /// Negate every element using vDSP_vneg
@@ -767,15 +380,6 @@ extension NumSwiftFlat {
   
   // MARK: - Reductions
   
-  /// Sum of all elements using vDSP_sve
-  public static func sum(_ a: ContiguousArray<Float>) -> Float {
-    var result: Float = 0
-    a.withUnsafeBufferPointer { aBuf in
-      vDSP_sve(aBuf.baseAddress!, 1, &result, vDSP_Length(a.count))
-    }
-    return result
-  }
-  
   /// Sum of squares using vDSP_svesq
   public static func sumOfSquares(_ a: ContiguousArray<Float>) -> Float {
     var result: Float = 0
@@ -784,15 +388,7 @@ extension NumSwiftFlat {
     }
     return result
   }
-  
-  /// Mean of all elements using vDSP_meanv
-  public static func mean(_ a: ContiguousArray<Float>) -> Float {
-    var result: Float = 0
-    a.withUnsafeBufferPointer { aBuf in
-      vDSP_meanv(aBuf.baseAddress!, 1, &result, vDSP_Length(a.count))
-    }
-    return result
-  }
+
   
   // MARK: - Square Root
   
@@ -857,9 +453,7 @@ extension NumSwiftFlat {
     }
     return c
   }
-  
-  // MARK: - Float16 Support
-  
+    
   // MARK: - Convolution (flat row-major)
   
   /// 2D convolution on flat row-major arrays via the C `nsc_conv1d` function.
@@ -964,76 +558,12 @@ extension NumSwiftFlat {
     return result
   }
   
+}
+
+// MARK: Float 16
   #if arch(arm64)
-  // Float16 versions use manual loops (no Accelerate support for Float16).
-  // The compiler can auto-vectorize these for ARM NEON.
-  
-  public static func add(_ a: ContiguousArray<Float16>, _ b: ContiguousArray<Float16>) -> ContiguousArray<Float16> {
-    let count = a.count
-    var c = ContiguousArray<Float16>(repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] + b[i] }
-    return c
-  }
-  
-  public static func subtract(_ a: ContiguousArray<Float16>, _ b: ContiguousArray<Float16>) -> ContiguousArray<Float16> {
-    let count = a.count
-    var c = ContiguousArray<Float16>(repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] - b[i] }
-    return c
-  }
-  
-  public static func multiply(_ a: ContiguousArray<Float16>, _ b: ContiguousArray<Float16>) -> ContiguousArray<Float16> {
-    let count = a.count
-    var c = ContiguousArray<Float16>(repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] * b[i] }
-    return c
-  }
-  
-  public static func divide(_ a: ContiguousArray<Float16>, _ b: ContiguousArray<Float16>) -> ContiguousArray<Float16> {
-    let count = a.count
-    var c = ContiguousArray<Float16>(repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] / b[i] }
-    return c
-  }
-  
-  public static func add(_ a: ContiguousArray<Float16>, scalar: Float16) -> ContiguousArray<Float16> {
-    let count = a.count
-    var c = ContiguousArray<Float16>(repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] + scalar }
-    return c
-  }
-  
-  public static func multiply(_ a: ContiguousArray<Float16>, scalar: Float16) -> ContiguousArray<Float16> {
-    let count = a.count
-    var c = ContiguousArray<Float16>(repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] * scalar }
-    return c
-  }
-  
-  public static func divide(_ a: ContiguousArray<Float16>, scalar: Float16) -> ContiguousArray<Float16> {
-    let count = a.count
-    var c = ContiguousArray<Float16>(repeating: 0, count: count)
-    for i in 0..<count { c[i] = a[i] / scalar }
-    return c
-  }
-  
-  public static func subtract(_ a: ContiguousArray<Float16>, scalar: Float16) -> ContiguousArray<Float16> {
-    return add(a, scalar: -scalar)
-  }
-  
-  public static func subtract(scalar: Float16, _ a: ContiguousArray<Float16>) -> ContiguousArray<Float16> {
-    let count = a.count
-    var c = ContiguousArray<Float16>(repeating: 0, count: count)
-    for i in 0..<count { c[i] = scalar - a[i] }
-    return c
-  }
-  
-  public static func divide(scalar: Float16, _ a: ContiguousArray<Float16>) -> ContiguousArray<Float16> {
-    let count = a.count
-    var c = ContiguousArray<Float16>(repeating: 0, count: count)
-    for i in 0..<count { c[i] = scalar / a[i] }
-    return c
-  }
+
+public extension NumSwiftFlat {
   
   public static func negate(_ a: ContiguousArray<Float16>) -> ContiguousArray<Float16> {
     let count = a.count
@@ -1042,29 +572,13 @@ extension NumSwiftFlat {
     return c
   }
   
-  public static func sum(_ a: ContiguousArray<Float16>) -> Float16 {
-    var result: Float16 = 0
-    for i in 0..<a.count { result += a[i] }
-    return result
-  }
-  
-  public static func sumOfSquares(_ a: ContiguousArray<Float16>) -> Float16 {
-    var result: Float16 = 0
-    for i in 0..<a.count { result += a[i] * a[i] }
-    return result
-  }
-  
-  public static func mean(_ a: ContiguousArray<Float16>) -> Float16 {
-    guard !a.isEmpty else { return 0 }
-    return sum(a) / Float16(a.count)
-  }
-  
   public static func sqrt(_ a: ContiguousArray<Float16>) -> ContiguousArray<Float16> {
     let count = a.count
     var c = ContiguousArray<Float16>(repeating: 0, count: count)
     for i in 0..<count { c[i] = Float16(Foundation.sqrt(Float(a[i]))) }
     return c
   }
+  
   
   public static func transpose(_ a: ContiguousArray<Float16>, rows: Int, columns: Int) -> ContiguousArray<Float16> {
     var c = ContiguousArray<Float16>(repeating: 0, count: rows * columns)
@@ -1187,5 +701,5 @@ extension NumSwiftFlat {
     }
     return result
   }
-  #endif
 }
+#endif

@@ -8,8 +8,9 @@
 import Foundation
 import Accelerate
 
-#if arch(arm64)
-public extension Array where Element == [Float16] {
+// MARK: 2D operations
+
+public extension Array where Element == [Float] {
   @inline(__always)
   var shape: [Int] {
     let rows = self.count
@@ -18,7 +19,7 @@ public extension Array where Element == [Float16] {
   }
   
   func flatten() -> [Self.Element.Element] {
-     flatMap { $0 }
+    flatMap { $0 }
   }
   
   func transpose2d() -> Self {
@@ -27,6 +28,27 @@ public extension Array where Element == [Float16] {
     let col = mShape[safe: 0] ?? 0
     
     return NumSwiftC.tranpose(self, size: (row, col))
+  }
+  
+  /// Uses `vDSP_mtrans` to transpose each 2D array throughout the depth of the array
+  /// - Returns: The transposed array
+  func transpose() -> Self {
+    
+    let mShape = shape
+    let row = mShape[safe: 1] ?? 0
+    let col = mShape[safe: 0] ?? 0
+    
+    var d: [Float] = [Float](repeating: 0, count: row * col)
+    let flat = flatten()
+    
+    vDSP_mtrans(flat,
+                vDSP_Stride(1),
+                &d,
+                vDSP_Stride(1),
+                vDSP_Length(col),
+                vDSP_Length(row))
+    
+    return d.reshape(columns: row) // because cols count will become rows count
   }
 
   func zeroPad(padding: NumSwiftPadding) -> Self {
@@ -40,7 +62,7 @@ public extension Array where Element == [Float16] {
     let paddingBottom = padding.bottom
     
     var result: [Element] = self
-    let newRow = [Float16](repeating: 0, count: first.count)
+    let newRow = [Float](repeating: 0, count: first.count)
     
     //top / bottom comes first so we can match row insertion
     for _ in 0..<paddingTop {
@@ -51,7 +73,7 @@ public extension Array where Element == [Float16] {
       result.append(newRow)
     }
     
-    var paddingLeftMapped: [[Float16]] = []
+    var paddingLeftMapped: [[Float]] = []
     result.forEach { v in
       var row = v
       for _ in 0..<paddingLeft {
@@ -62,7 +84,7 @@ public extension Array where Element == [Float16] {
     
     result = paddingLeftMapped
     
-    var paddingRightMapped: [[Float16]] = []
+    var paddingRightMapped: [[Float]] = []
     
     result.forEach { v in
       var row = v
@@ -127,14 +149,14 @@ public extension Array where Element == [Float16] {
     
     let result: [Element] = self
 
-    let mapped = result.map { r -> [Float16] in
-      var newR: [Float16] = [0]
+    let mapped = result.map { r -> [Float] in
+      var newR: [Float] = [0]
       newR.append(contentsOf: r)
       newR.append(0)
       return newR
     }
     
-    let zeros = [Float16](repeating: 0, count: first.count + 2)
+    let zeros = [Float](repeating: 0, count: first.count + 2)
     var r = [zeros]
     r.append(contentsOf: mapped)
     r.append(zeros)
@@ -143,13 +165,13 @@ public extension Array where Element == [Float16] {
   }
   
   func shrink(by size: Int) -> Self {
-    var results: [[Float16]] = self
+    var results: [[Float]] = self
     
     for _ in 0..<size {
-      var newResult: [[Float16]] = []
+      var newResult: [[Float]] = []
         
       results.forEach { p in
-        var newRow: [Float16] = p
+        var newRow: [Float] = p
         newRow.removeFirst()
         newRow.removeLast()
         newResult.append(newRow)
@@ -173,9 +195,9 @@ public extension Array where Element == [Float16] {
     let newRows = count + ((strides.rows - 1) * (count - 1))
     let newColumns = firstCount + ((strides.columns - 1) * (count - 1))
     
-    var result: [[Float16]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
+    var result: [[Float]] = NumSwift.zerosLike((rows: newRows, columns: newColumns))
     
-    var mutableSelf: [Float16] = self.flatten()
+    var mutableSelf: [Float] = self.flatten()
     if numToPad.0 > 0 || numToPad.1 > 0 {
       
       for r in stride(from: 0, to: newRows, by: strides.rows) {
@@ -192,123 +214,13 @@ public extension Array where Element == [Float16] {
   }
 
   func flip180() -> Self {
-    self.reversed().map { $0.reversed() }
+    self.reversed().map { $0.reverse() }
   }
 }
 
-//use accelerate
-public extension Array where Element == Float16 {
-  @inline(__always)
-  var sum: Element {
-    Float16Arithmetic.sum(self)
-  }
+// MARK: 3D operations
 
-  @inline(__always)
-  var sumOfSquares: Element {
-    Float16Arithmetic.sumOfSquares(self)
-  }
-
-  @inline(__always)
-  var indexOfMin: (UInt, Element) {
-    Float16Arithmetic.indexOfMin(self)
-  }
-
-  @inline(__always)
-  var indexOfMax: (UInt, Element) {
-    Float16Arithmetic.indexOfMax(self)
-  }
-
-  @inline(__always)
-  var max: Element {
-    Float16Arithmetic.max(self)
-  }
-
-  @inline(__always)
-  var min: Element {
-    Float16Arithmetic.min(self)
-  }
-
-  @inline(__always)
-  var mean: Element {
-    Float16Arithmetic.mean(self)
-  }
-  
-  @inlinable mutating func clip(_ to: Element) {
-    self = self.map { Swift.max(-to, Swift.min(to, $0)) }
-  }
-  
-  @inlinable mutating func l1Normalize(limit: Element) {
-    //normalize gradients
-    let norm = self.sum
-    if norm > limit {
-      self = self / norm
-    }
-  }
-  
-  /// Will normalize the vector using the L2 norm to 1.0 if the sum of squares is greater than the limit
-  /// - Parameter limit: the sumOfSquares limit that when reached it should normalize
-  @inlinable mutating func l2Normalize(limit: Element) {
-    //normalize gradients
-    let norm = self.sumOfSquares
-    if norm > limit {
-      let length = sqrt(norm)
-      self = self / length
-    }
-  }
-
-  @inline(__always)
-  static func +(lhs: [Element], rhs: Element) -> [Element] {
-    Float16Arithmetic.add(lhs: rhs, rhs: lhs)
-  }
-
-  @inline(__always)
-  static func +(lhs: Element, rhs: [Element]) -> [Element] {
-    Float16Arithmetic.add(lhs: lhs, rhs: rhs)
-  }
-
-  @inline(__always)
-  static func +(lhs: [Element], rhs: [Element]) -> [Element] {
-    Float16Arithmetic.add(lhs: lhs, rhs: rhs)
-  }
-
-  @inline(__always)
-  static func -(lhs: [Element], rhs: [Element]) -> [Element] {
-    Float16Arithmetic.sub(lhs: lhs, rhs: rhs)
-  }
-
-  @inline(__always)
-  static func *(lhs: [Element], rhs: Element) -> [Element] {
-    Float16Arithmetic.mult(lhs: lhs, rhs: rhs)
-  }
-
-  @inline(__always)
-  static func *(lhs: Element, rhs: [Element]) -> [Element] {
-    Float16Arithmetic.mult(lhs: lhs, rhs: rhs)
-  }
-
-  @inline(__always)
-  static func *(lhs: [Element], rhs: [Element]) -> [Element] {
-    Float16Arithmetic.mult(lhs: lhs, rhs: rhs)
-  }
-
-  @inline(__always)
-  static func /(lhs: [Element], rhs: [Element]) -> [Element] {
-    Float16Arithmetic.div(lhs: lhs, rhs: rhs)
-  }
-
-  @inline(__always)
-  static func /(lhs: [Element], rhs: Element) -> [Element] {
-    Float16Arithmetic.div(lhs: lhs, rhs: rhs)
-  }
-
-  @inline(__always)
-  static func /(lhs: Element, rhs: [Element]) -> [Element] {
-    Float16Arithmetic.div(lhs: lhs, rhs: rhs)
-  }
-  
-}
-
-public extension Array where Element == [[Float16]] {
+public extension Array where Element == [[Float]] {
   @inline(__always)
   var shape: [Int] {
     let depth = self.count
@@ -319,19 +231,29 @@ public extension Array where Element == [[Float16]] {
     return [cols, rows, depth]
   }
   
-  var sumOfSquares: Float16 {
-    var result: Float16 = 0
+  var sumOfSquares: Float {
+    var result: Float = 0
     self.forEach { a in
       a.forEach { b in
-        result += Float16Arithmetic.sumOfSquares(b)
+        let stride = vDSP_Stride(1)
+        let n = vDSP_Length(b.count)
+        
+        var c: Float = .nan
+        
+        vDSP_svesq(b,
+                   stride,
+                   &c,
+                   n)
+        
+        result += c
       }
     }
-    
+
     return result
   }
   
-  var mean: Float16 {
-    var r: Float16 = 0
+  var mean: Float {
+    var r: Float = 0
     var total = 0
     self.forEach { a in
       a.forEach { b in
@@ -340,11 +262,11 @@ public extension Array where Element == [[Float16]] {
       }
     }
     
-    return r / Float16(total)
+    return r / Float(total)
   }
   
-  var sum: Float16 {
-    var r: Float16 = 0
+  var sum: Float {
+    var r: Float = 0
     self.forEach { a in
       a.forEach { b in
         r += b.sum
@@ -354,7 +276,7 @@ public extension Array where Element == [[Float16]] {
     return r
   }
   
-  func flatten() -> [Float16] {
+  func flatten() -> [Float] {
     flatMap { $0.flatMap { $0 } }
   }
   
@@ -398,8 +320,8 @@ public extension Array where Element == [[Float16]] {
     
     return result
   }
-  
-  static func *(lhs: Self, rhs: Float16) -> Self {
+
+  static func *(lhs: Self, rhs: Float) -> Self {
     var result: Self = []
     for d in 0..<lhs.count {
       let new2d = NumSwiftC.mult(lhs[d], scalar: rhs)
@@ -409,7 +331,7 @@ public extension Array where Element == [[Float16]] {
     return result
   }
   
-  static func *(lhs: Float16, rhs: Self) -> Self {
+  static func *(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
       let new2d = NumSwiftC.mult(rhs[d], scalar: lhs)
@@ -419,7 +341,7 @@ public extension Array where Element == [[Float16]] {
     return result
   }
   
-  static func /(lhs: Self, rhs: Float16) -> Self {
+  static func /(lhs: Self, rhs: Float) -> Self {
     var result: Self = []
     for d in 0..<lhs.count {
       let new2d = NumSwiftC.divide(lhs[d], scalar: rhs)
@@ -429,111 +351,92 @@ public extension Array where Element == [[Float16]] {
     return result
   }
   
-  static func /(lhs: Float16, rhs: Self) -> Self {
+  static func /(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
+    result.reserveCapacity(rhs.count)
     for d in 0..<rhs.count {
       let new2d: Element = rhs[d].map { lhs / $0 }
       result.append(new2d)
     }
-    
     return result
   }
-  
-  static func +(lhs: Self, rhs: Float16) -> Self {
+
+  static func +(lhs: Self, rhs: Float) -> Self {
     var result: Self = []
+    result.reserveCapacity(lhs.count)
     for d in 0..<lhs.count {
-      let new2d = NumSwiftC.add(lhs[d], scalar: rhs)
-      result.append(new2d)
+      result.append(NumSwiftC.add(lhs[d], scalar: rhs))
     }
-    
     return result
   }
-  
-  static func +(lhs: Float16, rhs: Self) -> Self {
+
+  static func +(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
+    result.reserveCapacity(rhs.count)
     for d in 0..<rhs.count {
-      let new2d = NumSwiftC.add(rhs[d], scalar: lhs)
-      result.append(new2d)
+      result.append(NumSwiftC.add(rhs[d], scalar: lhs))
     }
-    
     return result
   }
-  
-  static func -(lhs: Float16, rhs: Self) -> Self {
+
+  static func -(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
+    result.reserveCapacity(rhs.count)
     for d in 0..<rhs.count {
       let new2d: Element = rhs[d].map { lhs - $0 }
       result.append(new2d)
     }
-    
     return result
   }
-  
-  static func -(lhs: Self, rhs: Float16) -> Self {
+
+  static func -(lhs: Self, rhs: Float) -> Self {
     var result: Self = []
+    result.reserveCapacity(lhs.count)
     for d in 0..<lhs.count {
-      let new2d = NumSwiftC.sub(lhs[d], scalar: rhs)
-      result.append(new2d)
+      result.append(NumSwiftC.sub(lhs[d], scalar: rhs))
     }
-    
     return result
   }
   
   static func *(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
     var result: Self = []
+    result.reserveCapacity(lhs.count)
     for i in 0..<lhs.count {
-      let a = lhs[i]
-      let b = rhs[i]
-      result.append(NumSwiftC.mult(a, b))
+      result.append(NumSwiftC.mult(lhs[i], rhs[i]))
     }
     return result
   }
-  
+
   static func /(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
     var result: Self = []
+    result.reserveCapacity(lhs.count)
     for i in 0..<lhs.count {
-      let a = lhs[i]
-      let b = rhs[i]
-      result.append(NumSwiftC.divide(a, b))
+      result.append(NumSwiftC.divide(lhs[i], rhs[i]))
     }
     return result
   }
-  
+
   static func -(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
     var result: Self = []
+    result.reserveCapacity(lhs.count)
     for i in 0..<lhs.count {
-      let a = lhs[i]
-      let b = rhs[i]
-      result.append(NumSwiftC.sub(a, b))
+      result.append(NumSwiftC.sub(lhs[i], rhs[i]))
     }
     return result
   }
-  
+
   static func +(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
     var result: Self = []
+    result.reserveCapacity(lhs.count)
     for i in 0..<lhs.count {
-      let a = lhs[i]
-      let b = rhs[i]
-      result.append(NumSwiftC.add(a, b))
+      result.append(NumSwiftC.add(lhs[i], rhs[i]))
     }
     return result
   }
   
   // MARK: - Array Broadcasting Operations
   
-  static func +(lhs: Self, rhs: [Float16]) -> Self {
+  static func +(lhs: Self, rhs: [Float]) -> Self {
     var result: Self = []
     for d in 0..<lhs.count {
       let new2d = NumSwiftC.add(lhs[d], array: rhs)
@@ -543,7 +446,7 @@ public extension Array where Element == [[Float16]] {
     return result
   }
   
-  static func +(lhs: [Float16], rhs: Self) -> Self {
+  static func +(lhs: [Float], rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
       let new2d = NumSwiftC.add(rhs[d], array: lhs)
@@ -553,7 +456,7 @@ public extension Array where Element == [[Float16]] {
     return result
   }
   
-  static func -(lhs: Self, rhs: [Float16]) -> Self {
+  static func -(lhs: Self, rhs: [Float]) -> Self {
     var result: Self = []
     for d in 0..<lhs.count {
       let new2d = NumSwiftC.sub(lhs[d], array: rhs)
@@ -563,7 +466,7 @@ public extension Array where Element == [[Float16]] {
     return result
   }
   
-  static func -(lhs: [Float16], rhs: Self) -> Self {
+  static func -(lhs: [Float], rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
       let new2d: Element = rhs[d].enumerated().map { (index, value) in
@@ -576,7 +479,7 @@ public extension Array where Element == [[Float16]] {
     return result
   }
   
-  static func *(lhs: Self, rhs: [Float16]) -> Self {
+  static func *(lhs: Self, rhs: [Float]) -> Self {
     var result: Self = []
     for d in 0..<lhs.count {
       let new2d = NumSwiftC.mult(lhs[d], array: rhs)
@@ -586,7 +489,7 @@ public extension Array where Element == [[Float16]] {
     return result
   }
   
-  static func *(lhs: [Float16], rhs: Self) -> Self {
+  static func *(lhs: [Float], rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
       let new2d = NumSwiftC.mult(rhs[d], array: lhs)
@@ -596,7 +499,7 @@ public extension Array where Element == [[Float16]] {
     return result
   }
   
-  static func /(lhs: Self, rhs: [Float16]) -> Self {
+  static func /(lhs: Self, rhs: [Float]) -> Self {
     var result: Self = []
     for d in 0..<lhs.count {
       let new2d = NumSwiftC.divide(lhs[d], array: rhs)
@@ -606,7 +509,7 @@ public extension Array where Element == [[Float16]] {
     return result
   }
   
-  static func /(lhs: [Float16], rhs: Self) -> Self {
+  static func /(lhs: [Float], rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
       let new2d: Element = rhs[d].enumerated().map { (index, value) in
@@ -620,14 +523,30 @@ public extension Array where Element == [[Float16]] {
   }
 }
 
-public extension Array where Element == [Float16] {
+public extension Array {
+  func as3D() -> [[[Element]]] {
+    let amount = count
+    let result: [[[Element]]] = [[[Element]]].init(repeating: [[Element]].init(repeating: self,
+                                                                               count: amount),
+                                                   count: amount)
+    return result
+  }
+  
+  func as2D() -> [[Element]] {
+    let amount = count
+    let result: [[Element]] = [[Element]].init(repeating: self, count: amount)
+    return result
+  }
+}
+
+public extension Array where Element == [Float] {
   
   subscript(_ start: (row: Int, column: Int),
             end: (row: Int, column: Int),
-            default: Float16) -> Self {
+            default: Float) -> Self {
     var result: Self = []
     
-    let defaultRow = [Float16].init(repeating: `default`, count: count)
+    let defaultRow = [Float].init(repeating: `default`, count: count)
     result.append(contentsOf: self[range: start.row..<end.row, defaultRow])
     
     return result.map { $0[range: start.column..<end.column, `default`] }
@@ -635,10 +554,10 @@ public extension Array where Element == [Float16] {
 
   subscript(flat start: (row: Int, column: Int),
             end: (row: Int, column: Int),
-            default: Float16) -> [Float16] {
-    var result: [Float16] = []
+            default: Float) -> [Float] {
+    var result: [Float] = []
     
-    let defaultRow = [Float16].init(repeating: `default`, count: count)
+    let defaultRow = [Float].init(repeating: `default`, count: count)
     
     self[range: start.row..<end.row, defaultRow].forEach { row in
       let column = row[range: start.column..<end.column, `default`]
@@ -651,11 +570,11 @@ public extension Array where Element == [Float16] {
   subscript(_ start: (row: Int, column: Int),
             end: (row: Int, column: Int),
             dialate: Int,
-            default: Float16) -> Self {
+            default: Float) -> Self {
     
     var result: Self = []
 
-    let defaultRow = [Float16].init(repeating: `default`, count: count)
+    let defaultRow = [Float].init(repeating: `default`, count: count)
     result.append(contentsOf: self[range: start.row..<end.row, dialate, defaultRow])
     
     return result.map { $0[range: start.column..<end.column, dialate, `default`] }
@@ -665,11 +584,11 @@ public extension Array where Element == [Float16] {
             end: (row: Int, column: Int),
             padding: Int,
             dialate: Int,
-            default: Float16) -> Self {
+            default: Float) -> Self {
     
     var result: Self = []
 
-    let defaultRow = [Float16].init(repeating: `default`, count: count)
+    let defaultRow = [Float].init(repeating: `default`, count: count)
     result.append(contentsOf: self[range: start.row..<end.row, padding, dialate, defaultRow])
     
     return result.map { $0[range: start.column..<end.column, padding, dialate, `default`] }
@@ -678,11 +597,11 @@ public extension Array where Element == [Float16] {
   subscript(flat start: (row: Int, column: Int),
             end: (row: Int, column: Int),
             dialate: Int,
-            default: Float16) -> [Float16] {
+            default: Float) -> [Float] {
     
-    var result: [Float16] = []
+    var result: [Float] = []
 
-    let defaultRow = [Float16].init(repeating: `default`, count: count)
+    let defaultRow = [Float].init(repeating: `default`, count: count)
     
     self[range: start.row..<end.row, dialate, defaultRow].forEach { row in
       let column = row[range: start.column..<end.column, dialate, `default`]
@@ -696,11 +615,11 @@ public extension Array where Element == [Float16] {
             end: (row: Int, column: Int),
             padding: Int,
             dialate: Int,
-            default: Float16) -> [Float16] {
+            default: Float) -> [Float] {
     
-    var result: [Float16] = []
+    var result: [Float] = []
 
-    let defaultRow = [Float16].init(repeating: `default`, count: count)
+    let defaultRow = [Float].init(repeating: `default`, count: count)
     
     self[range: start.row..<end.row, padding, dialate, defaultRow].forEach { row in
       let column = row[range: start.column..<end.column, padding, dialate, `default`]
@@ -711,30 +630,39 @@ public extension Array where Element == [Float16] {
   }
 }
 
-
-public extension Array where Element == [Float16] {
-  var sumOfSquares: Float16 {
-    var result: Float16 = 0
+public extension Array where Element == [Float] {
+  var sumOfSquares: Float {
+    var result: Float = 0
     self.forEach { a in
-      result += Float16Arithmetic.sum(a)
+      let stride = vDSP_Stride(1)
+      let n = vDSP_Length(a.count)
+      
+      var c: Float = .nan
+      
+      vDSP_svesq(a,
+                 stride,
+                 &c,
+                 n)
+      
+      result += c
     }
 
     return result
   }
   
-  var mean: Float16 {
-    var r: Float16 = 0
+  var mean: Float {
+    var r: Float = 0
     var total = 0
     self.forEach { a in
       r += a.mean
       total += 1
     }
     
-    return r / Float16(total)
+    return r / Float(total)
   }
   
-  var sum: Float16 {
-    var r: Float16 = 0
+  var sum: Float {
+    var r: Float = 0
     self.forEach { a in
       r += a.sum
     }
@@ -742,7 +670,7 @@ public extension Array where Element == [Float16] {
     return r
   }
   
-  static func *(lhs: Self, rhs: Float16) -> Self {
+  static func *(lhs: Self, rhs: Float) -> Self {
     let left = lhs
             
     var result: Self = []
@@ -754,7 +682,7 @@ public extension Array where Element == [Float16] {
     return result
   }
   
-  static func *(lhs: Float16, rhs: Self) -> Self {
+  static func *(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
       let new2d: Element = rhs[d] * lhs
@@ -764,7 +692,7 @@ public extension Array where Element == [Float16] {
     return result
   }
   
-  static func /(lhs: Float16, rhs: Self) -> Self {
+  static func /(lhs: Float, rhs: Self) -> Self {
     let left = lhs
             
     var result: Self = []
@@ -776,7 +704,7 @@ public extension Array where Element == [Float16] {
     return result
   }
   
-  static func /(lhs: Self, rhs: Float16) -> Self {
+  static func /(lhs: Self, rhs: Float) -> Self {
     let left = lhs
             
     var result: Self = []
@@ -788,7 +716,7 @@ public extension Array where Element == [Float16] {
     return result
   }
   
-  static func +(lhs: Self, rhs: Float16) -> Self {
+  static func +(lhs: Self, rhs: Float) -> Self {
     let left = lhs
             
     var result: Self = []
@@ -800,7 +728,7 @@ public extension Array where Element == [Float16] {
     return result
   }
   
-  static func +(lhs: Float16, rhs: Self) -> Self {
+  static func +(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
       let new2d: Element = rhs[d] + lhs
@@ -810,7 +738,7 @@ public extension Array where Element == [Float16] {
     return result
   }
   
-  static func -(lhs: Float16, rhs: Self) -> Self {
+  static func -(lhs: Float, rhs: Self) -> Self {
     var result: Self = []
     for d in 0..<rhs.count {
       let new2d: Element = lhs - rhs[d]
@@ -820,7 +748,7 @@ public extension Array where Element == [Float16] {
     return result
   }
   
-  static func -(lhs: Self, rhs: Float16) -> Self {
+  static func -(lhs: Self, rhs: Float) -> Self {
     let left = lhs
             
     var result: Self = []
@@ -833,79 +761,42 @@ public extension Array where Element == [Float16] {
   }
   
   static func *(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
-    let leftShape = left.shape
-    let rightShape = right.shape
-    
-    precondition(leftShape == rightShape)
-    
-    let depth = left.count
-    
+    precondition(lhs.shape == rhs.shape)
     var result: Self = []
-    for d in 0..<depth {
-      result.append(left[d] * right[d])
+    result.reserveCapacity(lhs.count)
+    for d in 0..<lhs.count {
+      result.append(lhs[d] * rhs[d])
     }
-    
     return result
   }
-  
+
   static func /(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
-    let leftShape = left.shape
-    let rightShape = right.shape
-    
-    precondition(leftShape == rightShape)
-    
-    let depth = left.count
-    
+    precondition(lhs.shape == rhs.shape)
     var result: Self = []
-    for d in 0..<depth {
-      result.append(left[d] / right[d])
+    result.reserveCapacity(lhs.count)
+    for d in 0..<lhs.count {
+      result.append(lhs[d] / rhs[d])
     }
-    
     return result
   }
-  
+
   static func -(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
-    let leftShape = left.shape
-    let rightShape = right.shape
-    
-    precondition(leftShape == rightShape)
-    
-    let depth = left.count
-    
+    precondition(lhs.shape == rhs.shape)
     var result: Self = []
-    for d in 0..<depth {
-      result.append(left[d] - right[d])
+    result.reserveCapacity(lhs.count)
+    for d in 0..<lhs.count {
+      result.append(lhs[d] - rhs[d])
     }
-    
     return result
   }
-  
+
   static func +(lhs: Self, rhs: Self) -> Self {
-    let left = lhs
-    let right = rhs
-    
-    let leftShape = left.shape
-    let rightShape = right.shape
-    
-    precondition(leftShape == rightShape)
-    
-    let depth = left.count
-    
+    precondition(lhs.shape == rhs.shape)
     var result: Self = []
-    for d in 0..<depth {
-      result.append(left[d] + right[d])
+    result.reserveCapacity(lhs.count)
+    for d in 0..<lhs.count {
+      result.append(lhs[d] + rhs[d])
     }
-    
     return result
   }
 }
-#endif

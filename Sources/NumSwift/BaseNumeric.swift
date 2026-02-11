@@ -65,7 +65,7 @@ public extension Collection where Self.Iterator.Element: RandomAccessCollection 
   }
 }
 
-
+// MARK: ContiguousArray
 public extension ContiguousArray {
   var shape: [Int] {
     return shapeOf
@@ -142,6 +142,19 @@ public extension ContiguousArray {
     group.wait()
   }
   
+  @inline(__always)
+  func reshape(columns: Int) -> [[Element]] {
+    var twoDResult: [[Element]] = []
+
+    for c in stride(from: 0, through: self.count, by: columns) {
+      if c + columns <= self.count {
+        let row = Array(self[c..<c + columns]) // copying to array is slow
+        twoDResult.append(row)
+      }
+    }
+
+    return twoDResult
+  }
 }
 
 public extension Array {

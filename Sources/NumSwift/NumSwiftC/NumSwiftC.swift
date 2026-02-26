@@ -497,15 +497,16 @@ public struct NumSwiftC {
   }
   
   public static func stridePad1D(signal: [Float],
-                               strides: (rows: Int, columns: Int)) -> [Float] {
+                                 strides: (rows: Int, columns: Int),
+                                 signalSize: (rows: Int, columns: Int)) -> [Float] {
     
     guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else {
       return signal
     }
     
     let shape = signal.shape
-    let rows = shape[safe: 1, 0]
-    let columns = shape[safe: 0, 0]
+    let rows = signalSize.rows
+    let columns = signalSize.columns
     
     let newRows = rows + ((strides.rows - 1) * (rows - 1))
     let newColumns = columns + ((strides.columns - 1) * (columns - 1))
@@ -801,6 +802,29 @@ public struct NumSwiftC {
                  NSC_Size(rows: Int32(stride.0),
                           columns: Int32(stride.1)))
     
+    return results
+  }
+
+  public static func zeroPad1D(signal: [Float],
+                               padding: NumSwiftPadding,
+                               inputSize: (rows: Int, columns: Int)) -> [Float] {
+    guard padding.right > 0 || padding.left > 0 || padding.top > 0 || padding.bottom > 0 else {
+      return signal
+    }
+
+    let expectedRows = inputSize.rows + padding.top + padding.bottom
+    let expectedColumns = inputSize.columns + padding.left + padding.right
+    var results = [Float](repeating: 0, count: expectedRows * expectedColumns)
+
+    nsc_specific_zero_pad_1d(signal,
+                             &results,
+                             NSC_Size(rows: Int32(inputSize.rows),
+                                      columns: Int32(inputSize.columns)),
+                             Int32(padding.top),
+                             Int32(padding.bottom),
+                             Int32(padding.left),
+                             Int32(padding.right))
+
     return results
   }
 }

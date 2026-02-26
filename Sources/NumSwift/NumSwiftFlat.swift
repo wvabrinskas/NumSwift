@@ -133,22 +133,7 @@ public enum NumSwiftFlat  {
   public static func zeroPad(signal: [Float],
                              padding: NumSwiftPadding,
                              inputSize: (rows: Int, columns: Int)) -> [Float] {
-    guard padding.right > 0 || padding.left > 0 || padding.top > 0 || padding.bottom > 0 else {
-      return signal
-    }
-    
-    let expectedRows = inputSize.rows + padding.top + padding.bottom
-    let expectedColumns = inputSize.columns + padding.left + padding.right
-    var result = [Float](repeating: 0, count: expectedRows * expectedColumns)
-    
-    // Copy original data into the padded result at the correct offsets
-    for r in 0..<inputSize.rows {
-      for c in 0..<inputSize.columns {
-        result[(r + padding.top) * expectedColumns + (c + padding.left)] = signal[r * inputSize.columns + c]
-      }
-    }
-    
-    return result
+    return NumSwiftC.zeroPad1D(signal: signal, padding: padding, inputSize: inputSize)
   }
   
   /// Zero-pad a flat row-major 2D array computed from filter/input sizes.
@@ -168,19 +153,7 @@ public enum NumSwiftFlat  {
   public static func stridePad(signal: [Float],
                                strides: (rows: Int, columns: Int),
                                inputSize: (rows: Int, columns: Int)) -> [Float] {
-    guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else { return signal }
-    
-    let newRows = inputSize.rows + ((strides.rows - 1) * (inputSize.rows - 1))
-    let newColumns = inputSize.columns + ((strides.columns - 1) * (inputSize.columns - 1))
-    var result = [Float](repeating: 0, count: newRows * newColumns)
-    
-    for r in 0..<inputSize.rows {
-      for c in 0..<inputSize.columns {
-        result[r * strides.rows * newColumns + c * strides.columns] = signal[r * inputSize.columns + c]
-      }
-    }
-    
-    return result
+    return NumSwiftC.stridePad1D(signal: signal, strides: strides, signalSize: inputSize)
   }
   
   /// Returns the shape of a stride-padded result without actually padding.
@@ -492,22 +465,7 @@ extension NumSwiftFlat {
   public static func zeroPad(signal: ContiguousArray<Float>,
                              padding: NumSwiftPadding,
                              inputSize: (rows: Int, columns: Int)) -> ContiguousArray<Float> {
-    guard padding.right > 0 || padding.left > 0 || padding.top > 0 || padding.bottom > 0 else {
-      return signal
-    }
-    
-    let expectedRows = inputSize.rows + padding.top + padding.bottom
-    let expectedColumns = inputSize.columns + padding.left + padding.right
-    var result = ContiguousArray<Float>(repeating: 0, count: expectedRows * expectedColumns)
-    
-    // Copy original data into the padded result at the correct offsets
-    for r in 0..<inputSize.rows {
-      for c in 0..<inputSize.columns {
-        result[(r + padding.top) * expectedColumns + (c + padding.left)] = signal[r * inputSize.columns + c]
-      }
-    }
-    
-    return result
+    return ContiguousArray(NumSwiftC.zeroPad1D(signal: Array(signal), padding: padding, inputSize: inputSize))
   }
   
   /// Zero-pad a flat row-major 2D array computed from filter/input sizes.
@@ -527,19 +485,7 @@ extension NumSwiftFlat {
   public static func stridePad(signal: ContiguousArray<Float>,
                                strides: (rows: Int, columns: Int),
                                inputSize: (rows: Int, columns: Int)) -> ContiguousArray<Float> {
-    guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else { return signal }
-    
-    let newRows = inputSize.rows + ((strides.rows - 1) * (inputSize.rows - 1))
-    let newColumns = inputSize.columns + ((strides.columns - 1) * (inputSize.columns - 1))
-    var result = ContiguousArray<Float>(repeating: 0, count: newRows * newColumns)
-    
-    for r in 0..<inputSize.rows {
-      for c in 0..<inputSize.columns {
-        result[r * strides.rows * newColumns + c * strides.columns] = signal[r * inputSize.columns + c]
-      }
-    }
-    
-    return result
+    return ContiguousArray(NumSwiftC.stridePad1D(signal: Array(signal), strides: strides, signalSize: inputSize))
   }
   
   /// Flip a flat row-major 2D matrix 180 degrees (reverse all elements, then reverse each row).

@@ -197,6 +197,28 @@ extern void nsc_specific_zero_pad_2d(float *const *input,
   }
 }
 
+extern void nsc_specific_zero_pad_1d(const float *input,
+                                     float *result,
+                                     NSC_Size input_size,
+                                     int paddingTop,
+                                     int paddingBottom,
+                                     int paddingLeft,
+                                     int paddingRight) {
+  if (result == NULL || input == NULL)
+    return;
+
+  int inputRows = input_size.rows;
+  int inputColumns = input_size.columns;
+  int paddedColumns = inputColumns + paddingLeft + paddingRight;
+
+  for (int r = 0; r < inputRows; r++) {
+    int destRow = r + paddingTop;
+    memcpy(&result[destRow * paddedColumns + paddingLeft],
+           &input[r * inputColumns],
+           inputColumns * sizeof(float));
+  }
+}
+
 extern void nsc_flatten2d_16(NSC_Size input_size,
                              __fp16 *const *input,
                              __fp16 *result) {
@@ -1878,16 +1900,19 @@ extern void nsc_conv1d_f16(const __fp16 signal[],
                            NSC_Padding padding,
                            NSC_Size filter_size,
                            NSC_Size input_size) {
+  if (result == NULL)
+    return;
+
   int paddingLeft;
   int paddingRight;
   int paddingBottom;
   int paddingTop;
-  
+
   int *pad_l_ptr = &paddingLeft;
   int *pad_r_ptr = &paddingRight;
   int *pad_b_ptr = &paddingBottom;
   int *pad_t_ptr = &paddingTop;
-  
+
   nsc_padding_calculation(stride,
                           padding,
                           filter_size,
@@ -1896,74 +1921,45 @@ extern void nsc_conv1d_f16(const __fp16 signal[],
                           pad_b_ptr,
                           pad_l_ptr,
                           pad_r_ptr);
-  
-  int padded_row_total = input_size.rows + paddingLeft + paddingRight;
-  int padded_col_total = input_size.columns + paddingTop + paddingBottom;
-  
-  __fp16 working_signal[padded_row_total * padded_col_total];
-  if (padding == same) {
-    nsc_zero_pad_f16(signal,
-                     working_signal,
-                     filter_size,
-                     input_size,
-                     stride);
-  }
-  
+
   int inputRows = input_size.rows;
   int inputColumns = input_size.columns;
-  
+
   int strideR = stride.rows;
   int strideC = stride.columns;
-  
+
   int filterRows = filter_size.rows;
   int filterColumns = filter_size.columns;
-  
-  if (result == NULL)
-    return;
-  
-  int rf = filterRows;
   int cf = filterColumns;
-  int rd = inputRows + paddingTop + paddingBottom; //havnt dealt with padding yet
+
+  int rd = inputRows + paddingTop + paddingBottom;
   int cd = inputColumns + paddingLeft + paddingRight;
-  
-  int max_r = rd - rf + 1;
-  int max_c = cd - cf + 1;
 
-  int expected_r = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
-  int expected_c = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
-
-  __fp16 mutable_result[expected_r * expected_c]; //= malloc(expected_r * expected_c * sizeof(float));
-
-  for (int i = 0; i < expected_r * expected_c; i++) {
-    mutable_result[i] = 0.0f;
-  }
+  int max_r = rd - filterRows + 1;
+  int max_c = cd - filterColumns + 1;
 
   int result_index = 0;
   for (int r = 0; r < max_r; r += strideR) {
     for (int c = 0; c < max_c; c += strideC) {
-      __fp16 sum = 0;
-      
+      float sum = 0;
+
       for (int fr = 0; fr < filterRows; fr++) {
-        
         for (int fc = 0; fc < filterColumns; fc++) {
-          int current_data_row = r + fr;
-          int current_data_col = c + fc;
-          
-          int signal_index = (current_data_row * cd) + current_data_col;
-          int filter_index = (fr * cf) + fc;
-          
-          __fp16 s_data = padding == valid ? signal[signal_index] : working_signal[signal_index]; //do some checking of size here?
-          __fp16 f_data = filter[filter_index]; //do some checking of size here?
-          sum += s_data * f_data;
+          // Translate padded coordinates back to input coordinates
+          int sr = r + fr - paddingTop;
+          int sc = c + fc - paddingLeft;
+
+          // Implicit zero-pad: skip out-of-bounds positions (they contribute 0)
+          if (sr < 0 || sr >= inputRows || sc < 0 || sc >= inputColumns)
+            continue;
+
+          sum += (float)signal[sr * inputColumns + sc] * (float)filter[fr * cf + fc];
         }
       }
-      
-      mutable_result[result_index] = sum;
-      result_index += 1;
+
+      result[result_index++] = (__fp16)sum;
     }
   }
-  
-  memcpy(result, mutable_result, expected_r * expected_c * sizeof(__fp16));
 }
 
 extern void nsc_conv1d(const float signal[],
@@ -1973,16 +1969,19 @@ extern void nsc_conv1d(const float signal[],
                        NSC_Padding padding,
                        NSC_Size filter_size,
                        NSC_Size input_size) {
+  if (result == NULL)
+    return;
+
   int paddingLeft;
   int paddingRight;
   int paddingBottom;
   int paddingTop;
-  
+
   int *pad_l_ptr = &paddingLeft;
   int *pad_r_ptr = &paddingRight;
   int *pad_b_ptr = &paddingBottom;
   int *pad_t_ptr = &paddingTop;
-  
+
   nsc_padding_calculation(stride,
                           padding,
                           filter_size,
@@ -1991,74 +1990,48 @@ extern void nsc_conv1d(const float signal[],
                           pad_b_ptr,
                           pad_l_ptr,
                           pad_r_ptr);
-  
-  int padded_row_total = input_size.rows + paddingLeft + paddingRight;
-  int padded_col_total = input_size.columns + paddingTop + paddingBottom;
-  
-  float working_signal[padded_row_total * padded_col_total];// = malloc(padded_row_total * padded_col_total * sizeof(float));
-  if (padding == same) {
-    nsc_zero_pad(signal,
-                 working_signal,
-                 filter_size,
-                 input_size,
-                 stride);
-  }
-  
+
   int inputRows = input_size.rows;
   int inputColumns = input_size.columns;
-  
+
   int strideR = stride.rows;
   int strideC = stride.columns;
-  
+
   int filterRows = filter_size.rows;
   int filterColumns = filter_size.columns;
-  
-  if (result == NULL)
-    return;
-  
-  int rf = filterRows;
   int cf = filterColumns;
-  int rd = inputRows + paddingTop + paddingBottom; //havnt dealt with padding yet
+
+  int rd = inputRows + paddingTop + paddingBottom;
   int cd = inputColumns + paddingLeft + paddingRight;
-  
-  int max_r = rd - rf + 1;
-  int max_c = cd - cf + 1;
+
+  int max_r = rd - filterRows + 1;
+  int max_c = cd - filterColumns + 1;
 
   int expected_r = ((inputRows - filterRows + paddingTop + paddingBottom) / strideR) + 1;
   int expected_c = ((inputColumns - filterColumns + paddingLeft + paddingRight) / strideC) + 1;
-
-  float mutable_result[expected_r * expected_c]; //= malloc(expected_r * expected_c * sizeof(float));
-
-  for (int i = 0; i < expected_r * expected_c; i++) {
-    mutable_result[i] = 0.0f;
-  }
 
   int result_index = 0;
   for (int r = 0; r < max_r; r += strideR) {
     for (int c = 0; c < max_c; c += strideC) {
       float sum = 0;
-      
+
       for (int fr = 0; fr < filterRows; fr++) {
-        
         for (int fc = 0; fc < filterColumns; fc++) {
-          int current_data_row = r + fr;
-          int current_data_col = c + fc;
-          
-          int signal_index = (current_data_row * cd) + current_data_col;
-          int filter_index = (fr * cf) + fc;
-          
-          float s_data = padding == valid ? signal[signal_index] : working_signal[signal_index]; //do some checking of size here?
-          float f_data = filter[filter_index]; //do some checking of size here?
-          sum += s_data * f_data;
+          // Translate padded coordinates back to input coordinates
+          int sr = r + fr - paddingTop;
+          int sc = c + fc - paddingLeft;
+
+          // Implicit zero-pad: skip out-of-bounds positions (they contribute 0)
+          if (sr < 0 || sr >= inputRows || sc < 0 || sc >= inputColumns)
+            continue;
+
+          sum += signal[sr * inputColumns + sc] * filter[fr * cf + fc];
         }
       }
-      
-      mutable_result[result_index] = sum;
-      result_index += 1;
+
+      result[result_index++] = sum;
     }
   }
-  
-  memcpy(result, mutable_result, expected_r * expected_c * sizeof(float));
 }
 
 extern void nsc_transConv2d_f16(__fp16 *const *signal,

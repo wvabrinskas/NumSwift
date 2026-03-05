@@ -222,6 +222,54 @@ public extension NumSwiftFlat {
                     .init(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns), depth: 1),
                     .init(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns), depth: 1))
   }
+
+  // MARK: - Zero-pad and Stride-pad (Float, pointer-to-pointer)
+
+  /// Zero-pad flat row-major 2D data, writing into caller-provided result buffer.
+  /// Caller must ensure result has capacity (inputRows + top + bottom) * (inputCols + left + right).
+  static func zeroPad1D(signal: UnsafePointer<Float>,
+                        result: UnsafeMutablePointer<Float>,
+                        padding: NumSwiftPadding,
+                        inputSize: (rows: Int, columns: Int)) {
+    guard padding.right > 0 || padding.left > 0 || padding.top > 0 || padding.bottom > 0 else {
+      result.update(from: signal, count: inputSize.rows * inputSize.columns)
+      return
+    }
+    nsc_specific_zero_pad_1d(signal, result,
+                            .init(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns), depth: 1),
+                            Int32(padding.top), Int32(padding.bottom),
+                            Int32(padding.left), Int32(padding.right))
+  }
+
+  /// Stride-pad flat row-major 2D data, writing into caller-provided result buffer.
+  /// Caller must ensure result has capacity for the padded size.
+  static func stridePad1D(signal: UnsafePointer<Float>,
+                          result: UnsafeMutablePointer<Float>,
+                          strides: (rows: Int, columns: Int),
+                          signalSize: (rows: Int, columns: Int)) {
+    guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else {
+      result.update(from: signal, count: signalSize.rows * signalSize.columns)
+      return
+    }
+    nsc_stride_pad(signal, result,
+                   .init(rows: Int32(signalSize.rows), columns: Int32(signalSize.columns), depth: 1),
+                   .init(rows: Int32(strides.rows), columns: Int32(strides.columns), depth: 1))
+  }
+
+  /// Flip 180 degrees (reverse rows, reverse each row's columns), writing into caller-provided result buffer.
+  static func flip180(signal: UnsafePointer<Float>,
+                      result: UnsafeMutablePointer<Float>,
+                      rows: Int,
+                      columns: Int) {
+    for r in 0..<rows {
+      let srcRow = rows - 1 - r
+      let srcStart = srcRow * columns
+      let dstStart = r * columns
+      for c in 0..<columns {
+        result[dstStart + c] = signal[srcStart + (columns - 1 - c)]
+      }
+    }
+  }
 }
 
 // MARK: - Float16 Pointer APIs
@@ -420,6 +468,58 @@ public extension NumSwiftFlat {
                         nscPadding,
                         .init(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns), depth: 1),
                         .init(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns), depth: 1))
+  }
+
+  // MARK: - Zero-pad, Stride-pad, Flip180 (Float16, pointer-to-pointer)
+
+  /// Zero-pad flat row-major 2D data, writing into caller-provided result buffer.
+  static func zeroPad1D(signal: UnsafePointer<Float16>,
+                        result: UnsafeMutablePointer<Float16>,
+                        padding: NumSwiftPadding,
+                        inputSize: (rows: Int, columns: Int)) {
+    guard padding.right > 0 || padding.left > 0 || padding.top > 0 || padding.bottom > 0 else {
+      result.update(from: signal, count: inputSize.rows * inputSize.columns)
+      return
+    }
+    let outRows = inputSize.rows + padding.top + padding.bottom
+    let outCols = inputSize.columns + padding.left + padding.right
+    for i in 0..<(outRows * outCols) { result[i] = 0 }
+    for r in 0..<inputSize.rows {
+      let srcStart = r * inputSize.columns
+      let dstStart = (r + padding.top) * outCols + padding.left
+      for c in 0..<inputSize.columns {
+        result[dstStart + c] = signal[srcStart + c]
+      }
+    }
+  }
+
+  /// Stride-pad flat row-major 2D data, writing into caller-provided result buffer.
+  static func stridePad1D(signal: UnsafePointer<Float16>,
+                          result: UnsafeMutablePointer<Float16>,
+                          strides: (rows: Int, columns: Int),
+                          signalSize: (rows: Int, columns: Int)) {
+    guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else {
+      result.update(from: signal, count: signalSize.rows * signalSize.columns)
+      return
+    }
+    nsc_stride_pad_f16(signal, result,
+                       .init(rows: Int32(signalSize.rows), columns: Int32(signalSize.columns), depth: 1),
+                       .init(rows: Int32(strides.rows), columns: Int32(strides.columns), depth: 1))
+  }
+
+  /// Flip 180 degrees, writing into caller-provided result buffer.
+  static func flip180(signal: UnsafePointer<Float16>,
+                      result: UnsafeMutablePointer<Float16>,
+                      rows: Int,
+                      columns: Int) {
+    for r in 0..<rows {
+      let srcRow = rows - 1 - r
+      let srcStart = srcRow * columns
+      let dstStart = r * columns
+      for c in 0..<columns {
+        result[dstStart + c] = signal[srcStart + (columns - 1 - c)]
+      }
+    }
   }
 }
 #endif

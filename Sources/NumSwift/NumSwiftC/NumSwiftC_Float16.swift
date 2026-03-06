@@ -336,36 +336,16 @@ public extension NumSwiftC {
                               b: [Float16],
                               aSize: (rows: Int, columns: Int),
                               bSize: (rows: Int, columns: Int)) -> [Float16] {
-    let count = aSize.rows * bSize.columns
-    return uninitializedArray(count: count) { resultBuffer in
-      a.withUnsafeBufferPointer { aBuffer in
-        b.withUnsafeBufferPointer { bBuffer in
-          nsc_matmul1d_16(.init(rows: Int32(aSize.rows), columns: Int32(aSize.columns)),
-                          .init(rows: Int32(bSize.rows), columns: Int32(bSize.columns)),
-                          aBuffer.baseAddress,
-                          bBuffer.baseAddress,
-                          resultBuffer.baseAddress)
-        }
-      }
-    }
-  }
-  
-  public static func matmul1d(_ a: ContiguousArray<Float16>,
-                              b: ContiguousArray<Float16>,
-                              aSize: (rows: Int, columns: Int),
-                              bSize: (rows: Int, columns: Int)) -> ContiguousArray<Float16> {
-    let count = aSize.rows * bSize.columns
-    return uninitializedContiguousArray(count: count) { resultBuffer in
-      a.withUnsafeBufferPointer { aBuffer in
-        b.withUnsafeBufferPointer { bBuffer in
-          nsc_matmul1d_16(.init(rows: Int32(aSize.rows), columns: Int32(aSize.columns)),
-                          .init(rows: Int32(bSize.rows), columns: Int32(bSize.columns)),
-                          aBuffer.baseAddress,
-                          bBuffer.baseAddress,
-                          resultBuffer.baseAddress)
-        }
-      }
-    }
+    
+    var results: [Float16] = [Float16](repeating: 0, count: aSize.rows * bSize.columns)
+    
+    nsc_matmul1d_16(.init(rows: Int32(aSize.rows), columns: Int32(aSize.columns)),
+                    .init(rows: Int32(bSize.rows), columns: Int32(bSize.columns)),
+                    a,
+                    b,
+                    &results)
+    
+    return results
   }
   
   
@@ -495,39 +475,17 @@ public extension NumSwiftC {
     let newRows = rows + ((strides.rows - 1) * (rows - 1))
     let newColumns = columns + ((strides.columns - 1) * (columns - 1))
     
-    let count = newRows * newColumns
-    return uninitializedArray(count: count) { resultBuffer in
-      signal.withUnsafeBufferPointer { signalBuffer in
-        nsc_stride_pad_f16(signalBuffer.baseAddress,
-                           resultBuffer.baseAddress,
-                           NSC_Size(rows: Int32(rows), columns: Int32(columns)),
-                           NSC_Size(rows: Int32(strides.rows), columns: Int32(strides.columns)))
-      }
-    }
-  }
-  
-  static func stridePad1D(signal: ContiguousArray<Float16>,
-                          strides: (rows: Int, columns: Int),
-                          signalSize: (rows: Int, columns: Int)) -> ContiguousArray<Float16> {
-    guard strides.rows - 1 > 0 || strides.columns - 1 > 0 else {
-      return signal
-    }
+    var results: [Float16] = [Float16](repeating: 0, count: newRows * newColumns)
     
-    let rows = signalSize.rows
-    let columns = signalSize.columns
+    let flatSignal: [Float16] = signal
     
-    let newRows = rows + ((strides.rows - 1) * (rows - 1))
-    let newColumns = columns + ((strides.columns - 1) * (columns - 1))
-    let count = newRows * newColumns
+    nsc_stride_pad_f16(flatSignal,
+                       &results, NSC_Size(rows: Int32(rows),
+                                          columns: Int32(columns)),
+                       NSC_Size(rows: Int32(strides.rows),
+                                columns: Int32(strides.columns)))
     
-    return uninitializedContiguousArray(count: count) { resultBuffer in
-      signal.withUnsafeBufferPointer { signalBuffer in
-        nsc_stride_pad_f16(signalBuffer.baseAddress,
-                           resultBuffer.baseAddress,
-                           NSC_Size(rows: Int32(rows), columns: Int32(columns)),
-                           NSC_Size(rows: Int32(strides.rows), columns: Int32(strides.columns)))
-      }
-    }
+    return results
   }
   
   static func zeroPad(signal: [[Float16]],
@@ -653,47 +611,17 @@ public extension NumSwiftC {
     let expectedColumns = ((inputSize.columns - filterSize.columns + paddingResult.left + paddingResult.right) / strides.1) + 1
     
     let paddingInt: UInt32 = padding == .valid ? 0 : 1
-    let count = expectedRows * expectedColumns
-    return uninitializedArray(count: count) { resultBuffer in
-      signal.withUnsafeBufferPointer { signalBuffer in
-        filter.withUnsafeBufferPointer { filterBuffer in
-          nsc_conv1d_f16(signalBuffer.baseAddress,
-                         filterBuffer.baseAddress,
-                         resultBuffer.baseAddress,
-                         NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
-                         NSC_Padding(rawValue: paddingInt),
-                         NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
-                         NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
-        }
-      }
-    }
-  }
-  
-  static func conv1d(signal: ContiguousArray<Float16>,
-                     filter: ContiguousArray<Float16>,
-                     strides: (Int, Int) = (1,1),
-                     padding: NumSwift.ConvPadding = .valid,
-                     filterSize: (rows: Int, columns: Int),
-                     inputSize: (rows: Int, columns: Int)) -> ContiguousArray<Float16> {
-    let paddingResult = padding.extra(inputSize: inputSize, filterSize: filterSize, stride: strides)
-    let expectedRows = ((inputSize.rows - filterSize.rows + paddingResult.top + paddingResult.bottom) / strides.0) + 1
-    let expectedColumns = ((inputSize.columns - filterSize.columns + paddingResult.left + paddingResult.right) / strides.1) + 1
+    var results: [Float16] = [Float16](repeating: 0, count: expectedRows * expectedColumns)
     
-    let paddingInt: UInt32 = padding == .valid ? 0 : 1
-    let count = expectedRows * expectedColumns
-    return uninitializedContiguousArray(count: count) { resultBuffer in
-      signal.withUnsafeBufferPointer { signalBuffer in
-        filter.withUnsafeBufferPointer { filterBuffer in
-          nsc_conv1d_f16(signalBuffer.baseAddress,
-                         filterBuffer.baseAddress,
-                         resultBuffer.baseAddress,
-                         NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
-                         NSC_Padding(rawValue: paddingInt),
-                         NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
-                         NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
-        }
-      }
-    }
+    nsc_conv1d_f16(signal,
+                   filter,
+                   &results,
+                   NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
+                   NSC_Padding(rawValue: paddingInt),
+                   NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
+                   NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
+    
+    return results
   }
   
   static func transConv2d(signal: [[Float16]],
@@ -774,61 +702,17 @@ public extension NumSwiftC {
     
     let rows = (inputSize.rows - 1) * strides.0 + filterSize.rows
     let columns = (inputSize.columns - 1) * strides.1 + filterSize.columns
-    let count = (rows - (padTop + padBottom)) * (columns - (padLeft + padRight))
-    return uninitializedArray(count: count) { resultBuffer in
-      signal.withUnsafeBufferPointer { signalBuffer in
-        filter.withUnsafeBufferPointer { filterBuffer in
-          nsc_transConv1d_f16(signalBuffer.baseAddress,
-                              filterBuffer.baseAddress,
-                              resultBuffer.baseAddress,
-                              NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
-                              NSC_Padding(rawValue: paddingInt),
-                              NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
-                              NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
-        }
-      }
-    }
-  }
-  
-  static func transConv1d(signal: ContiguousArray<Float16>,
-                          filter: ContiguousArray<Float16>,
-                          strides: (Int, Int) = (1,1),
-                          padding: NumSwift.ConvPadding = .valid,
-                          filterSize: (rows: Int, columns: Int),
-                          inputSize: (rows: Int, columns: Int)) -> ContiguousArray<Float16> {
-    let paddingInt: UInt32 = padding == .valid ? 0 : 1
-    var padLeft = 0
-    var padRight = 0
-    var padTop = 0
-    var padBottom = 0
+    var results: [Float16] = [Float16](repeating: 0,
+                                       count: (rows - (padTop + padBottom)) * (columns - (padLeft + padRight)))
     
-    switch padding {
-    case .same:
-      padLeft = Int(floor(Double(filterSize.rows - strides.0) / Double(2)))
-      padRight = filterSize.rows - strides.0 - padLeft
-      padTop = Int(floor(Double(filterSize.columns - strides.1) / Double(2)))
-      padBottom = filterSize.columns - strides.1 - padTop
-      
-    case .valid:
-      break
-    }
-    
-    let rows = (inputSize.rows - 1) * strides.0 + filterSize.rows
-    let columns = (inputSize.columns - 1) * strides.1 + filterSize.columns
-    let count = (rows - (padTop + padBottom)) * (columns - (padLeft + padRight))
-    return uninitializedContiguousArray(count: count) { resultBuffer in
-      signal.withUnsafeBufferPointer { signalBuffer in
-        filter.withUnsafeBufferPointer { filterBuffer in
-          nsc_transConv1d_f16(signalBuffer.baseAddress,
-                              filterBuffer.baseAddress,
-                              resultBuffer.baseAddress,
-                              NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
-                              NSC_Padding(rawValue: paddingInt),
-                              NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
-                              NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
-        }
-      }
-    }
+    nsc_transConv1d_f16(signal,
+                        filter,
+                        &results,
+                        NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
+                        NSC_Padding(rawValue: paddingInt),
+                        NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
+                        NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
+    return results
   }
   
   static func zeroPad(signal: [Float16],
@@ -844,36 +728,19 @@ public extension NumSwiftC {
     
     let count = (inputSize.rows + padding.top + padding.bottom) * (inputSize.columns + padding.left + padding.right)
     
-    return uninitializedArray(count: count) { resultBuffer in
-      signal.withUnsafeBufferPointer { signalBuffer in
-        nsc_zero_pad_f16(signalBuffer.baseAddress,
-                         resultBuffer.baseAddress,
-                         NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
-                         NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)),
-                         NSC_Size(rows: Int32(stride.0), columns: Int32(stride.1)))
-      }
-    }
-  }
-  
-  static func zeroPad(signal: ContiguousArray<Float16>,
-                      filterSize: (rows: Int, columns: Int),
-                      inputSize: (rows: Int, columns: Int),
-                      stride: (Int, Int) = (1,1)) -> ContiguousArray<Float16> {
-    let padding = NumSwiftC.paddingCalculation(strides: stride,
-                                               padding: .same,
-                                               filterSize: filterSize,
-                                               inputSize: inputSize)
-    let count = (inputSize.rows + padding.top + padding.bottom) * (inputSize.columns + padding.left + padding.right)
+    var results: [Float16] = [Float16](repeating: 0,
+                                       count: count)
     
-    return uninitializedContiguousArray(count: count) { resultBuffer in
-      signal.withUnsafeBufferPointer { signalBuffer in
-        nsc_zero_pad_f16(signalBuffer.baseAddress,
-                         resultBuffer.baseAddress,
-                         NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
-                         NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)),
-                         NSC_Size(rows: Int32(stride.0), columns: Int32(stride.1)))
-      }
-    }
+    nsc_zero_pad_f16(signal,
+                     &results,
+                     NSC_Size(rows: Int32(filterSize.rows),
+                              columns: Int32(filterSize.columns)),
+                     NSC_Size(rows: Int32(inputSize.rows),
+                              columns: Int32(inputSize.columns)),
+                     NSC_Size(rows: Int32(stride.0),
+                              columns: Int32(stride.1)))
+    
+    return results
   }
 }
 #endif

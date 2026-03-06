@@ -70,7 +70,7 @@ public enum NumSwiftFlat  {
                             bCols: Int) -> [Float] {
     precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
     
-    let out = NumSwiftC.matmul1d(a, b: b,
+    let out = NumSwiftC.matmul1d(Array(a), b: Array(b),
                                  aSize: (aRows, aCols),
                                  bSize: (bRows, bCols))
     
@@ -104,8 +104,8 @@ public enum NumSwiftFlat  {
                             padding: NumSwift.ConvPadding = .valid,
                             filterSize: (rows: Int, columns: Int),
                             inputSize: (rows: Int, columns: Int)) -> [Float] {
-    let result = NumSwiftC.conv1d(signal: signal,
-                                  filter: filter,
+    let result = NumSwiftC.conv1d(signal: Array(signal),
+                                  filter: Array(filter),
                                   strides: strides,
                                   padding: padding,
                                   filterSize: filterSize,
@@ -120,8 +120,8 @@ public enum NumSwiftFlat  {
                                  padding: NumSwift.ConvPadding = .valid,
                                  filterSize: (rows: Int, columns: Int),
                                  inputSize: (rows: Int, columns: Int)) -> [Float] {
-    let result = NumSwiftC.transConv1d(signal: signal,
-                                       filter: filter,
+    let result = NumSwiftC.transConv1d(signal: Array(signal),
+                                       filter: Array(filter),
                                        strides: strides,
                                        padding: padding,
                                        filterSize: filterSize,
@@ -141,7 +141,7 @@ public enum NumSwiftFlat  {
                              filterSize: (rows: Int, columns: Int),
                              inputSize: (rows: Int, columns: Int),
                              stride: (Int, Int) = (1,1)) -> [Float] {
-    let result = NumSwiftC.zeroPad(signal: signal,
+    let result = NumSwiftC.zeroPad(signal: Array(signal),
                                    filterSize: filterSize,
                                    inputSize: inputSize,
                                    stride: stride)
@@ -234,7 +234,7 @@ public enum NumSwiftFlat  {
                             bCols: Int) -> [Float16] {
     precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
     
-    let out = NumSwiftC.matmul1d(a, b: b,
+    let out = NumSwiftC.matmul1d(Array(a), b: Array(b),
                                  aSize: (aRows, aCols),
                                  bSize: (bRows, bCols))
     
@@ -249,8 +249,8 @@ public enum NumSwiftFlat  {
                             padding: NumSwift.ConvPadding = .valid,
                             filterSize: (rows: Int, columns: Int),
                             inputSize: (rows: Int, columns: Int)) -> [Float16] {
-    let result = NumSwiftC.conv1d(signal: signal,
-                                  filter: filter,
+    let result = NumSwiftC.conv1d(signal: Array(signal),
+                                  filter: Array(filter),
                                   strides: strides,
                                   padding: padding,
                                   filterSize: filterSize,
@@ -264,8 +264,8 @@ public enum NumSwiftFlat  {
                                  padding: NumSwift.ConvPadding = .valid,
                                  filterSize: (rows: Int, columns: Int),
                                  inputSize: (rows: Int, columns: Int)) -> [Float16] {
-    let result = NumSwiftC.transConv1d(signal: signal,
-                                       filter: filter,
+    let result = NumSwiftC.transConv1d(signal: Array(signal),
+                                       filter: Array(filter),
                                        strides: strides,
                                        padding: padding,
                                        filterSize: filterSize,
@@ -404,9 +404,11 @@ extension NumSwiftFlat {
                             bCols: Int) -> ContiguousArray<Float> {
     precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
     
-    return NumSwiftC.matmul1d(a, b: b,
-                              aSize: (aRows, aCols),
-                              bSize: (bRows, bCols))
+    let out = NumSwiftC.matmul1d(Array(a), b: Array(b),
+                                 aSize: (aRows, aCols),
+                                 bSize: (bRows, bCols))
+    
+    return ContiguousArray(out)
   }
   
   // MARK: - Clip
@@ -434,12 +436,13 @@ extension NumSwiftFlat {
                             padding: NumSwift.ConvPadding = .valid,
                             filterSize: (rows: Int, columns: Int),
                             inputSize: (rows: Int, columns: Int)) -> ContiguousArray<Float> {
-    return NumSwiftC.conv1d(signal: signal,
-                            filter: filter,
-                            strides: strides,
-                            padding: padding,
-                            filterSize: filterSize,
-                            inputSize: inputSize)
+    let result = NumSwiftC.conv1d(signal: Array(signal),
+                                  filter: Array(filter),
+                                  strides: strides,
+                                  padding: padding,
+                                  filterSize: filterSize,
+                                  inputSize: inputSize)
+    return ContiguousArray(result)
   }
   
   /// Transposed 2D convolution on flat row-major arrays via the C `nsc_transConv1d` function.
@@ -449,19 +452,20 @@ extension NumSwiftFlat {
                                  padding: NumSwift.ConvPadding = .valid,
                                  filterSize: (rows: Int, columns: Int),
                                  inputSize: (rows: Int, columns: Int)) -> ContiguousArray<Float> {
-    return NumSwiftC.transConv1d(signal: signal,
-                                 filter: filter,
-                                 strides: strides,
-                                 padding: padding,
-                                 filterSize: filterSize,
-                                 inputSize: inputSize)
+    let result = NumSwiftC.transConv1d(signal: Array(signal),
+                                       filter: Array(filter),
+                                       strides: strides,
+                                       padding: padding,
+                                       filterSize: filterSize,
+                                       inputSize: inputSize)
+    return ContiguousArray(result)
   }
   
   /// Zero-pad a flat row-major 2D array with explicit padding values.
   public static func zeroPad(signal: ContiguousArray<Float>,
                              padding: NumSwiftPadding,
                              inputSize: (rows: Int, columns: Int)) -> ContiguousArray<Float> {
-    return NumSwiftC.zeroPad1D(signal: signal, padding: padding, inputSize: inputSize)
+    return ContiguousArray(NumSwiftC.zeroPad1D(signal: Array(signal), padding: padding, inputSize: inputSize))
   }
   
   /// Zero-pad a flat row-major 2D array computed from filter/input sizes.
@@ -469,10 +473,11 @@ extension NumSwiftFlat {
                              filterSize: (rows: Int, columns: Int),
                              inputSize: (rows: Int, columns: Int),
                              stride: (Int, Int) = (1,1)) -> ContiguousArray<Float> {
-    return NumSwiftC.zeroPad(signal: signal,
-                             filterSize: filterSize,
-                             inputSize: inputSize,
-                             stride: stride)
+    let result = NumSwiftC.zeroPad(signal: Array(signal),
+                                   filterSize: filterSize,
+                                   inputSize: inputSize,
+                                   stride: stride)
+    return ContiguousArray(result)
   }
   
   /// Stride-pad a flat row-major 2D array (inserts zeros between elements).
@@ -480,7 +485,7 @@ extension NumSwiftFlat {
   public static func stridePad(signal: ContiguousArray<Float>,
                                strides: (rows: Int, columns: Int),
                                inputSize: (rows: Int, columns: Int)) -> ContiguousArray<Float> {
-    return NumSwiftC.stridePad1D(signal: signal, strides: strides, signalSize: inputSize)
+    return ContiguousArray(NumSwiftC.stridePad1D(signal: Array(signal), strides: strides, signalSize: inputSize))
   }
   
   /// Flip a flat row-major 2D matrix 180 degrees (reverse all elements, then reverse each row).
@@ -546,9 +551,11 @@ public extension NumSwiftFlat {
                             bCols: Int) -> ContiguousArray<Float16> {
     precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
     
-    return NumSwiftC.matmul1d(a, b: b,
-                              aSize: (aRows, aCols),
-                              bSize: (bRows, bCols))
+    let out = NumSwiftC.matmul1d(Array(a), b: Array(b),
+                                 aSize: (aRows, aCols),
+                                 bSize: (bRows, bCols))
+    
+    return ContiguousArray(out)
   }
   
   // MARK: - Float16 Convolution / Padding
@@ -559,12 +566,13 @@ public extension NumSwiftFlat {
                             padding: NumSwift.ConvPadding = .valid,
                             filterSize: (rows: Int, columns: Int),
                             inputSize: (rows: Int, columns: Int)) -> ContiguousArray<Float16> {
-    return NumSwiftC.conv1d(signal: signal,
-                            filter: filter,
-                            strides: strides,
-                            padding: padding,
-                            filterSize: filterSize,
-                            inputSize: inputSize)
+    let result = NumSwiftC.conv1d(signal: Array(signal),
+                                  filter: Array(filter),
+                                  strides: strides,
+                                  padding: padding,
+                                  filterSize: filterSize,
+                                  inputSize: inputSize)
+    return ContiguousArray(result)
   }
   
   public static func transConv2d(signal: ContiguousArray<Float16>,
@@ -573,12 +581,13 @@ public extension NumSwiftFlat {
                                  padding: NumSwift.ConvPadding = .valid,
                                  filterSize: (rows: Int, columns: Int),
                                  inputSize: (rows: Int, columns: Int)) -> ContiguousArray<Float16> {
-    return NumSwiftC.transConv1d(signal: signal,
-                                 filter: filter,
-                                 strides: strides,
-                                 padding: padding,
-                                 filterSize: filterSize,
-                                 inputSize: inputSize)
+    let result = NumSwiftC.transConv1d(signal: Array(signal),
+                                       filter: Array(filter),
+                                       strides: strides,
+                                       padding: padding,
+                                       filterSize: filterSize,
+                                       inputSize: inputSize)
+    return ContiguousArray(result)
   }
   
   public static func zeroPad(signal: ContiguousArray<Float16>,

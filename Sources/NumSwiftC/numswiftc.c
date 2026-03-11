@@ -2400,3 +2400,273 @@ extern void nsc_transConv1d(const float signal[],
 
   memcpy(result, padded, padded_col_total * padded_row_total * sizeof(float));
 }
+
+// MARK: - Batch Functions
+
+extern void nsc_conv1d_batch(const float signal[],
+                             const float filter[],
+                             float *result,
+                             NSC_Size stride,
+                             NSC_Padding padding,
+                             NSC_Size filter_size,
+                             NSC_Size input_size,
+                             int batch_count) {
+  if (result == NULL || batch_count <= 0)
+    return;
+
+  int paddingLeft, paddingRight, paddingBottom, paddingTop;
+  nsc_padding_calculation(stride, padding, filter_size, input_size,
+                          &paddingTop, &paddingBottom, &paddingLeft, &paddingRight);
+
+  int input_elements = input_size.rows * input_size.columns;
+  int expected_r = ((input_size.rows - filter_size.rows + paddingTop + paddingBottom) / stride.rows) + 1;
+  int expected_c = ((input_size.columns - filter_size.columns + paddingLeft + paddingRight) / stride.columns) + 1;
+  int output_elements = expected_r * expected_c;
+
+  for (int b = 0; b < batch_count; b++) {
+    nsc_conv1d(&signal[b * input_elements],
+               filter,
+               &result[b * output_elements],
+               stride, padding, filter_size, input_size);
+  }
+}
+
+extern void nsc_conv1d_f16_batch(const __fp16 signal[],
+                                 const __fp16 filter[],
+                                 __fp16 *result,
+                                 NSC_Size stride,
+                                 NSC_Padding padding,
+                                 NSC_Size filter_size,
+                                 NSC_Size input_size,
+                                 int batch_count) {
+  if (result == NULL || batch_count <= 0)
+    return;
+
+  int paddingLeft, paddingRight, paddingBottom, paddingTop;
+  nsc_padding_calculation(stride, padding, filter_size, input_size,
+                          &paddingTop, &paddingBottom, &paddingLeft, &paddingRight);
+
+  int input_elements = input_size.rows * input_size.columns;
+  int expected_r = ((input_size.rows - filter_size.rows + paddingTop + paddingBottom) / stride.rows) + 1;
+  int expected_c = ((input_size.columns - filter_size.columns + paddingLeft + paddingRight) / stride.columns) + 1;
+  int output_elements = expected_r * expected_c;
+
+  for (int b = 0; b < batch_count; b++) {
+    nsc_conv1d_f16(&signal[b * input_elements],
+                   filter,
+                   &result[b * output_elements],
+                   stride, padding, filter_size, input_size);
+  }
+}
+
+extern void nsc_transConv1d_batch(const float signal[],
+                                  const float filter[],
+                                  float *result,
+                                  NSC_Size stride,
+                                  NSC_Padding padding,
+                                  NSC_Size filter_size,
+                                  NSC_Size input_size,
+                                  int batch_count) {
+  if (result == NULL || batch_count <= 0)
+    return;
+
+  int strideR = stride.rows;
+  int strideC = stride.columns;
+  int filterRows = filter_size.rows;
+  int filterColumns = filter_size.columns;
+
+  int rows = (input_size.rows - 1) * strideR + filterRows;
+  int columns = (input_size.columns - 1) * strideC + filterColumns;
+
+  int pad_left = 0, pad_right = 0, pad_top = 0, pad_bottom = 0;
+  if (padding == same) {
+    pad_left = (int)floor(((double)filterRows - (double)strideR) / 2.0);
+    pad_right = filterRows - strideR - pad_left;
+    pad_top = (int)floor(((double)filterColumns - (double)strideC) / 2.0);
+    pad_bottom = filterColumns - strideC - pad_top;
+  }
+
+  int input_elements = input_size.rows * input_size.columns;
+  int output_elements = (rows - (pad_top + pad_bottom)) * (columns - (pad_left + pad_right));
+
+  for (int b = 0; b < batch_count; b++) {
+    nsc_transConv1d(&signal[b * input_elements],
+                    filter,
+                    &result[b * output_elements],
+                    stride, padding, filter_size, input_size);
+  }
+}
+
+extern void nsc_transConv1d_f16_batch(const __fp16 signal[],
+                                      const __fp16 filter[],
+                                      __fp16 *result,
+                                      NSC_Size stride,
+                                      NSC_Padding padding,
+                                      NSC_Size filter_size,
+                                      NSC_Size input_size,
+                                      int batch_count) {
+  if (result == NULL || batch_count <= 0)
+    return;
+
+  int strideR = stride.rows;
+  int strideC = stride.columns;
+  int filterRows = filter_size.rows;
+  int filterColumns = filter_size.columns;
+
+  int rows = (input_size.rows - 1) * strideR + filterRows;
+  int columns = (input_size.columns - 1) * strideC + filterColumns;
+
+  int pad_left = 0, pad_right = 0, pad_top = 0, pad_bottom = 0;
+  if (padding == same) {
+    pad_left = (int)floor(((double)filterRows - (double)strideR) / 2.0);
+    pad_right = filterRows - strideR - pad_left;
+    pad_top = (int)floor(((double)filterColumns - (double)strideC) / 2.0);
+    pad_bottom = filterColumns - strideC - pad_top;
+  }
+
+  int input_elements = input_size.rows * input_size.columns;
+  int output_elements = (rows - (pad_top + pad_bottom)) * (columns - (pad_left + pad_right));
+
+  for (int b = 0; b < batch_count; b++) {
+    nsc_transConv1d_f16(&signal[b * input_elements],
+                        filter,
+                        &result[b * output_elements],
+                        stride, padding, filter_size, input_size);
+  }
+}
+
+extern void nsc_matmul1d_batch(NSC_Size a_size,
+                               NSC_Size b_size,
+                               const float a[],
+                               const float b[],
+                               float *result,
+                               int batch_count) {
+  if (result == NULL || batch_count <= 0)
+    return;
+
+  int a_elements = a_size.rows * a_size.columns;
+  int result_elements = a_size.rows * b_size.columns;
+
+  for (int i = 0; i < batch_count; i++) {
+    nsc_matmul1d(a_size, b_size,
+                 &a[i * a_elements],
+                 b,
+                 &result[i * result_elements]);
+  }
+}
+
+extern void nsc_matmul1d_16_batch(NSC_Size a_size,
+                                  NSC_Size b_size,
+                                  const __fp16 a[],
+                                  const __fp16 b[],
+                                  __fp16 *result,
+                                  int batch_count) {
+  if (result == NULL || batch_count <= 0)
+    return;
+
+  int a_elements = a_size.rows * a_size.columns;
+  int result_elements = a_size.rows * b_size.columns;
+
+  for (int i = 0; i < batch_count; i++) {
+    nsc_matmul1d_16(a_size, b_size,
+                    &a[i * a_elements],
+                    b,
+                    &result[i * result_elements]);
+  }
+}
+
+extern void nsc_conv2d_batch(float *const *const *signals,
+                             float *const *filter,
+                             float ***results,
+                             NSC_Size stride,
+                             NSC_Padding padding,
+                             NSC_Size filter_size,
+                             NSC_Size input_size,
+                             int batch_count) {
+  if (results == NULL || batch_count <= 0)
+    return;
+
+  for (int b = 0; b < batch_count; b++) {
+    nsc_conv2d(signals[b], filter, results[b],
+               stride, padding, filter_size, input_size);
+  }
+}
+
+extern void nsc_conv2d_f16_batch(__fp16 *const *const *signals,
+                                 __fp16 *const *filter,
+                                 __fp16 ***results,
+                                 NSC_Size stride,
+                                 NSC_Padding padding,
+                                 NSC_Size filter_size,
+                                 NSC_Size input_size,
+                                 int batch_count) {
+  if (results == NULL || batch_count <= 0)
+    return;
+
+  for (int b = 0; b < batch_count; b++) {
+    nsc_conv2d_f16(signals[b], filter, results[b],
+                   stride, padding, filter_size, input_size);
+  }
+}
+
+extern void nsc_transConv2d_batch(float *const *const *signals,
+                                  float *const *filter,
+                                  float ***results,
+                                  NSC_Size stride,
+                                  NSC_Padding padding,
+                                  NSC_Size filter_size,
+                                  NSC_Size input_size,
+                                  int batch_count) {
+  if (results == NULL || batch_count <= 0)
+    return;
+
+  for (int b = 0; b < batch_count; b++) {
+    nsc_transConv2d(signals[b], filter, results[b],
+                    stride, padding, filter_size, input_size);
+  }
+}
+
+extern void nsc_transConv2d_f16_batch(__fp16 *const *const *signals,
+                                      __fp16 *const *filter,
+                                      __fp16 ***results,
+                                      NSC_Size stride,
+                                      NSC_Padding padding,
+                                      NSC_Size filter_size,
+                                      NSC_Size input_size,
+                                      int batch_count) {
+  if (results == NULL || batch_count <= 0)
+    return;
+
+  for (int b = 0; b < batch_count; b++) {
+    nsc_transConv2d_f16(signals[b], filter, results[b],
+                        stride, padding, filter_size, input_size);
+  }
+}
+
+extern void nsc_matmul_batch(NSC_Size a_size,
+                             NSC_Size b_size,
+                             float *const *const *a,
+                             float *const *b,
+                             float ***result,
+                             int batch_count) {
+  if (result == NULL || batch_count <= 0)
+    return;
+
+  for (int i = 0; i < batch_count; i++) {
+    nsc_matmul(a_size, b_size, a[i], b, result[i]);
+  }
+}
+
+extern void nsc_matmul_16_batch(NSC_Size a_size,
+                                NSC_Size b_size,
+                                __fp16 *const *const *a,
+                                __fp16 *const *b,
+                                __fp16 ***result,
+                                int batch_count) {
+  if (result == NULL || batch_count <= 0)
+    return;
+
+  for (int i = 0; i < batch_count; i++) {
+    nsc_matmul_16(a_size, b_size, a[i], b, result[i]);
+  }
+}

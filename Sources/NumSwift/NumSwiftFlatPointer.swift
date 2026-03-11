@@ -270,6 +270,64 @@ public extension NumSwiftFlat {
       }
     }
   }
+
+  // MARK: - Batch Operations (Float, pointer-to-pointer)
+
+  /// Batched 2D convolution on flat row-major data.
+  /// Signal contains batchCount inputs packed contiguously. Filter is shared.
+  /// Result must have capacity for batchCount outputs packed contiguously.
+  static func conv2dBatch(signal: UnsafePointer<Float>,
+                          filter: UnsafePointer<Float>,
+                          result: UnsafeMutablePointer<Float>,
+                          strides: (Int, Int) = (1, 1),
+                          padding: NumSwift.ConvPadding = .valid,
+                          filterSize: (rows: Int, columns: Int),
+                          inputSize: (rows: Int, columns: Int),
+                          batchCount: Int) {
+    let nscPadding: NSC_Padding = padding == .same ? same : valid
+    nsc_conv1d_batch(signal, filter, result,
+                     .init(rows: Int32(strides.0), columns: Int32(strides.1), depth: 1),
+                     nscPadding,
+                     .init(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns), depth: 1),
+                     .init(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns), depth: 1),
+                     Int32(batchCount))
+  }
+
+  /// Batched transposed 2D convolution on flat row-major data.
+  /// Signal contains batchCount inputs packed contiguously. Filter is shared.
+  static func transConv2dBatch(signal: UnsafePointer<Float>,
+                               filter: UnsafePointer<Float>,
+                               result: UnsafeMutablePointer<Float>,
+                               strides: (Int, Int) = (1, 1),
+                               padding: NumSwift.ConvPadding = .valid,
+                               filterSize: (rows: Int, columns: Int),
+                               inputSize: (rows: Int, columns: Int),
+                               batchCount: Int) {
+    let nscPadding: NSC_Padding = padding == .same ? same : valid
+    nsc_transConv1d_batch(signal, filter, result,
+                          .init(rows: Int32(strides.0), columns: Int32(strides.1), depth: 1),
+                          nscPadding,
+                          .init(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns), depth: 1),
+                          .init(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns), depth: 1),
+                          Int32(batchCount))
+  }
+
+  /// Batched matrix multiplication on flat row-major data.
+  /// `a` contains batchCount matrices packed contiguously. `b` is shared.
+  static func matmulBatch(_ a: UnsafePointer<Float>,
+                          _ b: UnsafePointer<Float>,
+                          result: UnsafeMutablePointer<Float>,
+                          aRows: Int,
+                          aCols: Int,
+                          bRows: Int,
+                          bCols: Int,
+                          batchCount: Int) {
+    precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
+    nsc_matmul1d_batch(.init(rows: Int32(aRows), columns: Int32(aCols), depth: 1),
+                       .init(rows: Int32(bRows), columns: Int32(bCols), depth: 1),
+                       a, b, result,
+                       Int32(batchCount))
+  }
 }
 
 // MARK: - Float16 Pointer APIs
@@ -520,6 +578,60 @@ public extension NumSwiftFlat {
         result[dstStart + c] = signal[srcStart + (columns - 1 - c)]
       }
     }
+  }
+
+  // MARK: - Batch Operations (Float16, pointer-to-pointer)
+
+  /// Batched 2D convolution on flat row-major Float16 data.
+  static func conv2dBatch(signal: UnsafePointer<Float16>,
+                          filter: UnsafePointer<Float16>,
+                          result: UnsafeMutablePointer<Float16>,
+                          strides: (Int, Int) = (1, 1),
+                          padding: NumSwift.ConvPadding = .valid,
+                          filterSize: (rows: Int, columns: Int),
+                          inputSize: (rows: Int, columns: Int),
+                          batchCount: Int) {
+    let nscPadding: NSC_Padding = padding == .same ? same : valid
+    nsc_conv1d_f16_batch(signal, filter, result,
+                         .init(rows: Int32(strides.0), columns: Int32(strides.1), depth: 1),
+                         nscPadding,
+                         .init(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns), depth: 1),
+                         .init(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns), depth: 1),
+                         Int32(batchCount))
+  }
+
+  /// Batched transposed 2D convolution on flat row-major Float16 data.
+  static func transConv2dBatch(signal: UnsafePointer<Float16>,
+                               filter: UnsafePointer<Float16>,
+                               result: UnsafeMutablePointer<Float16>,
+                               strides: (Int, Int) = (1, 1),
+                               padding: NumSwift.ConvPadding = .valid,
+                               filterSize: (rows: Int, columns: Int),
+                               inputSize: (rows: Int, columns: Int),
+                               batchCount: Int) {
+    let nscPadding: NSC_Padding = padding == .same ? same : valid
+    nsc_transConv1d_f16_batch(signal, filter, result,
+                              .init(rows: Int32(strides.0), columns: Int32(strides.1), depth: 1),
+                              nscPadding,
+                              .init(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns), depth: 1),
+                              .init(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns), depth: 1),
+                              Int32(batchCount))
+  }
+
+  /// Batched matrix multiplication on flat row-major Float16 data.
+  static func matmulBatch(_ a: UnsafePointer<Float16>,
+                          _ b: UnsafePointer<Float16>,
+                          result: UnsafeMutablePointer<Float16>,
+                          aRows: Int,
+                          aCols: Int,
+                          bRows: Int,
+                          bCols: Int,
+                          batchCount: Int) {
+    precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
+    nsc_matmul1d_16_batch(.init(rows: Int32(aRows), columns: Int32(aCols), depth: 1),
+                          .init(rows: Int32(bRows), columns: Int32(bCols), depth: 1),
+                          a, b, result,
+                          Int32(batchCount))
   }
 }
 #endif

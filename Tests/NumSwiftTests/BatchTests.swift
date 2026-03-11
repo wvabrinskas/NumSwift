@@ -21,7 +21,7 @@ final class BatchTests: XCTestCase {
     let single2 = NumSwiftC.conv1d(signal: signal2, filter: filter, strides: (1,1),
                                     padding: .same, filterSize: filterSize, inputSize: inputSize)
 
-    let batchedSignal = signal1 + signal2
+    let batchedSignal = [signal1, signal2].flatMap { $0 }
     let batchResult = NumSwiftC.conv1dBatch(signal: batchedSignal, filter: filter,
                                              strides: (1,1), padding: .same,
                                              filterSize: filterSize, inputSize: inputSize,
@@ -42,7 +42,7 @@ final class BatchTests: XCTestCase {
                            0, 0, 1]
 
     let signal: [Float] = [[Float]](repeating: [1,0,0,0,1], count: 5).flatMap { $0 }
-    let batchedSignal = signal + signal + signal
+    let batchedSignal = [signal, signal, signal].flatMap { $0 }
 
     let single = NumSwiftC.conv1d(signal: signal, filter: filter, strides: (1,1),
                                    padding: .valid, filterSize: filterSize, inputSize: inputSize)
@@ -106,7 +106,7 @@ final class BatchTests: XCTestCase {
     let single2 = NumSwiftC.transConv1d(signal: signal2, filter: filter, strides: (1,1),
                                          padding: .valid, filterSize: filterSize, inputSize: inputSize)
 
-    let batchedSignal = signal1 + signal2
+    let batchedSignal = [signal1, signal2].flatMap { $0 }
     let batchResult = NumSwiftC.transConv1dBatch(signal: batchedSignal, filter: filter,
                                                   strides: (1,1), padding: .valid,
                                                   filterSize: filterSize, inputSize: inputSize,
@@ -131,7 +131,7 @@ final class BatchTests: XCTestCase {
     let single = NumSwiftC.transConv1d(signal: signal, filter: filter, strides: (1,1),
                                         padding: .same, filterSize: filterSize, inputSize: inputSize)
 
-    let batchResult = NumSwiftC.transConv1dBatch(signal: signal + signal, filter: filter,
+    let batchResult = NumSwiftC.transConv1dBatch(signal: [signal, signal].flatMap { $0 }, filter: filter,
                                                   strides: (1,1), padding: .same,
                                                   filterSize: filterSize, inputSize: inputSize,
                                                   batchCount: 2)
@@ -190,7 +190,7 @@ final class BatchTests: XCTestCase {
     let single1 = NumSwiftC.matmul1d(a1, b: b, aSize: aSize, bSize: bSize)
     let single2 = NumSwiftC.matmul1d(a2, b: b, aSize: aSize, bSize: bSize)
 
-    let batchedA = a1 + a2
+    let batchedA = [a1, a2].flatMap { $0 }
     let batchResult = NumSwiftC.matmul1dBatch(batchedA, b: b, aSize: aSize, bSize: bSize, batchCount: 2)
 
     let outputSize = single1.count
@@ -257,7 +257,7 @@ final class BatchTests: XCTestCase {
     let single2 = NumSwiftFlat.conv2d(signal: signal2, filter: filter, strides: (1,1),
                                        padding: .same, filterSize: filterSize, inputSize: inputSize)
 
-    let batchResult = NumSwiftFlat.conv2dBatch(signal: signal1 + signal2, filter: filter,
+    let batchResult = NumSwiftFlat.conv2dBatch(signal: [signal1, signal2].flatMap { $0 }, filter: filter,
                                                 strides: (1,1), padding: .same,
                                                 filterSize: filterSize, inputSize: inputSize,
                                                 batchCount: 2)
@@ -281,7 +281,7 @@ final class BatchTests: XCTestCase {
     let single = NumSwiftFlat.transConv2d(signal: signal, filter: filter, strides: (1,1),
                                            padding: .valid, filterSize: filterSize, inputSize: inputSize)
 
-    let batchResult = NumSwiftFlat.transConv2dBatch(signal: signal + signal, filter: filter,
+    let batchResult = NumSwiftFlat.transConv2dBatch(signal: [signal, signal].flatMap { $0 }, filter: filter,
                                                      strides: (1,1), padding: .valid,
                                                      filterSize: filterSize, inputSize: inputSize,
                                                      batchCount: 2)
@@ -300,7 +300,7 @@ final class BatchTests: XCTestCase {
     let single1 = NumSwiftFlat.matmul(a1, b, aRows: 2, aCols: 3, bRows: 3, bCols: 2)
     let single2 = NumSwiftFlat.matmul(a2, b, aRows: 2, aCols: 3, bRows: 3, bCols: 2)
 
-    let batchResult = NumSwiftFlat.matmulBatch(a1 + a2, b, aRows: 2, aCols: 3,
+    let batchResult = NumSwiftFlat.matmulBatch([a1, a2].flatMap { $0 }, b, aRows: 2, aCols: 3,
                                                 bRows: 3, bCols: 2, batchCount: 2)
 
     let outputSize = single1.count
@@ -321,7 +321,7 @@ final class BatchTests: XCTestCase {
     let single = NumSwiftFlat.conv2d(signal: signal, filter: filter, strides: (1,1),
                                       padding: .valid, filterSize: filterSize, inputSize: inputSize)
 
-    let batchSignal = signal + signal
+    let batchSignal = ContiguousArray([signal, signal].flatMap { $0 })
     let batchResult = NumSwiftFlat.conv2dBatch(signal: batchSignal, filter: filter,
                                                 strides: (1,1), padding: .valid,
                                                 filterSize: filterSize, inputSize: inputSize,
@@ -343,7 +343,7 @@ final class BatchTests: XCTestCase {
     let single = NumSwiftFlat.transConv2d(signal: signal, filter: filter, strides: (1,1),
                                            padding: .valid, filterSize: filterSize, inputSize: inputSize)
 
-    let batchResult = NumSwiftFlat.transConv2dBatch(signal: signal + signal, filter: filter,
+    let batchResult = NumSwiftFlat.transConv2dBatch(signal: ContiguousArray([signal, signal].flatMap { $0 }), filter: filter,
                                                      strides: (1,1), padding: .valid,
                                                      filterSize: filterSize, inputSize: inputSize,
                                                      batchCount: 2)
@@ -360,7 +360,7 @@ final class BatchTests: XCTestCase {
 
     let single = NumSwiftFlat.matmul(a, b, aRows: 2, aCols: 3, bRows: 3, bCols: 2)
 
-    let batchResult = NumSwiftFlat.matmulBatch(a + a, b, aRows: 2, aCols: 3,
+    let batchResult = NumSwiftFlat.matmulBatch(ContiguousArray([a, a].flatMap { $0 }), b, aRows: 2, aCols: 3,
                                                 bRows: 3, bCols: 2, batchCount: 2)
 
     let outputSize = single.count
@@ -387,7 +387,7 @@ final class BatchTests: XCTestCase {
     let single2 = NumSwiftC.conv1d(signal: signal2, filter: filter, strides: (1,1),
                                     padding: .same, filterSize: filterSize, inputSize: inputSize)
 
-    let batchedSignal = signal1 + signal2
+    let batchedSignal = [signal1, signal2].flatMap { $0 }
     let outputSize = single1.count
     var result = [Float](repeating: 0, count: outputSize * 2)
 
@@ -418,7 +418,7 @@ final class BatchTests: XCTestCase {
     let single = NumSwiftC.transConv1d(signal: signal, filter: filter, strides: (1,1),
                                         padding: .valid, filterSize: filterSize, inputSize: inputSize)
 
-    let batchedSignal = signal + signal
+    let batchedSignal = [signal, signal].flatMap { $0 }
     let outputSize = single.count
     var result = [Float](repeating: 0, count: outputSize * 2)
 
@@ -444,7 +444,7 @@ final class BatchTests: XCTestCase {
     let single1 = NumSwiftC.matmul1d(a1, b: b, aSize: (2, 3), bSize: (3, 2))
     let single2 = NumSwiftC.matmul1d(a2, b: b, aSize: (2, 3), bSize: (3, 2))
 
-    let batchedA = a1 + a2
+    let batchedA = [a1, a2].flatMap { $0 }
     let outputSize = single1.count
     var result = [Float](repeating: 0, count: outputSize * 2)
 
@@ -517,7 +517,7 @@ final class BatchTests: XCTestCase {
     let single = NumSwiftC.conv1d(signal: signal, filter: filter, strides: (2,2),
                                    padding: .valid, filterSize: filterSize, inputSize: inputSize)
 
-    let batchResult = NumSwiftC.conv1dBatch(signal: signal + signal, filter: filter,
+    let batchResult = NumSwiftC.conv1dBatch(signal: [signal, signal].flatMap { $0 }, filter: filter,
                                              strides: (2,2), padding: .valid,
                                              filterSize: filterSize, inputSize: inputSize,
                                              batchCount: 2)
@@ -624,7 +624,7 @@ final class BatchTests: XCTestCase {
     let single2 = NumSwiftC.conv1d(signal: signal2, filter: filter, strides: (1,1),
                                     padding: .same, filterSize: filterSize, inputSize: inputSize)
 
-    let batchedSignal = signal1 + signal2
+    let batchedSignal: [Float16] = [signal1, signal2].flatMap { $0 }
     let batchResult = NumSwiftC.conv1dBatch(signal: batchedSignal, filter: filter,
                                              strides: (1,1), padding: .same,
                                              filterSize: filterSize, inputSize: inputSize,
@@ -674,7 +674,7 @@ final class BatchTests: XCTestCase {
     let single = NumSwiftC.transConv1d(signal: signal, filter: filter, strides: (1,1),
                                         padding: .valid, filterSize: filterSize, inputSize: inputSize)
 
-    let batchResult = NumSwiftC.transConv1dBatch(signal: signal + signal, filter: filter,
+    let batchResult = NumSwiftC.transConv1dBatch(signal: [signal, signal].flatMap { $0 }, filter: filter,
                                                   strides: (1,1), padding: .valid,
                                                   filterSize: filterSize, inputSize: inputSize,
                                                   batchCount: 2)
@@ -723,7 +723,7 @@ final class BatchTests: XCTestCase {
     let single1 = NumSwiftC.matmul1d(a1, b: b, aSize: aSize, bSize: bSize)
     let single2 = NumSwiftC.matmul1d(a2, b: b, aSize: aSize, bSize: bSize)
 
-    let batchResult = NumSwiftC.matmul1dBatch(a1 + a2, b: b, aSize: aSize, bSize: bSize, batchCount: 2)
+    let batchResult = NumSwiftC.matmul1dBatch([a1, a2].flatMap { $0 }, b: b, aSize: aSize, bSize: bSize, batchCount: 2)
 
     let outputSize = single1.count
     XCTAssertEqual(batchResult.count, outputSize * 2)
@@ -759,7 +759,7 @@ final class BatchTests: XCTestCase {
     let single = NumSwiftFlat.conv2d(signal: signal, filter: filter, strides: (1,1),
                                       padding: .valid, filterSize: filterSize, inputSize: inputSize)
 
-    let batchResult = NumSwiftFlat.conv2dBatch(signal: signal + signal, filter: filter,
+    let batchResult = NumSwiftFlat.conv2dBatch(signal: [signal, signal].flatMap { $0 }, filter: filter,
                                                 strides: (1,1), padding: .valid,
                                                 filterSize: filterSize, inputSize: inputSize,
                                                 batchCount: 2)
@@ -776,7 +776,7 @@ final class BatchTests: XCTestCase {
 
     let single = NumSwiftFlat.matmul(a, b, aRows: 2, aCols: 3, bRows: 3, bCols: 2)
 
-    let batchResult = NumSwiftFlat.matmulBatch(a + a, b, aRows: 2, aCols: 3,
+    let batchResult = NumSwiftFlat.matmulBatch([a, a].flatMap { $0 }, b, aRows: 2, aCols: 3,
                                                 bRows: 3, bCols: 2, batchCount: 2)
 
     let outputSize = single.count
@@ -795,7 +795,7 @@ final class BatchTests: XCTestCase {
     let single = NumSwiftC.conv1d(signal: signal, filter: filter, strides: (1,1),
                                    padding: .valid, filterSize: filterSize, inputSize: inputSize)
 
-    let batchedSignal = signal + signal
+    let batchedSignal: [Float16] = [signal, signal].flatMap { $0 }
     let outputSize = single.count
     var result = [Float16](repeating: 0, count: outputSize * 2)
 
@@ -819,7 +819,7 @@ final class BatchTests: XCTestCase {
 
     let single = NumSwiftC.matmul1d(a, b: b, aSize: (2, 3), bSize: (3, 2))
 
-    let batchedA = a + a
+    let batchedA: [Float16] = [a, a].flatMap { $0 }
     let outputSize = single.count
     var result = [Float16](repeating: 0, count: outputSize * 2)
 

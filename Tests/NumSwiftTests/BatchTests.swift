@@ -13,8 +13,8 @@ final class BatchTests: XCTestCase {
                            0, 1, 0,
                            0, 1, 0]
 
-    let signal1: [Float] = [Float](repeating: [0,0,1,0,0], count: 5).flatMap { $0 }
-    let signal2: [Float] = [Float](repeating: [1,0,0,0,1], count: 5).flatMap { $0 }
+    let signal1: [Float] = [[Float]](repeating: [0,0,1,0,0], count: 5).flatMap { $0 }
+    let signal2: [Float] = [[Float]](repeating: [1,0,0,0,1], count: 5).flatMap { $0 }
 
     let single1 = NumSwiftC.conv1d(signal: signal1, filter: filter, strides: (1,1),
                                     padding: .same, filterSize: filterSize, inputSize: inputSize)
@@ -41,7 +41,7 @@ final class BatchTests: XCTestCase {
                            0, 1, 0,
                            0, 0, 1]
 
-    let signal: [Float] = [Float](repeating: [1,0,0,0,1], count: 5).flatMap { $0 }
+    let signal: [Float] = [[Float]](repeating: [1,0,0,0,1], count: 5).flatMap { $0 }
     let batchedSignal = signal + signal + signal
 
     let single = NumSwiftC.conv1d(signal: signal, filter: filter, strides: (1,1),
@@ -249,8 +249,8 @@ final class BatchTests: XCTestCase {
                            0, 1, 0,
                            0, 1, 0]
 
-    let signal1: [Float] = [Float](repeating: [0,0,1,0,0], count: 5).flatMap { $0 }
-    let signal2: [Float] = [Float](repeating: [1,0,0,0,1], count: 5).flatMap { $0 }
+    let signal1: [Float] = [[Float]](repeating: [0,0,1,0,0], count: 5).flatMap { $0 }
+    let signal2: [Float] = [[Float]](repeating: [1,0,0,0,1], count: 5).flatMap { $0 }
 
     let single1 = NumSwiftFlat.conv2d(signal: signal1, filter: filter, strides: (1,1),
                                        padding: .same, filterSize: filterSize, inputSize: inputSize)
@@ -379,8 +379,8 @@ final class BatchTests: XCTestCase {
                            0, 1, 0,
                            0, 1, 0]
 
-    let signal1: [Float] = [Float](repeating: [0,0,1,0,0], count: 5).flatMap { $0 }
-    let signal2: [Float] = [Float](repeating: [1,0,0,0,1], count: 5).flatMap { $0 }
+    let signal1: [Float] = [[Float]](repeating: [0,0,1,0,0], count: 5).flatMap { $0 }
+    let signal2: [Float] = [[Float]](repeating: [1,0,0,0,1], count: 5).flatMap { $0 }
 
     let single1 = NumSwiftC.conv1d(signal: signal1, filter: filter, strides: (1,1),
                                     padding: .same, filterSize: filterSize, inputSize: inputSize)
@@ -616,8 +616,8 @@ final class BatchTests: XCTestCase {
                               0, 1, 0,
                               0, 1, 0]
 
-    let signal1: [Float16] = [Float16](repeating: [0,0,1,0,0], count: 5).flatMap { $0 }
-    let signal2: [Float16] = [Float16](repeating: [1,0,0,0,1], count: 5).flatMap { $0 }
+    let signal1: [Float16] = [[Float16]](repeating: [0,0,1,0,0], count: 5).flatMap { $0 }
+    let signal2: [Float16] = [[Float16]](repeating: [1,0,0,0,1], count: 5).flatMap { $0 }
 
     let single1 = NumSwiftC.conv1d(signal: signal1, filter: filter, strides: (1,1),
                                     padding: .same, filterSize: filterSize, inputSize: inputSize)

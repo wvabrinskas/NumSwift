@@ -206,3 +206,110 @@ extern void nsc_padding_calculation(NSC_Size stride,
                                     int *paddingBottom,
                                     int *paddingLeft,
                                     int *paddingRight);
+
+// MARK: - Batch Functions
+// Flat (1D) batch: signals/results are contiguous batches of batchCount items.
+// Filter/weights are shared across all batch items.
+
+extern void nsc_conv1d_batch(const float signal[],
+                             const float filter[],
+                             float *result,
+                             NSC_Size stride,
+                             NSC_Padding padding,
+                             NSC_Size filter_size,
+                             NSC_Size input_size,
+                             int batch_count);
+
+extern void nsc_conv1d_f16_batch(const __fp16 signal[],
+                                 const __fp16 filter[],
+                                 __fp16 *result,
+                                 NSC_Size stride,
+                                 NSC_Padding padding,
+                                 NSC_Size filter_size,
+                                 NSC_Size input_size,
+                                 int batch_count);
+
+extern void nsc_transConv1d_batch(const float signal[],
+                                  const float filter[],
+                                  float *result,
+                                  NSC_Size stride,
+                                  NSC_Padding padding,
+                                  NSC_Size filter_size,
+                                  NSC_Size input_size,
+                                  int batch_count);
+
+extern void nsc_transConv1d_f16_batch(const __fp16 signal[],
+                                      const __fp16 filter[],
+                                      __fp16 *result,
+                                      NSC_Size stride,
+                                      NSC_Padding padding,
+                                      NSC_Size filter_size,
+                                      NSC_Size input_size,
+                                      int batch_count);
+
+extern void nsc_matmul1d_batch(NSC_Size a_size,
+                               NSC_Size b_size,
+                               const float a[],
+                               const float b[],
+                               float *result,
+                               int batch_count);
+
+extern void nsc_matmul1d_16_batch(NSC_Size a_size,
+                                  NSC_Size b_size,
+                                  const __fp16 a[],
+                                  const __fp16 b[],
+                                  __fp16 *result,
+                                  int batch_count);
+
+// 2D pointer batch: signals[batchIndex][row][col], results[batchIndex][row][col].
+// Filter/weights are shared across all batch items.
+
+extern void nsc_conv2d_batch(float *const *const *signals,
+                             float *const *filter,
+                             float ***results,
+                             NSC_Size stride,
+                             NSC_Padding padding,
+                             NSC_Size filter_size,
+                             NSC_Size input_size,
+                             int batch_count);
+
+extern void nsc_conv2d_f16_batch(__fp16 *const *const *signals,
+                                 __fp16 *const *filter,
+                                 __fp16 ***results,
+                                 NSC_Size stride,
+                                 NSC_Padding padding,
+                                 NSC_Size filter_size,
+                                 NSC_Size input_size,
+                                 int batch_count);
+
+extern void nsc_transConv2d_batch(float *const *const *signals,
+                                  float *const *filter,
+                                  float ***results,
+                                  NSC_Size stride,
+                                  NSC_Padding padding,
+                                  NSC_Size filter_size,
+                                  NSC_Size input_size,
+                                  int batch_count);
+
+extern void nsc_transConv2d_f16_batch(__fp16 *const *const *signals,
+                                      __fp16 *const *filter,
+                                      __fp16 ***results,
+                                      NSC_Size stride,
+                                      NSC_Padding padding,
+                                      NSC_Size filter_size,
+                                      NSC_Size input_size,
+                                      int batch_count);
+
+extern void nsc_matmul_batch(NSC_Size a_size,
+                             NSC_Size b_size,
+                             float *const *const *a,
+                             float *const *b,
+                             float ***result,
+                             int batch_count);
+
+extern void nsc_matmul_16_batch(NSC_Size a_size,
+                                NSC_Size b_size,
+                                __fp16 *const *const *a,
+                                __fp16 *const *b,
+                                __fp16 ***result,
+                                int batch_count);

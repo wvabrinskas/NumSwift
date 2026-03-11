@@ -805,6 +805,228 @@ public struct NumSwiftC {
     return results
   }
 
+  // MARK: - Batch Functions
+  
+  public static func conv1dBatch(signal: [Float],
+                                 filter: [Float],
+                                 strides: (Int, Int) = (1,1),
+                                 padding: NumSwift.ConvPadding = .valid,
+                                 filterSize: (rows: Int, columns: Int),
+                                 inputSize: (rows: Int, columns: Int),
+                                 batchCount: Int) -> [Float] {
+    
+    let paddingResult = padding.extra(inputSize: inputSize, filterSize: filterSize, stride: strides)
+    let expectedRows = ((inputSize.rows - filterSize.rows + paddingResult.top + paddingResult.bottom) / strides.0) + 1
+    let expectedColumns = ((inputSize.columns - filterSize.columns + paddingResult.left + paddingResult.right) / strides.1) + 1
+    
+    let paddingInt: UInt32 = padding == .valid ? 0 : 1
+    var results = [Float](repeating: 0, count: expectedRows * expectedColumns * batchCount)
+    
+    nsc_conv1d_batch(signal,
+                     filter,
+                     &results,
+                     NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
+                     NSC_Padding(rawValue: paddingInt),
+                     NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
+                     NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)),
+                     Int32(batchCount))
+    
+    return results
+  }
+  
+  public static func transConv1dBatch(signal: [Float],
+                                      filter: [Float],
+                                      strides: (Int, Int) = (1,1),
+                                      padding: NumSwift.ConvPadding = .valid,
+                                      filterSize: (rows: Int, columns: Int),
+                                      inputSize: (rows: Int, columns: Int),
+                                      batchCount: Int) -> [Float] {
+    
+    let paddingInt: UInt32 = padding == .valid ? 0 : 1
+    var padLeft = 0
+    var padRight = 0
+    var padTop = 0
+    var padBottom = 0
+    
+    switch padding {
+    case .same:
+      padLeft = Int(floor(Double(filterSize.rows - strides.0) / Double(2)))
+      padRight = filterSize.rows - strides.0 - padLeft
+      padTop = Int(floor(Double(filterSize.columns - strides.1) / Double(2)))
+      padBottom = filterSize.columns - strides.1 - padTop
+    case .valid:
+      break
+    }
+    
+    let rows = (inputSize.rows - 1) * strides.0 + filterSize.rows
+    let columns = (inputSize.columns - 1) * strides.1 + filterSize.columns
+    let outputElements = (rows - (padTop + padBottom)) * (columns - (padLeft + padRight))
+    var results = [Float](repeating: 0, count: outputElements * batchCount)
+    
+    nsc_transConv1d_batch(signal,
+                          filter,
+                          &results,
+                          NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
+                          NSC_Padding(rawValue: paddingInt),
+                          NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
+                          NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)),
+                          Int32(batchCount))
+    return results
+  }
+  
+  public static func matmul1dBatch(_ a: [Float],
+                                   b: [Float],
+                                   aSize: (rows: Int, columns: Int),
+                                   bSize: (rows: Int, columns: Int),
+                                   batchCount: Int) -> [Float] {
+    
+    var results = [Float](repeating: 0, count: aSize.rows * bSize.columns * batchCount)
+    
+    nsc_matmul1d_batch(.init(rows: Int32(aSize.rows), columns: Int32(aSize.columns)),
+                       .init(rows: Int32(bSize.rows), columns: Int32(bSize.columns)),
+                       a,
+                       b,
+                       &results,
+                       Int32(batchCount))
+    
+    return results
+  }
+  
+  public static func conv2dBatch(signals: [[[Float]]],
+                                 filter: [[Float]],
+                                 strides: (Int, Int) = (1,1),
+                                 padding: NumSwift.ConvPadding = .valid,
+                                 filterSize: (rows: Int, columns: Int),
+                                 inputSize: (rows: Int, columns: Int),
+                                 batchCount: Int) -> [[[Float]]] {
+    
+    let paddingResult = padding.extra(inputSize: inputSize, filterSize: filterSize, stride: strides)
+    let expectedRows = ((inputSize.rows - filterSize.rows + paddingResult.top + paddingResult.bottom) / strides.0) + 1
+    let expectedColumns = ((inputSize.columns - filterSize.columns + paddingResult.left + paddingResult.right) / strides.1) + 1
+    
+    let paddingInt: UInt32 = padding == .valid ? 0 : 1
+    
+    var allResults: [[[Float]]] = []
+    allResults.reserveCapacity(batchCount)
+    
+    for b in 0..<batchCount {
+      let result: [[Float]] = NumSwift.zerosLike((expectedRows, expectedColumns))
+      
+      result.withUnsafeBufferPointer { rBuff in
+        signals[b].withUnsafeBufferPointer { sBuff in
+          filter.withUnsafeBufferPointer { fBuff in
+            var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+            let sPoint: [UnsafeMutablePointer<Float>?] = sBuff.map { UnsafeMutablePointer(mutating: $0) }
+            let fPoint: [UnsafeMutablePointer<Float>?] = fBuff.map { UnsafeMutablePointer(mutating: $0) }
+            nsc_conv2d(sPoint,
+                       fPoint,
+                       &rPoint,
+                       NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
+                       NSC_Padding(rawValue: paddingInt),
+                       NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
+                       NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
+          }
+        }
+      }
+      
+      allResults.append(result)
+    }
+    
+    return allResults
+  }
+  
+  public static func transConv2dBatch(signals: [[[Float]]],
+                                      filter: [[Float]],
+                                      strides: (Int, Int) = (1,1),
+                                      padding: NumSwift.ConvPadding = .valid,
+                                      filterSize: (rows: Int, columns: Int),
+                                      inputSize: (rows: Int, columns: Int),
+                                      batchCount: Int) -> [[[Float]]] {
+    
+    let paddingInt: UInt32 = padding == .valid ? 0 : 1
+    var padLeft = 0
+    var padRight = 0
+    var padTop = 0
+    var padBottom = 0
+    
+    switch padding {
+    case .same:
+      padLeft = Int(floor(Double(filterSize.rows - strides.0) / Double(2)))
+      padRight = filterSize.rows - strides.0 - padLeft
+      padTop = Int(floor(Double(filterSize.columns - strides.1) / Double(2)))
+      padBottom = filterSize.columns - strides.1 - padTop
+    case .valid:
+      break
+    }
+    
+    let rows = (inputSize.rows - 1) * strides.0 + filterSize.rows
+    let columns = (inputSize.columns - 1) * strides.1 + filterSize.columns
+    
+    var allResults: [[[Float]]] = []
+    allResults.reserveCapacity(batchCount)
+    
+    for b in 0..<batchCount {
+      let result: [[Float]] = NumSwift.zerosLike((rows: (rows - (padTop + padBottom)),
+                                                   columns: (columns - (padLeft + padRight))))
+      
+      result.withUnsafeBufferPointer { rBuff in
+        var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+        
+        signals[b].withUnsafeBufferPointer { aBuff in
+          filter.withUnsafeBufferPointer { bBuff in
+            let signalPoint: [UnsafeMutablePointer<Float>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+            let filterPoint: [UnsafeMutablePointer<Float>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
+            nsc_transConv2d(signalPoint,
+                            filterPoint,
+                            &rPoint,
+                            NSC_Size(rows: Int32(strides.0), columns: Int32(strides.1)),
+                            NSC_Padding(rawValue: paddingInt),
+                            NSC_Size(rows: Int32(filterSize.rows), columns: Int32(filterSize.columns)),
+                            NSC_Size(rows: Int32(inputSize.rows), columns: Int32(inputSize.columns)))
+          }
+        }
+      }
+      
+      allResults.append(result)
+    }
+    
+    return allResults
+  }
+  
+  public static func matmulBatch(_ a: [[[Float]]],
+                                 b: [[Float]],
+                                 aSize: (rows: Int, columns: Int),
+                                 bSize: (rows: Int, columns: Int),
+                                 batchCount: Int) -> [[[Float]]] {
+    
+    var allResults: [[[Float]]] = []
+    allResults.reserveCapacity(batchCount)
+    
+    for i in 0..<batchCount {
+      let result: [[Float]] = NumSwift.zerosLike((rows: aSize.rows, columns: bSize.columns))
+      
+      result.withUnsafeBufferPointer { rBuff in
+        var rPoint: [UnsafeMutablePointer<Float>?] = rBuff.map { UnsafeMutablePointer(mutating: $0) }
+        
+        a[i].withUnsafeBufferPointer { aBuff in
+          b.withUnsafeBufferPointer { bBuff in
+            let aPoint: [UnsafeMutablePointer<Float>?] = aBuff.map { UnsafeMutablePointer(mutating: $0) }
+            let bPoint: [UnsafeMutablePointer<Float>?] = bBuff.map { UnsafeMutablePointer(mutating: $0) }
+            nsc_matmul(NSC_Size(rows: Int32(aSize.rows), columns: Int32(aSize.columns)),
+                       NSC_Size(rows: Int32(bSize.rows), columns: Int32(bSize.columns)),
+                       aPoint,
+                       bPoint,
+                       &rPoint)
+          }
+        }
+      }
+      
+      allResults.append(result)
+    }
+    
+    return allResults
+  }
+
   public static func zeroPad1D(signal: [Float],
                                padding: NumSwiftPadding,
                                inputSize: (rows: Int, columns: Int)) -> [Float] {

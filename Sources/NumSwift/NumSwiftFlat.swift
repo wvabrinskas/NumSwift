@@ -188,6 +188,54 @@ public enum NumSwiftFlat  {
     return NumSwiftC.paddingCalculation(strides: strides, padding: padding, filterSize: filterSize, inputSize: inputSize)
   }
   
+  // MARK: - Batch Operations (Float)
+  
+  public static func conv2dBatch(signal: [Float],
+                                 filter: [Float],
+                                 strides: (Int, Int) = (1,1),
+                                 padding: NumSwift.ConvPadding = .valid,
+                                 filterSize: (rows: Int, columns: Int),
+                                 inputSize: (rows: Int, columns: Int),
+                                 batchCount: Int) -> [Float] {
+    return NumSwiftC.conv1dBatch(signal: signal,
+                                 filter: filter,
+                                 strides: strides,
+                                 padding: padding,
+                                 filterSize: filterSize,
+                                 inputSize: inputSize,
+                                 batchCount: batchCount)
+  }
+  
+  public static func transConv2dBatch(signal: [Float],
+                                      filter: [Float],
+                                      strides: (Int, Int) = (1,1),
+                                      padding: NumSwift.ConvPadding = .valid,
+                                      filterSize: (rows: Int, columns: Int),
+                                      inputSize: (rows: Int, columns: Int),
+                                      batchCount: Int) -> [Float] {
+    return NumSwiftC.transConv1dBatch(signal: signal,
+                                      filter: filter,
+                                      strides: strides,
+                                      padding: padding,
+                                      filterSize: filterSize,
+                                      inputSize: inputSize,
+                                      batchCount: batchCount)
+  }
+  
+  public static func matmulBatch(_ a: [Float],
+                                 _ b: [Float],
+                                 aRows: Int,
+                                 aCols: Int,
+                                 bRows: Int,
+                                 bCols: Int,
+                                 batchCount: Int) -> [Float] {
+    precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
+    return NumSwiftC.matmul1dBatch(a, b: b,
+                                    aSize: (aRows, aCols),
+                                    bSize: (bRows, bCols),
+                                    batchCount: batchCount)
+  }
+  
   #if arch(arm64)
   // Float16 versions use manual loops (no Accelerate support for Float16).
   // The compiler can auto-vectorize these for ARM NEON.
@@ -329,6 +377,54 @@ public enum NumSwiftFlat  {
       }
     }
     return result
+  }
+  
+  // MARK: - Batch Operations (Float16)
+  
+  public static func conv2dBatch(signal: [Float16],
+                                 filter: [Float16],
+                                 strides: (Int, Int) = (1,1),
+                                 padding: NumSwift.ConvPadding = .valid,
+                                 filterSize: (rows: Int, columns: Int),
+                                 inputSize: (rows: Int, columns: Int),
+                                 batchCount: Int) -> [Float16] {
+    return NumSwiftC.conv1dBatch(signal: signal,
+                                 filter: filter,
+                                 strides: strides,
+                                 padding: padding,
+                                 filterSize: filterSize,
+                                 inputSize: inputSize,
+                                 batchCount: batchCount)
+  }
+  
+  public static func transConv2dBatch(signal: [Float16],
+                                      filter: [Float16],
+                                      strides: (Int, Int) = (1,1),
+                                      padding: NumSwift.ConvPadding = .valid,
+                                      filterSize: (rows: Int, columns: Int),
+                                      inputSize: (rows: Int, columns: Int),
+                                      batchCount: Int) -> [Float16] {
+    return NumSwiftC.transConv1dBatch(signal: signal,
+                                      filter: filter,
+                                      strides: strides,
+                                      padding: padding,
+                                      filterSize: filterSize,
+                                      inputSize: inputSize,
+                                      batchCount: batchCount)
+  }
+  
+  public static func matmulBatch(_ a: [Float16],
+                                 _ b: [Float16],
+                                 aRows: Int,
+                                 aCols: Int,
+                                 bRows: Int,
+                                 bCols: Int,
+                                 batchCount: Int) -> [Float16] {
+    precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
+    return NumSwiftC.matmul1dBatch(a, b: b,
+                                    aSize: (aRows, aCols),
+                                    bSize: (bRows, bCols),
+                                    batchCount: batchCount)
   }
   #endif
 }
@@ -504,6 +600,57 @@ extension NumSwiftFlat {
     return result
   }
   
+  // MARK: - Batch Operations (ContiguousArray<Float>)
+  
+  public static func conv2dBatch(signal: ContiguousArray<Float>,
+                                 filter: ContiguousArray<Float>,
+                                 strides: (Int, Int) = (1,1),
+                                 padding: NumSwift.ConvPadding = .valid,
+                                 filterSize: (rows: Int, columns: Int),
+                                 inputSize: (rows: Int, columns: Int),
+                                 batchCount: Int) -> ContiguousArray<Float> {
+    let result = NumSwiftC.conv1dBatch(signal: Array(signal),
+                                        filter: Array(filter),
+                                        strides: strides,
+                                        padding: padding,
+                                        filterSize: filterSize,
+                                        inputSize: inputSize,
+                                        batchCount: batchCount)
+    return ContiguousArray(result)
+  }
+  
+  public static func transConv2dBatch(signal: ContiguousArray<Float>,
+                                      filter: ContiguousArray<Float>,
+                                      strides: (Int, Int) = (1,1),
+                                      padding: NumSwift.ConvPadding = .valid,
+                                      filterSize: (rows: Int, columns: Int),
+                                      inputSize: (rows: Int, columns: Int),
+                                      batchCount: Int) -> ContiguousArray<Float> {
+    let result = NumSwiftC.transConv1dBatch(signal: Array(signal),
+                                             filter: Array(filter),
+                                             strides: strides,
+                                             padding: padding,
+                                             filterSize: filterSize,
+                                             inputSize: inputSize,
+                                             batchCount: batchCount)
+    return ContiguousArray(result)
+  }
+  
+  public static func matmulBatch(_ a: ContiguousArray<Float>,
+                                 _ b: ContiguousArray<Float>,
+                                 aRows: Int,
+                                 aCols: Int,
+                                 bRows: Int,
+                                 bCols: Int,
+                                 batchCount: Int) -> ContiguousArray<Float> {
+    precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
+    let result = NumSwiftC.matmul1dBatch(Array(a), b: Array(b),
+                                          aSize: (aRows, aCols),
+                                          bSize: (bRows, bCols),
+                                          batchCount: batchCount)
+    return ContiguousArray(result)
+  }
+  
 }
 
 // MARK: Float 16
@@ -646,6 +793,57 @@ public extension NumSwiftFlat {
       }
     }
     return result
+  }
+  
+  // MARK: - Batch Operations (ContiguousArray<Float16>)
+  
+  public static func conv2dBatch(signal: ContiguousArray<Float16>,
+                                 filter: ContiguousArray<Float16>,
+                                 strides: (Int, Int) = (1,1),
+                                 padding: NumSwift.ConvPadding = .valid,
+                                 filterSize: (rows: Int, columns: Int),
+                                 inputSize: (rows: Int, columns: Int),
+                                 batchCount: Int) -> ContiguousArray<Float16> {
+    let result = NumSwiftC.conv1dBatch(signal: Array(signal),
+                                        filter: Array(filter),
+                                        strides: strides,
+                                        padding: padding,
+                                        filterSize: filterSize,
+                                        inputSize: inputSize,
+                                        batchCount: batchCount)
+    return ContiguousArray(result)
+  }
+  
+  public static func transConv2dBatch(signal: ContiguousArray<Float16>,
+                                      filter: ContiguousArray<Float16>,
+                                      strides: (Int, Int) = (1,1),
+                                      padding: NumSwift.ConvPadding = .valid,
+                                      filterSize: (rows: Int, columns: Int),
+                                      inputSize: (rows: Int, columns: Int),
+                                      batchCount: Int) -> ContiguousArray<Float16> {
+    let result = NumSwiftC.transConv1dBatch(signal: Array(signal),
+                                             filter: Array(filter),
+                                             strides: strides,
+                                             padding: padding,
+                                             filterSize: filterSize,
+                                             inputSize: inputSize,
+                                             batchCount: batchCount)
+    return ContiguousArray(result)
+  }
+  
+  public static func matmulBatch(_ a: ContiguousArray<Float16>,
+                                 _ b: ContiguousArray<Float16>,
+                                 aRows: Int,
+                                 aCols: Int,
+                                 bRows: Int,
+                                 bCols: Int,
+                                 batchCount: Int) -> ContiguousArray<Float16> {
+    precondition(aCols == bRows, "A columns (\(aCols)) must equal B rows (\(bRows))")
+    let result = NumSwiftC.matmul1dBatch(Array(a), b: Array(b),
+                                          aSize: (aRows, aCols),
+                                          bSize: (bRows, bCols),
+                                          batchCount: batchCount)
+    return ContiguousArray(result)
   }
 }
 #endif
